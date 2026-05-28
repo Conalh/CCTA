@@ -1,0 +1,20 @@
+{
+  "name": "@breachline/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@breachline/shared": "0.1.0",
+    "three": "^0.184.0",
+    "ws": "^8.18.3"
+  },
+  "scripts": {
+    "dev": "node dist/dev-client.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/three": "^0.184.1"
+  }
+}

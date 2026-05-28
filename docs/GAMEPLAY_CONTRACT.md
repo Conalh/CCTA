@@ -1,0 +1,123 @@
+# Gameplay Contract
+
+This contract gives future gameplay work a narrow direction. It is not an implementation plan for Phase 1.
+
+## Core Shape
+
+- Small teams.
+- Original arena maps.
+- Short round flow.
+- Server-authoritative hitscan combat.
+- Health and death states owned by the server.
+- Simple loadouts validated by the server.
+
+## Teams
+
+Teams should use original names and visual identities. Avoid real-world faction branding and avoid names associated with existing shooter franchises.
+
+Early prototypes may use neutral placeholders such as `teamA` and `teamB` until an original setting is defined.
+
+## Maps
+
+Maps should be compact original arenas built for quick tactical decisions. Do not copy layouts, callout structures, prop arrangements, or recognizable silhouettes from existing games.
+
+Early map work should start as greybox blockouts with explicit original design notes.
+
+Phase 13 introduces only a metadata contract for original greybox blockouts. Map metadata may describe structural bounds, blockout primitives, neutral spawn markers, scale references, and labels. It must not implement spawn authority, collision gameplay, objectives, art direction, texture sets, recognizable callouts, or copied layouts.
+
+Phase 14 may place a client-only first-person camera against validated map metadata for renderer inspection. This camera is not player authority, spawn authority, collision gameplay, or server map selection.
+
+Phase 20 may preview ignored private prototype GLBs inside `/sandbox.html` by local asset category. These previews are renderer tooling only: they are not map selection, collision gameplay, spawn authority, weapon presentation, equipment truth, art pipeline import, or server state.
+
+Phase 21 may audit ignored private prototype GLBs and attach local candidate tags for preview, scale-check, and replacement planning. The audit is renderer/tooling documentation only: it is not map selection, collision gameplay, spawn authority, equipment truth, public asset approval, art pipeline import, or server state.
+
+Phase 22 may group already-listed private prototype GLBs into curated `/sandbox.html` preview presets for local visual inspection. These presets are renderer tooling only: they are not map selection, gameplay scenes, spawn authority, collision gameplay, equipment truth, public identity, art approval, protocol data, or server state.
+
+Phase 23 may place a hand-curated set of already-listed private prototype GLBs as renderer-only dressing over `arena-ebb-terminal` in `/sandbox.html`. These placements are visual inspection data only: they are not map metadata, spawn authority, collision truth, cover truth, line-of-sight truth, hitboxes, navigation, gameplay blockers, public identity, protocol data, or server state.
+
+Phase 24 may combine the existing greybox renderer with the existing WebSocket fallback, client prediction/reconciliation, and remote interpolation in `/playtest.html`. This page is a local renderer playtest view only: it is not a gameplay HUD, collision truth, spawn authority, server map selection, combat presentation, private asset promotion, protocol data, or server state.
+
+Phase 25 may add a local-only checklist, review command, and developer readouts around `/playtest.html` so testers can record connection, movement feel, prediction correction, remote placeholder, reconnect, desktop/mobile, and error observations. This review layer is not a gameplay HUD, analytics pipeline, matchmaking system, persistence layer, public playtest package, combat presentation, score system, or server authority.
+
+Phase 26 may derive a server-readable greybox collision contract from the original arena metadata. It may stop or slide placeholder movement against static wall/cover blockers and world bounds, with server snapshots remaining truth. It must not turn renderer dressing or private prototype assets into gameplay collision, cover truth, line-of-sight truth, hit validation, spawn authority, navmesh, objectives, combat logic, or map selection.
+
+Phase 28 may add a local first-person presentation shell to `/playtest.html` using simple original placeholder hands/equipment geometry. This shell is renderer-only and camera-attached. It may visually react to movement, blocker contact, and local fire-intent presentation, but it must not define weapon identity, ammo, reloads, damage, hit results, equipment truth, gameplay HUD, protocol data, collision, movement, snapshots, server fire validation, or server authority.
+
+Phase 29 may add renderer-only fire-result presentation to `/playtest.html`. It may show abstract local fire-intent feedback, server-result-driven tracers, impact/reject markers, and remote target readability accents derived from existing `server.fire.result` data. It must not define weapon identity, ammo, reloads, client-owned hit results, client-owned damage, score, equipment truth, gameplay HUD, protocol data, server fire validation, movement, collision, snapshots, combat authority, or round authority.
+
+Phase 30 may tune that fire-result presentation for readability in local browser playtests. It may adjust abstract effect lifetime, fade, tracer thickness, impact/reject marker readability, remote target accent visibility, and compact diagnostics. It must not define weapon identity, ammo, reloads, client-owned hit results, client-owned damage, score, equipment truth, gameplay HUD, protocol data, server fire validation, movement, collision, snapshots, combat authority, loadout authority, or round authority.
+
+Phase 31 may add a local-only diagnostics hook for `/playtest.html` that aims at an already-rendered remote placeholder and sends the existing fire intent so accepted hit presentation can be repeatably inspected. This helper must stay smoke tooling only. It must not place entities, define weapon behavior, define gameplay UI, send client-owned hit results, send damage, change server fire validation, change protocol data, change movement/collision/snapshot authority, or change combat authority.
+
+Phase 32 may polish `/playtest.html` remote-player presentation with an original low-detail renderer stand-in, facing marker, target-center reference, neutral materials, and hit accent response. It must consume existing remote interpolation presentation data only. It must not define copied character silhouettes, uniforms, faction identity, weapon identity, gameplay HUD, teams, client-owned remote positions, client-owned hit results, damage, protocol data, server snapshots, movement/collision authority, fire validation, or combat authority.
+
+Phase 33 may present existing server-owned round and combat diagnostics in `/playtest.html` as compact renderer/playtest readouts. It may show phase, outcome, transition/reset cues, local health/alive state, local combat events, and remote hit cues derived from existing fire-result diagnostics. It must not define a gameplay HUD, scoreboard, economy UI, buy flow, teams, objectives, weapon identity, ammo, reloads, client-owned damage, client-owned health/death, client-owned round outcomes, protocol data, server snapshots, combat authority, round authority, movement/collision authority, or fire validation.
+
+Phase 34 may automate the existing local two-client `/playtest.html` evidence path. The harness may drive movement keys, existing fire intent, the local accepted-hit diagnostic helper, reconnect, diagnostics page load, and sandbox page load. It must not define gameplay systems, add authority, change protocol/server behavior, upload telemetry, create accounts, write remote logs, start hosted services, add persistence, or treat browser evidence as WebTransport proof.
+
+Phase 35 may tune existing local loop-feel values based on Phase 34 harness evidence: neutral placeholder slot spacing, server-owned reset hold readability, and renderer-only fire/combat cue durations. It must not add new gameplay systems, protocol data, spawn authority rules, combat rules, scoring, teams, objectives, matchmaking, persistence, gameplay HUD, weapon identity, or client-owned movement/fire/combat/round authority.
+
+Phase 36 may add local-only network-condition simulation around the browser transport/harness path. It may simulate baseline, latency, jitter, and small high-rate message drop so the existing renderer/playtest loop can be observed under impairment. It must not define gameplay balance, lag compensation, matchmaking, hosted playtest services, analytics, scoring, economy, weapon behavior, protocol data, or client-owned movement/fire/combat/round authority.
+
+## Weapons
+
+The initial combat model is planned around hitscan weapons. Weapon identities, names, sounds, models, and roles must be original.
+
+Future weapon work must keep server authority over:
+
+- Fire validation.
+- Hit confirmation.
+- Damage.
+- Ammunition truth.
+- Reload state.
+
+Phase 15 introduces only a placeholder server-owned hitscan validation path. It proves that clients send intent while the server owns hit/no-hit results. It does not introduce weapon identities, damage, health, death, ammo, reloads, teams, scoring, lag compensation, map collision, or weapon presentation.
+
+## Round Flow
+
+The intended round flow is simple:
+
+1. Lobby or match warm start.
+2. Round setup.
+3. Active round.
+4. Win/loss resolution.
+5. Short reset into the next round.
+
+Phase 18 introduces only a server-owned placeholder round-flow prototype. The server advances setup, active, ended, and reset phases; derives elimination or timeout outcomes from server-owned session/combat/tick state; gates movement, fire, loadout selection, respawn, and damage by phase; and resets server-owned placeholder movement, combat, and loadout state for another prototype round.
+
+Phase 18 does not introduce teams, scoring, objectives, economy, buy flow, matchmaking, ranked systems, persistence, gameplay HUD, renderer round presentation, weapon presentation, art, lag compensation, or client-owned win/loss decisions.
+
+During Phase 25 renderer-feel review, the default placeholder active round lasts long enough that normal local movement checks do not hit a timeout/reset loop. Focused round-flow tests may still configure short durations to prove setup, timeout, ended, reset, and next-round transitions.
+
+Phase 19 developer telemetry may summarize round, combat, fire, loadout, prediction, interpolation, and connection diagnostics for local inspection. It is not a gameplay HUD, scoreboard, spectator view, analytics pipeline, or public playtest package.
+
+No economy, ranked progression, cosmetics, or long-term inventory exists in Phase 1.
+
+## Health And Death
+
+Health, damage, death, and respawn eligibility are server-owned. The client may display these states but must not determine them.
+
+Phase 16 introduces only a placeholder server-owned combat-state layer. It applies placeholder damage from accepted server fire results, gates dead actors from movement/fire/target eligibility, and restores them through a minimal server-owned reset timer. It does not introduce scoring, teams, objectives, ammo, reloads, weapon identities, art, lag compensation, or gameplay HUD.
+
+## Loadouts
+
+Loadouts should be simple and server validated. Use placeholders until an original equipment direction is designed.
+
+Phase 17 introduces only one generic placeholder profile id, `baseline`, plus server validation for accepted match sessions. The server owns accepted loadout state and may use it only as a placeholder combat default. Clients do not send damage, fire rate, ammo, reload state, health, score, target rules, combat outcomes, weapon identity, inventory contents, or round truth.
+
+Phase 17 does not introduce weapon identities, ammo, reloads, economy, buy/loadout UI flow, inventory, teams, scoring, persistence, art, sounds, gameplay HUD, or renderer weapon presentation.
+
+## Explicit Deferrals
+
+The following are out of scope until their roadmap goal:
+
+- Movement gameplay.
+- Combat gameplay.
+- Map gameplay, authored art, map selection, and collision/nav systems.
+- User interface.
+- Matchmaking.
+- Prediction.
+- Interpolation.
+- Persistence.
+- Cosmetics.
+- Ranking.

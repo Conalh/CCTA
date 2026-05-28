@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breachline Renderer Sandbox</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@breachline/shared": "/packages/shared/dist/index.js",
+          "three": "/node_modules/three/build/three.module.js",
+          "three/examples/jsm/": "/node_modules/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="sandbox-page">
+    <main class="sandbox-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Phase 23</p>
+          <h1>Breachline Renderer Sandbox</h1>
+        </div>
+        <a class="nav-link" href="/">Connection Diagnostics</a>
+      </header>
+
+      <section id="sandbox-private-asset-controls" class="sandbox-preview-controls" aria-label="Private prototype asset preview controls">
+        <button type="button" data-asset-category="arena-kit" data-selected="false" aria-pressed="false">Arena Kit</button>
+        <button type="button" data-asset-category="industrial-dressing" data-selected="false" aria-pressed="false">Industrial Dressing</button>
+        <button type="button" data-asset-category="cover-training-props" data-selected="false" aria-pressed="false">Cover Training Props</button>
+        <button type="button" data-asset-category="characters-firstperson" data-selected="false" aria-pressed="false">Characters Firstperson</button>
+        <button type="button" data-asset-category="equipment-placeholder" data-selected="true" aria-pressed="true">Equipment Placeholder</button>
+      </section>
+
+      <section id="sandbox-private-asset-preset-controls" class="sandbox-preview-controls" aria-label="Curated private asset preset controls">
+        <button type="button" data-asset-preset="scale-check" data-selected="false" aria-pressed="false">Scale Check</button>
+        <button type="button" data-asset-preset="arena-dressing" data-selected="false" aria-pressed="false">Arena Dressing</button>
+        <button type="button" data-asset-preset="equipment-check" data-selected="false" aria-pressed="false">Equipment Check</button>
+      </section>
+
+      <section id="sandbox-arena-dressing-controls" class="sandbox-preview-controls" aria-label="Arena dressing controls">
+        <label class="sandbox-toggle">
+          <input id="sandbox-arena-dressing-toggle" type="checkbox" />
+          <span>Show Arena Dressing</span>
+        </label>
+      </section>
+
+      <section class="sandbox-stage" aria-label="Client-only greybox renderer sandbox">
+        <canvas id="sandbox-canvas"></canvas>
+        <div class="sandbox-readout" aria-label="Sandbox camera state">
+          <span>Pointer <strong id="sandbox-pointer-state">free</strong></span>
+          <span>Frames <strong id="sandbox-frame-count">0</strong></span>
+          <span>Render <strong id="sandbox-render-health">pending</strong></span>
+          <span>Map <strong id="sandbox-map-id">-</strong></span>
+          <span>Revision <strong id="sandbox-map-revision">-</strong></span>
+          <span>Primitives <strong id="sandbox-primitive-count">-</strong></span>
+          <span>Spawns <strong id="sandbox-spawn-count">-</strong></span>
+          <span>Mode <strong id="sandbox-camera-mode">-</strong></span>
+          <span>Eye <strong id="sandbox-eye-height">-</strong></span>
+          <span>Pose <strong id="sandbox-player-camera-pose">-</strong></span>
+          <span>Metadata <strong id="sandbox-metadata-valid">-</strong></span>
+          <span>Asset Mode <strong id="sandbox-private-asset-mode">category</strong></span>
+          <span>Asset Group <strong id="sandbox-private-asset-category">equipment-placeholder</strong></span>
+          <span>Asset Preset <strong id="sandbox-private-asset-preset">equipment-check</strong></span>
+          <span>Private Assets <strong id="sandbox-private-assets">pending</strong></span>
+          <span>Failed Assets <strong id="sandbox-private-assets-failed">0</strong></span>
+          <span>Dressing Plan <strong id="sandbox-arena-dressing-plan">arena-ebb-terminal r1</strong></span>
+          <span>Dressing Count <strong id="sandbox-arena-dressing-count">7</strong></span>
+          <span>Dressing Assets <strong id="sandbox-arena-dressing-assets">hidden 0/7</strong></span>
+          <span>Dressing Failed <strong id="sandbox-arena-dressing-failed">0</strong></span>
+          <span>Camera <strong id="sandbox-camera-position">-</strong></span>
+        </div>
+      </section>
+
+      <p id="sandbox-error" class="error" role="alert"></p>
+    </main>
+
+    <script type="module" src="/apps/client/dist/sandbox/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breachline Networked Playtest</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@breachline/shared": "/packages/shared/dist/index.js",
+          "three": "/node_modules/three/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body class="playtest-page">
+    <main class="playtest-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Phase 33</p>
+          <h1>Breachline Networked Playtest</h1>
+        </div>
+        <a class="nav-link" href="/">Connection Diagnostics</a>
+        <a class="nav-link" href="/sandbox.html">Renderer Sandbox</a>
+        <strong id="playtest-status" class="status" data-status="disconnected">disconnected</strong>
+      </header>
+
+      <section class="playtest-controls" aria-label="Networked playtest controls">
+        <label for="playtest-server-url">Server URL</label>
+        <input id="playtest-server-url" autocomplete="off" spellcheck="false" />
+        <button id="playtest-connect" type="button">Connect</button>
+        <button id="playtest-disconnect" type="button" disabled>Disconnect</button>
+      </section>
+
+      <section class="playtest-stage" aria-label="Networked renderer playtest view">
+        <canvas id="playtest-canvas"></canvas>
+        <div class="playtest-readout" aria-label="Networked playtest diagnostics">
+          <span>Pointer <strong id="playtest-pointer-state">free</strong></span>
+          <span>Frames <strong id="playtest-frame-count">0</strong></span>
+          <span>Render <strong id="playtest-render-health">pending</strong></span>
+          <span>Local Entity <strong id="playtest-local-entity">-</strong></span>
+          <span>Server Position <strong id="playtest-server-position">-</strong></span>
+          <span>Predicted Position <strong id="playtest-predicted-position">-</strong></span>
+          <span>Correction <strong id="playtest-prediction-correction">-</strong></span>
+          <span>Correction Max <strong id="playtest-prediction-correction-max">-</strong></span>
+          <span>Motion <strong id="playtest-motion-contact">unknown</strong></span>
+          <span>Shell <strong id="playtest-first-person-shell">hidden</strong></span>
+          <span>Fire Intent <strong id="playtest-fire-intent">-</strong></span>
+          <span>Fire Result <strong id="playtest-fire-result">-</strong></span>
+          <span>Fire Hit <strong id="playtest-fire-hit">none</strong></span>
+          <span>Fire Visual <strong id="playtest-fire-visual-sequence">-</strong></span>
+          <span>Tracers <strong id="playtest-fire-tracers">0</strong></span>
+          <span>Expired <strong id="playtest-fire-expired">0</strong></span>
+          <span>Remote Count <strong id="playtest-remote-count">0</strong></span>
+          <span>Remote Models <strong id="playtest-remote-models">0</strong></span>
+          <span>Remote Highlight <strong id="playtest-remote-highlight">-</strong></span>
+          <span>Remote Tick <strong id="playtest-remote-source-tick">-</strong></span>
+          <span>Facing Marks <strong id="playtest-remote-facing-markers">0</strong></span>
+          <span>Target Centers <strong id="playtest-remote-target-centers">0</strong></span>
+          <span>Reconnects <strong id="playtest-reconnect-count">0</strong></span>
+          <span>Last Error <strong id="playtest-last-error">-</strong></span>
+          <span>Round Phase <strong id="playtest-round-phase">-</strong></span>
+          <span>Outcome <strong id="playtest-round-outcome">-</strong></span>
+          <span>Round Cue <strong id="playtest-round-transition">-</strong></span>
+          <span>Reset Cue <strong id="playtest-round-reset-cue">-</strong></span>
+          <span>Health <strong id="playtest-local-health">-</strong></span>
+          <span>Life <strong id="playtest-local-life">-</strong></span>
+          <span>Combat Event <strong id="playtest-combat-event">-</strong></span>
+          <span>Combat Cue <strong id="playtest-combat-cue">-</strong></span>
+          <span>Remote Combat <strong id="playtest-remote-combat">-</strong></span>
+          <span>Camera Source <strong id="playtest-camera-source">fallback</strong></span>
+          <span>Look <strong id="playtest-look">0.00, 0.00</strong></span>
+        </div>
+      </section>
+
+      <p id="playtest-error" class="error" role="alert"></p>
+    </main>
+
+    <script type="module" src="/apps/client/dist/playtest/main.js"></script>
+  </body>
+</html>

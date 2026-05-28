@@ -1,0 +1,439 @@
+# Roadmap
+
+The roadmap is intentionally milestone-based. Each goal should leave the project in a verifiable state before the next one begins.
+
+## 20-Goal Plan
+
+1. Project Spine - docs, guardrails, TypeScript workspace, and minimal shared/client/server placeholders.
+2. Transport Loop Spike - transport-agnostic adapter, WebSocket fallback, ping/input placeholders, fixed authoritative tick loop, tick/pong/snapshot placeholders.
+3. Local Browser Connection-State View - browser dev page displays connection state, ticks, snapshots, RTT, last message time, and message counts.
+4. Shared Binary Protocol Draft - compact packet header, little-endian binary payloads, tested encode/decode, and binary WebSocket fallback transport.
+5. Transport Diagnostics - browser diagnostics for RTT stats/history, observed tick/snapshot cadence, message counts/rates, uptime, and disconnect/error reporting.
+6. Minimal authoritative match session with fixed player slots.
+7. Input command pipeline with sequencing and server validation.
+8. Placeholder world state snapshots without movement gameplay.
+9. Basic first-person renderer sandbox with original greybox test space.
+10. Server-authoritative player movement prototype.
+11. Client prediction and reconciliation prototype.
+12. Snapshot interpolation for remote players.
+13. Original arena blockout pipeline and map metadata contract.
+14. Renderer/player-camera integration over stable map metadata.
+15. Hitscan validation prototype with server-owned hit results.
+16. Health, death, respawn gating, and round reset prototype.
+17. Simple original loadout contract and server validation.
+18. Small-team round flow with win/loss conditions.
+19. Developer telemetry and private playtest packaging notes.
+20. Private prototype asset catalog and sandbox preview controls.
+
+## Post-20 Tooling Milestones
+
+21. Private asset audit and candidate tags.
+22. Curated sandbox asset presets.
+23. Renderer-only arena dressing plan.
+24. Networked renderer playtest view.
+25. Networked playtest feel review.
+26. Server-authoritative greybox collision.
+27. Collision feel stabilization and browser evidence.
+28. Renderer-only first-person presentation shell.
+29. Renderer-only fire-result presentation.
+30. Fire-result presentation readability review.
+31. Authoritative hit-result readability proof.
+32. Renderer-only remote player presentation polish.
+33. Renderer-only round/combat playtest presentation.
+34. Local two-player playtest harness.
+35. Local loop-feel review and tuning.
+36. **Current: Local network-condition simulation.**
+
+## Phase 8 Status
+
+Phase 8 is complete because:
+
+- The shared binary snapshot packet includes tested world id, entity count, and bounded placeholder entity/session references.
+- The authoritative server owns a deterministic world state shell.
+- Connected match slots are represented as placeholder world entities only.
+- Disconnects remove placeholder entities from later world snapshots.
+- The browser dev view reports world id, world entity count, and last world snapshot tick.
+- Existing match/session metadata, input acknowledgements, transport diagnostics, binary protocol behavior, and the fixed tick loop remain intact.
+- WebTransport status remains honest.
+- No gameplay has been implemented.
+- Validation results are reported honestly.
+
+## Phase 9 Status
+
+Phase 9 is complete because:
+
+- The browser serves a separate renderer sandbox page at `/sandbox.html`.
+- The sandbox uses Three.js in `apps/client` to render an original greybox test space with a floor, walls, cover blocks, and scale references.
+- The sandbox camera supports mouse-look style orientation and keyboard-driven client-only inspection movement.
+- Camera sandbox movement does not touch server state, input validation, match state, binary protocol shape, or world snapshots.
+- The existing diagnostics page and WebSocket fallback validation remain intact.
+- Browser smoke verifies a visible nonblank 3D scene and no console errors.
+- WebTransport status remains honest.
+- No gameplay has been implemented.
+
+## Phase 10 Status
+
+Phase 10 is complete because:
+
+- The shared binary snapshot packet includes tested per-entity `x`, `y`, `z`, and `yaw` fields.
+- The authoritative server owns flat-plane placeholder movement state for accepted session entities.
+- Movement advances only from accepted input commands on the fixed tick loop.
+- Invalid, stale, duplicate, or dropped input does not move entities.
+- Disconnects remove server-owned entities from later snapshots, and entity ids remain server-owned.
+- The browser diagnostics page reports local assigned entity id, position, and yaw from server snapshots.
+- The renderer sandbox remains client-only and does not read or drive server state.
+- Existing protocol, match/session, input acknowledgement, transport diagnostics, and browser smokes remain intact.
+- WebTransport status remains honest.
+- No gameplay, prediction, interpolation, physics, combat, teams, matchmaking queue, persistence, or art pipeline has been implemented.
+
+## Phase 11 Status
+
+Phase 11 is complete because:
+
+- The client owns a presentation-only prediction state module in `apps/client`.
+- Prediction advances only from locally sent input command data and never sends or owns trusted positions.
+- Reconciliation accepts authoritative local entity snapshots as truth, records correction magnitude, drops acknowledged inputs, and replays only pending local inputs.
+- Browser diagnostics show predicted position, predicted yaw, correction magnitude, pending input count, replay count, and last reconciled snapshot tick.
+- The server, binary protocol, authoritative movement, input validation, match/session slots, and renderer sandbox remain intact.
+- Remote-player interpolation remains deferred to Phase 12.
+- WebTransport status remains honest.
+- No gameplay, physics, collision, combat, teams, matchmaking queue, lag compensation, persistence, or art pipeline has been implemented.
+
+## Phase 12 Status
+
+Phase 12 is complete because:
+
+- The client owns a DOM-free remote interpolation model in `apps/client`.
+- Remote interpolation accepts authoritative `server.snapshot` entity data, excludes the assigned local session, keeps bounded history, and samples presentation poses at a fixed interpolation delay.
+- Remote pose interpolation covers `x`, `y`, `z`, and yaw with wrap-safe shortest-path handling.
+- Malformed, stale, inactive, or unusable remote entity data is ignored without changing server truth.
+- Browser diagnostics show remote entity count, buffered snapshot count, interpolation delay, sample tick/time, and one representative remote pose when a non-local entity exists.
+- Local prediction/reconciliation remains separate from remote interpolation.
+- The server runtime, binary protocol, authoritative movement, match/session slots, input validation, and renderer sandbox remain intact.
+- WebTransport status remains honest.
+- No renderer coupling, gameplay HUD, combat, teams, matchmaking queue, lag compensation, persistence, or art pipeline has been implemented.
+
+## Phase 13 Status
+
+Phase 13 is complete because:
+
+- Shared code defines a pure structural arena map metadata contract and validation helper.
+- The first blockout data module is an original greybox arena with map id, display name, revision, bounds, primitives, player scale references, neutral spawn markers, and labels.
+- Validation covers required fields, finite positions/sizes, unique child ids, bounded counts, positive geometry, original id/name conventions, and spawn markers inside world bounds.
+- `/sandbox.html` derives its greybox primitive layout from the map metadata and exposes loaded map id, revision, primitive count, and spawn count as diagnostics.
+- The map contract does not drive server runtime, protocol packets, spawn authority, collision gameplay, matchmaking, combat, persistence, art, or UI flow.
+- WebTransport status remains honest.
+
+## Phase 14 Status
+
+Phase 14 is complete because:
+
+- The client owns a pure player-camera module in `apps/client`.
+- The player camera derives browser presentation pose from local client presentation data plus configured eye height.
+- The player camera uses validated map metadata for map id/revision, fallback spawn placement, metadata-valid reporting, and simple world-bounds clamping.
+- The renderer sandbox applies the player camera pose to Three.js and exposes camera mode, eye height, pose, loaded map id, and metadata validation diagnostics.
+- The camera remains client-only and does not send trusted positions or alter server runtime, protocol packets, movement authority, match slots, world snapshots, spawn authority, collision gameplay, or combat.
+- WebTransport status remains honest.
+
+## Phase 15 Status
+
+Phase 15 is complete because:
+
+- Shared binary protocol defines `client.fire` and `server.fire.result` messages with explicit packet kinds, little-endian payloads, and malformed packet rejection.
+- Fire intent carries fire sequence, client time/tick metadata, yaw, and pitch only. It does not carry client-owned position, target id, hit result, damage, health, score, ammo, or weapon identity.
+- The server validates fire only through accepted runtime sessions with match assignment and active server-owned world entities.
+- The server computes ray origin from authoritative world entity state and uses aim yaw/pitch only as intent.
+- Placeholder hit volumes are derived from the current server-owned world snapshot, excluding the firing entity and inactive entities.
+- Fire results include sequence, server tick, accepted/rejected state, hit/miss state, optional target entity/session ids, distance, and reject reason.
+- Browser diagnostics display fire send/result state without weapon presentation or gameplay HUD.
+- Existing diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+- No damage, health, death, ammo, reloads, weapon identities, teams, objectives, matchmaking, lag compensation, persistence, art, or gameplay HUD has been implemented.
+
+## Phase 16 Status
+
+Phase 16 is complete because:
+
+- The server owns an in-memory combat state for accepted session entities: health, alive/dead state, death tick, respawn eligibility tick, and reset events.
+- Placeholder damage is applied only from accepted server-owned fire results.
+- Clients never send damage, health, death, target confirmation, score, or respawn truth.
+- The shared binary protocol includes a `server.combat.state` diagnostic message with tested round trips and malformed packet rejection.
+- Dead entities stop moving, cannot fire, and are removed from server-owned hitscan target eligibility until the server respawn reset restores them.
+- Browser diagnostics display local combat state and last combat event without renderer coupling or gameplay HUD.
+- Existing fire validation authority, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+- No weapon identities, ammo, reloads, teams, objectives, matchmaking, scoring, persistence, art, lag compensation, or gameplay HUD has been implemented.
+
+## Phase 17 Status
+
+Phase 17 is complete because:
+
+- Shared binary protocol defines `client.loadout.select` and `server.loadout.state` messages with tested round trips and malformed packet rejection.
+- The only selectable shared profile is an original generic placeholder id, `baseline`.
+- The server validates loadout selection only for accepted sessions with match assignment.
+- Invalid profile ids, stale or duplicate selections, unknown sessions, and attempts before protocol acceptance produce explicit diagnostic rejection reasons.
+- The server owns accepted loadout state and uses it only for a placeholder combat default.
+- Clients do not send damage, fire rate, ammo, health, score, target rules, combat outcomes, weapon identity, or inventory truth.
+- Browser diagnostics display loadout profile, status, reject reason, and sequence without gameplay HUD or renderer weapon presentation.
+- Existing combat authority, fire validation authority, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+- No weapon identities, ammo, reloads, economy, buy flow, inventory, teams, objectives, matchmaking, scoring, persistence, art, lag compensation, or gameplay HUD has been implemented.
+
+## Phase 18 Status
+
+Phase 18 is complete because:
+
+- Shared binary protocol defines `server.round.state` diagnostics with tested round trips and malformed packet rejection.
+- The server owns a narrow round state machine for setup, active, ended, and reset phases.
+- Elimination and timeout outcomes are computed from server-owned combat/session state; clients cannot send round outcomes.
+- Movement, fire, loadout selection, respawn, damage application, and reset behavior are gated by the server-owned phase.
+- The reset path restores server-owned placeholder movement, combat, and loadout state for another prototype round.
+- Browser diagnostics display round id, phase, outcome, winner session, phase timing, reset timing, last event, and server tick without gameplay HUD or renderer coupling.
+- Existing loadout, combat, fire validation, movement, prediction, remote interpolation, map metadata, renderer sandbox, and transport tests remain intact.
+- WebTransport status remains honest.
+- No economy, buy flow, team scoring, objectives, matchmaking, ranked systems, persistence, weapon presentation, art, lag compensation, or gameplay HUD has been implemented.
+
+## Phase 19 Status
+
+Phase 19 is complete because:
+
+- The browser diagnostics page includes a developer telemetry summary for connection, tick/snapshot cadence, prediction, remote interpolation, loadout, fire, combat, round, and error state.
+- Telemetry is derived from existing client diagnostics state and does not change server truth, simulation timing, combat outcomes, round outcomes, protocol authority, or transport selection.
+- Private playtest notes describe only local development handoff steps, browser caveats, the proven WebSocket fallback path, and tester observations to record.
+- The playtest notes and script do not add accounts, persistence, hosted deployment, matchmaking, analytics services, crash reporting SaaS, remote logging, or external telemetry upload.
+- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+- No economy, buy flow, team scoring, objectives, matchmaking, ranked systems, persistence, weapon presentation, art, lag compensation, or gameplay HUD has been implemented.
+
+## Phase 20 Status
+
+Phase 20 is complete because:
+
+- The client owns a renderer-only private prototype asset manifest with ids, labels, categories, local URLs, fit sizing, and preview positions.
+- Manifest validation rejects network URLs, server paths, duplicate ids, non-private asset paths, and non-finite preview placement or scale values.
+- `/sandbox.html` exposes category controls for `arena-kit`, `industrial-dressing`, `cover-training-props`, `characters-firstperson`, and `equipment-placeholder`.
+- Optional private GLB loading is resilient: missing or bad local assets increment failed counts and do not crash the sandbox.
+- `/sandbox.html` remains nonblank even when private assets are unavailable because the original greybox scene remains the baseline renderer proof.
+- The private asset folder remains ignored and no private GLB files are moved or committed.
+- Existing diagnostics, renderer sandbox, player camera, map metadata, prediction, remote interpolation, movement, fire, combat, loadout, round, protocol, and transport tests remain intact.
+- WebTransport status remains honest.
+- No gameplay authority, protocol shape, server simulation, combat, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, or copied shooter presentation has been implemented.
+
+## Phase 21 Status
+
+Phase 21 is complete because:
+
+- `npm run audit:private-assets` scans ignored private prototype GLBs and writes ignored local output to `local-assets/private-asset-audit.json`.
+- The audit records relative path, category, file size, mesh/material/texture/image/animation/accessor/primitive/node/scene counts, warning codes, and candidate tags without loading private assets into gameplay.
+- The source-controlled candidate tag contract defines `preview-ok`, `needs-scale-check`, `too-heavy-for-browser`, `character-reference-only`, `prop-reference-only`, and `replace-before-public`.
+- Documentation explains how to run the audit and how to interpret candidate tags.
+- The sandbox manifest remains hand-curated and does not auto-load every private asset.
+- `local-assets/` and `apps/client/public/assets/private-prototype/` remain ignored.
+- Existing diagnostics, renderer sandbox, player camera, map metadata, prediction, remote interpolation, movement, fire, combat, loadout, round, protocol, and transport tests remain intact.
+- WebTransport status remains honest.
+- No gameplay authority, protocol shape, server simulation, combat, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, or copied shooter presentation has been implemented.
+
+## Phase 22 Status
+
+Phase 22 is complete because:
+
+- The client owns a renderer-only curated preset contract for sandbox private asset previews.
+- The preset set includes `scale-check`, `arena-dressing`, and `equipment-check`.
+- Preset validation covers unique preset ids, manifest asset references, private asset paths, no network URLs, no server paths, and copied shooter naming guards.
+- `/sandbox.html` preserves category controls and adds separate preset controls.
+- Preset loading reuses the existing optional private asset loader, so missing local assets increment failed counts instead of crashing the sandbox.
+- The sandbox manifest remains hand-curated and does not auto-load every private asset.
+- The private asset folder remains ignored and no private GLB files are moved or committed.
+- Existing diagnostics, renderer sandbox, player camera, map metadata, prediction, remote interpolation, movement, fire, combat, loadout, round, protocol, and transport tests remain intact.
+- WebTransport status remains honest.
+- No gameplay authority, protocol shape, server simulation, combat, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, or copied shooter presentation has been implemented.
+
+## Phase 23 Status
+
+Phase 23 is complete because:
+
+- The client owns a renderer-only arena dressing plan contract/helper in `apps/client`.
+- The first dressing plan targets `arena-ebb-terminal` and uses only existing source-controlled private asset manifest ids.
+- Dressing validation covers unique placement ids, manifest asset references, finite positions/yaw/fit size, map-bounds placement, no network URLs, no server paths, and copied shooter naming guards.
+- `/sandbox.html` keeps category and preset controls while adding a separate show/hide arena dressing toggle.
+- Dressing loading remains optional and resilient: missing local private assets increment failed counts instead of crashing the sandbox.
+- The dressing plan stays out of shared map metadata, server world state, protocol packets, spawn authority, collision truth, line-of-sight truth, and gameplay cover logic.
+- The sandbox manifest remains hand-curated and does not auto-load every private asset.
+- The private asset folder and local audit output remain ignored and no private GLB files are moved or committed.
+- Existing diagnostics, renderer, map metadata, player camera, prediction, remote interpolation, movement, fire, combat, loadout, round, protocol, and transport tests remain intact.
+- WebTransport status remains honest.
+- No gameplay authority, protocol shape, server simulation, combat, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, or copied shooter presentation has been implemented.
+
+## Phase 24 Status
+
+Phase 24 is complete because:
+
+- `/playtest.html` is served as a separate browser page for local networked renderer inspection.
+- The page connects through the existing browser WebSocket fallback adapter behind `MessageTransport`.
+- The page sends the existing placeholder input command envelope and loadout selection needed for the current server-owned round flow.
+- The local first-person camera uses client prediction/reconciliation presentation data while server snapshots remain truth.
+- Remote players render only as simple original placeholder markers derived from the existing remote interpolation state.
+- The existing greybox arena renders without requiring private assets, and missing private assets do not crash the playtest view.
+- Compact readouts show connection state, local entity id, server position, predicted position, correction, remote count, round phase, render health, and errors.
+- `/sandbox.html` and the diagnostics page remain available and unchanged in role.
+- The private asset folder and local audit output remain ignored and no private GLB files are moved or committed.
+- Existing diagnostics, renderer, map, prediction, interpolation, movement, fire, combat, loadout, round, protocol, and transport tests remain intact.
+- WebTransport status remains honest.
+- No protocol shape, server authority, combat, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, external asset pipeline, or copied shooter presentation has been implemented.
+
+## Phase 25 Status
+
+Phase 25 is complete because:
+
+- `/playtest.html` exposes local-only review readouts for frame health, prediction correction current/max, remote count, reconnect count, and last error.
+- A focused checklist document defines connection, local movement feel, prediction correction behavior, remote placeholder visibility, reconnect behavior, desktop/mobile usability, and known limitation checks.
+- `npm run playtest:review` prints local playtest instructions and expected evidence without uploading telemetry or writing remote logs.
+- Manual playtest notes remain under ignored `local-assets/playtest-review/` when used.
+- Existing diagnostics, renderer, map, prediction, interpolation, movement, fire, combat, loadout, round, protocol, private asset audit, sandbox preset, dressing, and transport tests remain intact.
+- WebTransport status remains honest.
+- No protocol shape, server authority, gameplay systems, combat presentation, weapons, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, external asset pipeline, analytics, or copied shooter presentation has been implemented.
+
+## Phase 26 Status
+
+Phase 26 is complete because:
+
+- Shared code owns the original arena metadata and a small greybox collision contract for world bounds plus static wall/cover blockers.
+- Collision geometry is derived from original map/blockout primitives; floors and private prototype assets do not become gameplay blockers.
+- Server movement applies shared collision and publishes authoritative stopped or sliding positions in snapshots.
+- Client prediction may use the same shared collision helper only for local presentation feel, while reconciliation still accepts server snapshots as truth.
+- Focused collision-feel checks cover repeated blocker stops, face slides without far-edge snapping, diagonal corner pressure, world bounds, spawn clearance, and client-prediction parity.
+- Existing protocol packets, combat, fire validation, loadout, round flow, private asset policy, renderer sandbox, and WebSocket fallback transport remain unchanged.
+- WebTransport status remains honest.
+- No weapon art, gameplay HUD, private asset gameplay use, matchmaking, persistence, hosted deployment, protocol shape change, or copied shooter presentation has been implemented.
+
+## Phase 28 Status
+
+Phase 28 is complete because:
+
+- `/playtest.html` owns a renderer-only first-person presentation shell in `apps/client`.
+- The shell uses simple original placeholder geometry for local hands/equipment and is attached to the Three.js camera.
+- The shell presentation helper is DOM-free and tested for camera-local transforms, bounded part counts, original placeholder ids, motion/fire presentation states, and absence of authority fields.
+- Existing `client.fire` intent and `server.fire.result` authority stay unchanged; the playtest page may send fire intent, but it does not send damage, hit results, target truth, ammo, reload, weapon identity, score, or authoritative position.
+- The shell does not affect server movement, collision, snapshots, fire validation, combat, round state, protocol packets, or transport selection.
+- Compact playtest diagnostics report shell status and fire intent sequence for local inspection only.
+- Existing diagnostics, renderer sandbox, collision, prediction, interpolation, movement, fire, combat, loadout, round, protocol, private asset audit, sandbox preset, dressing, and transport tests remain intact.
+- WebTransport status remains honest.
+- No gameplay HUD, weapon gameplay, ammo/reload loop, weapon identity, teams, objectives, matchmaking, persistence, hosted deployment, art pipeline, public asset redistribution, or copied shooter presentation has been implemented.
+
+## Phase 29 Status
+
+Phase 29 is complete because:
+
+- `/playtest.html` owns renderer-only fire-result presentation in `apps/client`.
+- Local fire intent gets abstract camera-space feedback without defining a weapon, ammo, reload, damage, score, or client-owned hit result.
+- Existing server-owned `server.fire.result` diagnostics drive short-lived abstract tracer, impact, reject, and remote-target readability visuals.
+- The fire-result presentation helper is DOM-free and tested for local intent effects, accepted hit/miss visualization, rejected result visualization, bounded active effects, expiry, stale result rejection, and malformed data handling.
+- Compact playtest diagnostics report the visualized fire sequence, result state, hit/miss/rejected state, and active tracer count.
+- Existing `client.fire` and `server.fire.result` protocol shape, server fire validation, combat authority, movement, collision, snapshots, round state, and transport selection remain unchanged.
+- WebTransport status remains honest.
+- No weapon gameplay, ammo, reloads, weapon identities, client-owned hits, client-owned damage, teams, objectives, matchmaking, persistence, gameplay HUD, hosted deployment, public asset redistribution, art pipeline, or copied shooter presentation has been implemented.
+
+## Phase 30 Status
+
+Phase 30 is complete because:
+
+- `/playtest.html` keeps fire-result presentation renderer-only, abstract, and driven by existing `server.fire.result` diagnostics.
+- Local fire intent, accepted miss, accepted hit, rejected fire, tracers, impact markers, and remote target accent readability are tuned for local playtest observation.
+- Fire-result effect lifetimes are long enough to inspect during desktop and mobile browser smokes, then clear cleanly.
+- Compact playtest diagnostics include visualized sequence, hit/result state, active tracer count, and expired effect count.
+- DOM-free tests cover timing/readability, expiry, stale/malformed result handling, and target accent clearing.
+- Existing `client.fire` and `server.fire.result` protocol shape, server fire validation, combat authority, movement, collision, snapshots, round state, loadout authority, and transport selection remain unchanged.
+- WebTransport status remains honest.
+- No weapon gameplay, ammo, reloads, weapon identities, client-owned hits, client-owned damage, teams, objectives, matchmaking, persistence, gameplay HUD, hosted deployment, public asset redistribution, art pipeline, or copied shooter presentation has been implemented.
+
+## Phase 31 Status
+
+Phase 31 is complete because:
+
+- `/playtest.html` exposes a local-only diagnostics hook for deterministic accepted-hit smoke testing.
+- The hook computes a presentation aim from the local camera to an existing remote placeholder and sends the existing `client.fire` intent.
+- Accepted hit presentation remains driven only by server-owned `server.fire.result` messages.
+- Accepted miss, accepted hit, remote target accent, transient expiry, and reconnect cleanup stay renderer-only and testable.
+- Focused tests cover deterministic remote aim derivation and clean accepted hit/miss effect expiry.
+- Existing protocol shape, server hit validation, damage, combat authority, movement authority, collision authority, snapshots, loadout authority, round authority, and transport selection remain unchanged.
+- WebTransport status remains honest.
+- No weapon gameplay, ammo, reloads, weapon identities, client-owned hits, client-owned damage, teams, objectives, matchmaking, persistence, gameplay HUD, hosted deployment, public asset redistribution, art pipeline, or copied shooter presentation has been implemented.
+
+## Phase 32 Status
+
+Phase 32 is complete because:
+
+- `/playtest.html` renders remote players through a renderer-only presentation helper in `apps/client`.
+- Remote presentation consumes existing remote interpolation placeholders only.
+- The remote stand-in has a readable abstract body height, facing marker, target-center reference, neutral material colors, and subtle hit accent driven by existing fire-result presentation state.
+- Compact diagnostics report remote model count, highlighted target id, and representative interpolation source tick.
+- DOM-free tests cover remote presentation metadata, hit accent state, source tick reporting, and malformed placeholder rejection.
+- Existing protocol shape, server runtime, snapshots, movement/collision authority, fire validation, combat/damage, loadouts, round authority, and transport selection remain unchanged.
+- WebTransport status remains honest.
+- No copied character silhouettes, uniforms, faction identity, weapon identity, gameplay HUD, matchmaking, persistence, hosted deployment, public asset redistribution, art pipeline, or copied shooter presentation has been implemented.
+
+## Phase 33 Status
+
+Phase 33 is complete because:
+
+- `/playtest.html` formats existing server-owned round and combat diagnostics through a renderer-only presentation helper in `apps/client`.
+- Compact readouts show round phase, outcome, transition cue, reset cue, local health/alive state, local combat event/cue, and remote hit cue derived from existing fire-result diagnostics.
+- DOM-free tests cover phase/outcome formatting, transition expiry, local death/reset cues, remote hit cue derivation, and malformed value handling.
+- The presentation does not define a gameplay HUD, scoreboard, economy, buy flow, teams, objectives, weapon identity, ammo, reloads, or client-owned win/loss/damage/health/death.
+- Existing protocol shape, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, round authority, and transport selection remain unchanged.
+- WebTransport status remains honest.
+
+## Phase 34 Status
+
+Phase 34 is complete because:
+
+- `npm run playtest:harness` runs a local-only automated browser harness for `/playtest.html`.
+- The harness starts `npm run dev` when the local dev server is not already reachable, or connects to the existing local server when it is.
+- The harness opens two local `/playtest.html` clients over the existing WebSocket fallback path and verifies two accepted clients, nonblank primary render, remote model presence, movement/collision blocker and slide evidence, accepted miss visual, accepted hit visual, combat death plus round ended/reset evidence when observed, reconnect transient cleanup, diagnostics page load, `/sandbox.html` load, and zero browser console/page errors.
+- The harness prints a concise human-review evidence summary and does not upload analytics, create accounts, write remote logs, start hosted services, add persistence, or change server authority.
+- Focused tests cover the harness summary and Playwright result parsing helpers.
+- Existing protocol shape, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, round authority, and transport selection remain unchanged.
+- WebTransport status remains honest.
+
+## Phase 35 Status
+
+Phase 35 is complete because:
+
+- The Phase 34 harness evidence is used as the baseline for local two-client loop-feel tuning.
+- Server-owned placeholder slot starts give the second player a more readable neutral separation while preserving the first slot's blocker/collision proof path.
+- The default round reset hold is long enough for local elimination/reset review without adding new round rules or client authority.
+- Renderer-only fire-result and round/combat cue lifetimes are slightly longer for local observation.
+- The harness summary reports reset cue detail when available.
+- Existing protocol shape, transport selection, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, and round authority remain intact.
+- WebTransport status remains honest.
+
+## Phase 36 Status
+
+Phase 36 is current when validation passes because:
+
+- `/playtest.html` can opt into local-only network simulation through a browser-side `MessageTransport` wrapper.
+- Simulation profiles cover baseline/no delay, moderate latency, jitter, and small high-rate message drop.
+- The drop profile is scoped to superseding/high-rate messages such as input, tick, snapshot, ping, and pong; protocol accept, fire result, combat, and round authority messages are not intentionally dropped.
+- `npm run playtest:harness:network` runs the local two-client browser evidence path across the network profiles.
+- Harness output reports profile settings, prediction correction max, remote interpolation status, fire result observation, round reset observation, and console errors.
+- Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, and round authority remain intact.
+- WebTransport status remains honest.
+
+## Transport Decision
+
+Phase 2 keeps WebTransport as the intended browser transport, but validates the runtime loop through a WebSocket fallback. The blocker is local WebTransport server support: this stack does not yet provide an HTTP/3 plus TLS server endpoint for browser WebTransport.
+
+## Next Proof Milestone
+
+The next milestone is **use the Phase 36 network-condition harness evidence to choose the next renderer/playtest lane without adding new gameplay authority**.
+
+Expected proof:
+
+- The prototype is reviewed against measured local two-client browser connection, authority, diagnostics, networked renderer playtest, movement/collision evidence, round/combat readability, remote stand-in readability, first-person shell visibility, accepted hit/miss fire-result visual readability, reconnect cleanup, renderer-sandbox, optional private asset previews, curated preset usefulness, renderer-only arena dressing usefulness, private asset audit output, and private playtest feedback.
+- Keep, pivot, or rewrite recommendations are tied to Phase 36 baseline and impaired-profile harness evidence from the current prototype instead of speculative feature expansion.
+- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
+- The milestone does not add economy, matchmaking queue, ranked systems, persistence, art, objectives, weapon gameplay, gameplay HUD, or client-owned authority.
+- Transport adapters still hide WebSocket/WebTransport details.
+- WebTransport setup is retried only when HTTP/3/TLS support is available.
+
+Do not add weapon gameplay, matchmaking queue, client-owned hits, client-owned damage/health/death, client-owned win/loss, ammo/reload simulation, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, ranked systems, or gameplay HUD during this milestone.

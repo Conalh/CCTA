@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breachline Dev Connection</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "@breachline/shared": "/packages/shared/dist/index.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Phase 20</p>
+          <h1>Breachline Connection</h1>
+        </div>
+        <a class="nav-link" href="/sandbox.html">Renderer Sandbox</a>
+        <strong id="status" class="status" data-status="disconnected">disconnected</strong>
+      </header>
+
+      <section class="controls" aria-label="Connection controls">
+        <label for="server-url">Server URL</label>
+        <input id="server-url" autocomplete="off" spellcheck="false" />
+        <button id="connect" type="button">Connect</button>
+        <button id="disconnect" type="button" disabled>Disconnect</button>
+      </section>
+
+      <section class="metrics" aria-label="Connection metrics">
+        <article>
+          <span>Server Tick</span>
+          <strong id="server-tick">-</strong>
+        </article>
+        <article>
+          <span>Snapshot Tick</span>
+          <strong id="snapshot-tick">-</strong>
+        </article>
+        <article>
+          <span>RTT</span>
+          <strong id="rtt">-</strong>
+        </article>
+        <article>
+          <span>Last Message</span>
+          <strong id="last-message">-</strong>
+        </article>
+        <article>
+          <span>Tick Rate</span>
+          <strong id="tick-rate">-</strong>
+        </article>
+        <article>
+          <span>Snapshot Rate</span>
+          <strong id="snapshot-rate">-</strong>
+        </article>
+        <article>
+          <span>Uptime</span>
+          <strong id="uptime">-</strong>
+        </article>
+        <article>
+          <span>Last Disconnect</span>
+          <strong id="last-disconnect">-</strong>
+        </article>
+      </section>
+
+      <section class="details" aria-label="Developer telemetry summary">
+        <h2>Developer Telemetry</h2>
+        <div class="stat-grid">
+          <span>Overall <strong id="telemetry-overall" data-status="waiting">waiting</strong></span>
+          <span>Private Playtest <strong id="telemetry-readiness" data-status="waiting">not ready</strong></span>
+        </div>
+        <ul id="telemetry-summary" class="telemetry-list">
+          <li data-status="waiting">Connection: waiting - Connection state is disconnected.</li>
+        </ul>
+      </section>
+
+      <section class="details" aria-label="RTT diagnostics">
+        <h2>RTT Diagnostics</h2>
+        <div class="stat-grid">
+          <span>Current <strong id="rtt-current">-</strong></span>
+          <span>Min <strong id="rtt-min">-</strong></span>
+          <span>Max <strong id="rtt-max">-</strong></span>
+          <span>Average <strong id="rtt-average">-</strong></span>
+        </div>
+        <p id="rtt-history" class="history">No RTT samples yet</p>
+      </section>
+
+      <section class="details" aria-label="Match session metadata">
+        <h2>Match Session</h2>
+        <div class="stat-grid">
+          <span>Match ID <strong id="match-id">-</strong></span>
+          <span>Session ID <strong id="session-id">-</strong></span>
+          <span>Slot Index <strong id="slot-index">-</strong></span>
+          <span>Capacity <strong id="match-capacity">-</strong></span>
+          <span>Connected Slots <strong id="connected-slots">-</strong></span>
+          <span>Reject Reason <strong id="match-rejection">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Input pipeline diagnostics">
+        <h2>Input Pipeline</h2>
+        <div class="stat-grid">
+          <span>Last Sent <strong id="last-input-sent">-</strong></span>
+          <span>Last Ack <strong id="last-input-ack">-</strong></span>
+          <span>Drops <strong id="input-drops">-</strong></span>
+          <span>Send Rate <strong id="input-send-rate">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Fire validation diagnostics">
+        <h2>Fire Validation</h2>
+        <div class="stat-grid">
+          <span>Last Sent <strong id="last-fire-sent">-</strong></span>
+          <span>Last Result <strong id="last-fire-result">-</strong></span>
+          <span>Send Rate <strong id="fire-send-rate">-</strong></span>
+          <span>Server Tick <strong id="fire-result-tick">-</strong></span>
+          <span>Accepted <strong id="fire-accepted">-</strong></span>
+          <span>Hit <strong id="fire-hit">-</strong></span>
+          <span>Target Entity <strong id="fire-target-entity">-</strong></span>
+          <span>Target Session <strong id="fire-target-session">-</strong></span>
+          <span>Distance <strong id="fire-distance">-</strong></span>
+          <span>Reject Reason <strong id="fire-reject-reason">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Combat state diagnostics">
+        <h2>Combat State</h2>
+        <div class="stat-grid">
+          <span>Entity <strong id="combat-entity">-</strong></span>
+          <span>Health <strong id="combat-health">-</strong></span>
+          <span>Alive <strong id="combat-alive">-</strong></span>
+          <span>Death Tick <strong id="combat-death-tick">-</strong></span>
+          <span>Respawn Tick <strong id="combat-respawn-tick">-</strong></span>
+          <span>Last Event <strong id="combat-event">-</strong></span>
+          <span>Event Tick <strong id="combat-event-tick">-</strong></span>
+          <span>Event Sequence <strong id="combat-event-sequence">-</strong></span>
+          <span>Source Session <strong id="combat-source-session">-</strong></span>
+          <span>Target Session <strong id="combat-target-session">-</strong></span>
+          <span>Damage <strong id="combat-damage">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Loadout validation diagnostics">
+        <h2>Loadout Validation</h2>
+        <div class="stat-grid">
+          <span>Profile <strong id="loadout-profile">-</strong></span>
+          <span>Status <strong id="loadout-status">-</strong></span>
+          <span>Reject Reason <strong id="loadout-reject-reason">-</strong></span>
+          <span>Sequence <strong id="loadout-sequence">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Round flow diagnostics">
+        <h2>Round Flow</h2>
+        <div class="stat-grid">
+          <span>Round ID <strong id="round-id">-</strong></span>
+          <span>Phase <strong id="round-phase">-</strong></span>
+          <span>Outcome <strong id="round-outcome">-</strong></span>
+          <span>Winner Session <strong id="round-winner">-</strong></span>
+          <span>Phase Started <strong id="round-phase-started">-</strong></span>
+          <span>Phase Ends <strong id="round-phase-ends">-</strong></span>
+          <span>Reset Ready <strong id="round-reset-ready">-</strong></span>
+          <span>Last Event <strong id="round-event">-</strong></span>
+          <span>Event Tick <strong id="round-event-tick">-</strong></span>
+          <span>Event Sequence <strong id="round-event-sequence">-</strong></span>
+          <span>Server Tick <strong id="round-server-tick">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="World snapshot diagnostics">
+        <h2>World Snapshot</h2>
+        <div class="stat-grid">
+          <span>World ID <strong id="world-id">-</strong></span>
+          <span>Entity Count <strong id="world-entity-count">-</strong></span>
+          <span>Snapshot Tick <strong id="world-snapshot-tick">-</strong></span>
+          <span>Local Entity <strong id="local-entity-id">-</strong></span>
+          <span>Position <strong id="local-entity-position">-</strong></span>
+          <span>Yaw <strong id="local-entity-yaw">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Prediction diagnostics">
+        <h2>Prediction Diagnostics</h2>
+        <div class="stat-grid">
+          <span>Predicted Position <strong id="predicted-position">-</strong></span>
+          <span>Predicted Yaw <strong id="predicted-yaw">-</strong></span>
+          <span>Correction <strong id="prediction-correction">-</strong></span>
+          <span>Pending Inputs <strong id="prediction-pending-inputs">0</strong></span>
+          <span>Replayed Inputs <strong id="prediction-replay-count">0</strong></span>
+          <span>Snapshot Tick <strong id="prediction-snapshot-tick">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Remote interpolation diagnostics">
+        <h2>Remote Interpolation</h2>
+        <div class="stat-grid">
+          <span>Remote Entities <strong id="remote-entity-count">0</strong></span>
+          <span>Buffered Snapshots <strong id="remote-buffered-snapshots">0</strong></span>
+          <span>Delay <strong id="remote-interpolation-delay">100 ms</strong></span>
+          <span>Sample Tick <strong id="remote-interpolation-tick">-</strong></span>
+          <span>Sample Time <strong id="remote-interpolation-time">-</strong></span>
+          <span>Entity <strong id="remote-entity-id">-</strong></span>
+          <span>Pose <strong id="remote-entity-position">-</strong></span>
+          <span>Yaw <strong id="remote-entity-yaw">-</strong></span>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Message counts">
+        <h2>Message Counts And Rates</h2>
+        <ul id="message-counts">
+          <li>No messages yet</li>
+        </ul>
+      </section>
+
+      <p id="error" class="error" role="alert"></p>
+    </main>
+
+    <script type="module" src="/apps/client/dist/browser/main.js"></script>
+  </body>
+</html>
