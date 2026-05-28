@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Original browser tactical FPS prototype spine for WebTransport multiplayer experiments.",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "apps/client",
