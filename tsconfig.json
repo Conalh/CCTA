@@ -8,6 +8,9 @@
       "path": "./apps/server"
     },
     {
+      "path": "./apps/registry"
+    },
+    {
       "path": "./apps/client"
     }
   ]

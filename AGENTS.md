@@ -38,6 +38,7 @@ When in doubt, make the concept more generic, more abstract, or more distinct.
 
 - `apps/client` owns browser-facing runtime and renderer integration.
 - `apps/server` owns authoritative simulation and transport sessions.
+- `apps/registry` owns the optional, self-hostable match-discovery service (HTTP). Discovery only — it never owns or relays gameplay truth.
 - `packages/shared` owns protocol constants, message shapes, and shared type contracts.
 - `docs` owns focused design notes and validation expectations.
 

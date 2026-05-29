@@ -8,6 +8,7 @@
   "workspaces": [
     "apps/client",
     "apps/server",
+    "apps/registry",
     "packages/shared"
   ],
   "scripts": {
@@ -15,16 +16,18 @@
     "dev:client": "npm run typecheck && node apps/client/dist/dev-client.js",
     "dev:server": "npm run typecheck && node apps/server/dist/dev-server.js",
     "host:match": "npm run typecheck && node scripts/host-match.mjs",
+    "registry:serve": "npm run typecheck && node apps/registry/dist/main.js",
     "audit:private-assets": "npm run typecheck && node scripts/private-asset-audit.mjs",
     "playtest:harness": "node scripts/playtest-harness.mjs",
     "playtest:harness:network": "node scripts/playtest-network-harness.mjs",
     "playtest:notes": "node scripts/playtest-notes.mjs",
     "playtest:review": "node scripts/playtest-review.mjs",
     "smoke:browser-page": "npm run typecheck && node scripts/browser-page-smoke.mjs",
+    "smoke:registry": "npm run typecheck && node scripts/registry-smoke.mjs",
     "smoke:transport": "npm run typecheck && node scripts/transport-loop-smoke.mjs",
     "test": "npm run typecheck && node scripts/run-tests.mjs",
     "typecheck": "tsc -b",
-    "validate": "npm run test && npm run smoke:transport && npm run smoke:browser-page"
+    "validate": "npm run test && npm run smoke:transport && npm run smoke:registry && npm run smoke:browser-page"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

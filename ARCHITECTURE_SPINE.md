@@ -11,6 +11,11 @@ apps/client
 apps/server
   WebTransport listener, session management, authoritative tick loop, match state.
 
+apps/registry
+  Optional, self-hostable match-discovery service (HTTP). Lists opt-in public
+  matches so a client can find a game server's address. Discovery only — it owns
+  no gameplay truth and never relays simulation.
+
 packages/shared
   Protocol constants, message shapes, shared identifiers, serialization rules, and pure structural metadata contracts.
 
@@ -63,6 +68,24 @@ Shared code must not include:
 - Map renderer implementations, art pipelines, collision gameplay, spawn authority, or map selection policy.
 - Persistence adapters.
 - Large gameplay systems that would make client authority ambiguous.
+
+## Registry Boundary
+
+`apps/registry` is an optional, self-hostable HTTP service for match discovery. A
+game host publishes to it only when it opts in (publishing is off by default);
+clients fetch the list to populate the server browser. It owns the *discovery
+list* only:
+
+- Validated, bounded match announcements (name, ws/wss join URL, map, build,
+  player count, capacity) treated as hostile input.
+- Liveness via heartbeat with a TTL; stale entries are swept.
+- A pure request router (`handleMatchRegistryRequest`) plus a thin Node HTTP
+  adapter; no framework dependency.
+
+The registry must not own or relay gameplay truth. Reported player counts are
+presentation hints; once a client connects to a listed match, the game server in
+`apps/server` remains fully authoritative. The registry must not persist data,
+add accounts, or collect analytics.
 
 ## Networking Model
 
