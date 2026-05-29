@@ -59,6 +59,10 @@ Phase 35 may tune existing local loop-feel values based on Phase 34 harness evid
 
 Phase 36 may add local-only network-condition simulation around the browser transport/harness path. It may simulate baseline, latency, jitter, and small high-rate message drop so the existing renderer/playtest loop can be observed under impairment. It must not define gameplay balance, lag compensation, matchmaking, hosted playtest services, analytics, scoring, economy, weapon behavior, protocol data, or client-owned movement/fire/combat/round authority.
 
+Phase 37 opens a deliberate gameplay-meaning milestone with a server-authoritative kill/death stats feed. The server tallies kills and deaths only from combat death events it already owns, and broadcasts an authoritative `server.match.stats` message on each confirmed kill; the client mirrors it as a diagnostics-only field that clears on reconnect. It must not add client-owned kills, deaths, standings, scores, win/loss, teams, economy, objectives, weapon identity, ammo, reloads, persistence, matchmaking, ranked systems, server snapshots, combat authority, round authority, movement/collision authority, or fire validation. The only new protocol data is the reliable stats broadcast.
+
+Phase 38 may present that existing `server.match.stats` feed in `/playtest.html` as a read-only kill/death scoreboard. It may order rows for readability and highlight the local session, but every kill and death value comes straight from the broadcast and the board clears on reconnect. It must not compute kills, deaths, scores, standings, or a winner on the client, and it must not add client-owned authority, teams, economy, buy flow, objectives, weapon identity, ammo, reloads, persistence, matchmaking, ranked systems, protocol data, server snapshots, combat authority, round authority, movement/collision authority, or fire validation.
+
 ## Weapons
 
 The initial combat model is planned around hitscan weapons. Weapon identities, names, sounds, models, and roles must be original.

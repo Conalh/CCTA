@@ -46,7 +46,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 
 ## Gameplay Milestones
 
-37. **Current: Server-authoritative kill/death stats feed (first gameplay-meaning slice).**
+37. Server-authoritative kill/death stats feed (first gameplay-meaning slice).
+38. **Current: Read-only in-renderer kill/death scoreboard.**
 
 ## Phase 8 Status
 
@@ -436,21 +437,34 @@ Phase 37 is current when validation passes because:
 - Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, and round authority remain intact.
 - WebTransport status remains honest.
 
+## Phase 38 Status
+
+Phase 38 is current when validation passes because:
+
+- `/playtest.html` presents the authoritative `server.match.stats` feed as a read-only kill/death scoreboard panel built by a pure presentation projection.
+- The scoreboard mirrors the broadcast exactly: every kill and death value comes straight from `server.match.stats`, and the client never infers tallies from local fire input or predicted state.
+- Rows are ordered for readability (kills, then fewest deaths, then session id) and the local session is highlighted, but ordering is presentation-only and the board declares no winner.
+- The board is a projection of the diagnostics-only match-stats view state, so it clears automatically on reconnect with the rest of the per-connection diagnostics.
+- Malformed or partial stat entries are dropped without poisoning the board, consistent with the prototype's hostile-client posture.
+- Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, round authority, and the match-stats feed remain intact.
+- WebTransport status remains honest.
+
 ## Transport Decision
 
 Phase 2 keeps WebTransport as the intended browser transport, but validates the runtime loop through a WebSocket fallback. The blocker is local WebTransport server support: this stack does not yet provide an HTTP/3 plus TLS server endpoint for browser WebTransport.
 
 ## Next Proof Milestone
 
-The next milestone is **surface the server-authoritative kill/death stats as a readable in-renderer scoreboard without granting the client any new authority**.
+The next milestone is **let the server-authoritative kill/death tallies drive a server-owned round end condition (a frag target) without granting the client any authority**.
 
-The gameplay pivot is deliberate. With the proof spine confirmed fully server-authoritative, the project is now building match-level meaning. The kill/death stats feed (Phase 37) is the first slice: the server owns the tallies, the protocol carries them as a reliable broadcast, and the client only mirrors them. The next step makes that authoritative feed legible to a player, still as a read-only reflection of server truth.
+The gameplay pivot is deliberate. The kill/death stats feed (Phase 37) and its read-only scoreboard (Phase 38) gave the match readable meaning while keeping every tally server-owned. The next step turns that meaning into a server-owned outcome: when a session reaches a configured kill target, the existing round authority ends the round and reports the outcome. The client continues to only display server truth.
 
 Expected proof:
 
-- The renderer presents the authoritative `server.match.stats` entries (kills, deaths per session) as a read-only scoreboard, driven entirely by the broadcast and never recomputed client-side.
-- The scoreboard updates only from received stats messages, clears on reconnect, and never infers kills, deaths, or scores from local fire input or predicted state.
-- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, and transport smokes remain intact.
+- The server ends the active round through its existing round authority when a tracked session reaches a server-configured frag target, derived from the stats it already owns.
+- The round outcome and reset flow remain entirely server-owned; the client neither computes the threshold, declares a winner, nor ends the round locally.
+- The scoreboard and round/combat readouts continue to mirror the broadcast and clear on reconnect.
+- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

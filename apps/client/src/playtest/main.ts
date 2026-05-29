@@ -62,6 +62,10 @@ import {
   updateRoundCombatPresentationState,
   type RoundCombatPresentationState
 } from "./round-combat-presentation.js";
+import {
+  createScoreboardPresentation,
+  type ScoreboardPresentation
+} from "./scoreboard-presentation.js";
 
 declare global {
   interface Window {
@@ -119,6 +123,17 @@ declare global {
       roundPresentationTone: string;
       roundTransition: string;
       roundTransitionActive: boolean;
+      scoreboardEntryCount: number;
+      scoreboardLastServerTick: number | undefined;
+      scoreboardLocalPosition: number | undefined;
+      scoreboardRows: readonly Readonly<{
+        deaths: number;
+        isLocalSession: boolean;
+        kills: number;
+        position: number;
+        sessionId: number;
+      }>[];
+      scoreboardSummary: string;
       serverPosition: readonly [number, number, number] | undefined;
       sessionId: number | undefined;
     }>;
@@ -167,6 +182,8 @@ const localLifeEl = requireElement("playtest-local-life");
 const localCombatEventEl = requireElement("playtest-combat-event");
 const localCombatCueEl = requireElement("playtest-combat-cue");
 const remoteCombatCueEl = requireElement("playtest-remote-combat");
+const scoreboardSummaryEl = requireElement("playtest-scoreboard-summary");
+const scoreboardRowsEl = requireElement("playtest-scoreboard-rows");
 const renderHealthEl = requireElement("playtest-render-health");
 const frameCountEl = requireElement("playtest-frame-count");
 const cameraSourceEl = requireElement("playtest-camera-source");
@@ -964,6 +981,11 @@ function updateReadout(
     sourceSessionId: state.lastCombatSourceSessionId,
     targetSessionId: state.lastCombatTargetSessionId
   });
+  const scoreboard = createScoreboardPresentation({
+    entries: state.matchStats,
+    lastServerTick: state.lastMatchStatsServerTick,
+    localSessionId: presentation.localSessionId
+  });
 
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
@@ -1003,6 +1025,7 @@ function updateReadout(
   localCombatCueEl.dataset.active = roundCombatPresentationState.localCombatCueActive ? "true" : "false";
   remoteCombatCueEl.textContent = roundCombatPresentationState.remoteCombatCueLabel;
   remoteCombatCueEl.dataset.active = roundCombatPresentationState.remoteCombatCueActive ? "true" : "false";
+  renderScoreboard(scoreboard);
   renderHealthEl.textContent = renderSampleHealthy ? "nonblank" : "pending";
   frameCountEl.textContent = frameCount.toString();
   cameraSourceEl.textContent = presentation.localCameraSource;
@@ -1064,6 +1087,17 @@ function updateReadout(
     roundPresentationTone: roundCombatPresentationState.presentationTone,
     roundTransition: roundCombatPresentationState.roundTransitionLabel,
     roundTransitionActive: roundCombatPresentationState.roundTransitionActive,
+    scoreboardEntryCount: scoreboard.entryCount,
+    scoreboardLastServerTick: scoreboard.lastServerTick,
+    scoreboardLocalPosition: scoreboard.localPosition,
+    scoreboardRows: scoreboard.rows.map((row) => ({
+      deaths: row.deaths,
+      isLocalSession: row.isLocalSession,
+      kills: row.kills,
+      position: row.position,
+      sessionId: row.sessionId
+    })),
+    scoreboardSummary: scoreboard.summaryLabel,
     serverPosition: presentation.serverPosition,
     sessionId: presentation.localSessionId
   };
@@ -1077,6 +1111,28 @@ function resetFireResultPresentation(): void {
 
 function resetRoundCombatPresentation(): void {
   roundCombatPresentationState = createInitialRoundCombatPresentationState();
+}
+
+function renderScoreboard(scoreboard: ScoreboardPresentation): void {
+  scoreboardSummaryEl.textContent = scoreboard.summaryLabel;
+  scoreboardRowsEl.replaceChildren(
+    ...scoreboard.rows.map((row) => {
+      const rowEl = document.createElement("li");
+      rowEl.className = "playtest-scoreboard-row";
+      rowEl.dataset.local = row.isLocalSession ? "true" : "false";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "playtest-scoreboard-name";
+      nameEl.textContent = `${row.position}. ${row.label}`;
+
+      const tallyEl = document.createElement("span");
+      tallyEl.className = "playtest-scoreboard-tally";
+      tallyEl.textContent = `${row.kills} / ${row.deaths}`;
+
+      rowEl.append(nameEl, tallyEl);
+      return rowEl;
+    })
+  );
 }
 
 function readRenderSample(renderer: THREE.WebGLRenderer): ScenePixelSampleSummary {
