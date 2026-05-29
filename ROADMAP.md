@@ -53,7 +53,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 41. Read-only in-renderer participant panel.
 42. Local two-client harness asserts the server-owned roster end to end.
 43. Read-only scoreboard labelled with roster-resolved callsigns.
-44. **Current: Local two-client harness asserts the roster-labelled scoreboard end to end.**
+44. Local two-client harness asserts the roster-labelled scoreboard end to end.
+45. **Current: Validate-included smoke guards the roster and scoreboard presentation surfaces.**
 
 ## Phase 8 Status
 
@@ -531,18 +532,29 @@ Phase 44 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness roster assertion, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 45 Status
+
+Phase 45 is current when validation passes because:
+
+- The validate-included browser-page smoke (`smoke:browser-page`) now asserts the Phase 41 roster panel markup and the Phase 43 scoreboard markup (`#playtest-roster-summary`, `#playtest-roster-rows`, `#playtest-scoreboard-summary`, `#playtest-scoreboard-rows`) so these read-only surfaces are guarded by the always-run smoke rather than only by the manual harness.
+- The smoke also asserts the served playtest module wires the roster and scoreboard presentations (`createRosterPresentation`, `createScoreboardPresentation`), catching a silent loss of those projections.
+- The smoke remains a static fetch-based check: it starts no real browser, drives no gameplay, and asserts no server authority. It still passes for the diagnostics, sandbox, and playtest pages with the existing asserted ids intact.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **assert the roster panel and labelled scoreboard markup in the validate-included browser-page smoke, so the Phase 41/43 presentation surfaces are guarded by the always-run smoke rather than only by the manual harness**.
+The next milestone is **resolve the server-owned round winner to a roster callsign in the read-only round/combat presentation, so an elimination outcome reads as "who won" rather than only "what happened"**.
 
-The browser-page smoke (`npm run smoke:browser-page`) is the only browser-surface check inside `npm run validate`, but it has not been updated since the Phase 41 roster panel and Phase 43 scoreboard callsign labels landed, so it still asserts an older `/playtest.html` markup contract. The matching step is to extend the smoke's static assertions to cover the roster panel elements (`#playtest-roster-summary`, `#playtest-roster-rows`) and confirm the playtest module wires the roster and scoreboard presentations, keeping these surfaces from regressing silently between manual harness runs.
+The server already owns the round outcome and the winning session id (Phase 18 round state), and the client already mirrors both alongside the roster view state. The matching step is a presentation join: when the server reports a round winner session, the round/combat presentation resolves that session id to its roster callsign, with a neutral fallback when no roster entry is present. The winner is never computed on the client; it is read straight from the server-owned round state.
 
 Expected proof:
 
-- The validate-included browser-page smoke asserts the roster panel markup and the presence of the roster/scoreboard presentation wiring in the served playtest module.
-- The smoke remains a static fetch-based check: it does not start a real browser, drive gameplay, or assert server authority.
-- The smoke still passes for the diagnostics page, sandbox page, and playtest page, and continues to confirm zero regressions in the existing asserted ids.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- The read-only round/combat presentation labels the server-owned round outcome with the winner's roster-resolved callsign when the server reports a winner session.
+- The label is presentation-only: the outcome and winner session come straight from `server.round.state`, the callsign resolves from the roster's numeric handle id, and the client never decides or computes a winner.
+- A winner session with no current roster entry falls back to a neutral session label rather than fabricating identity, and a round with no winner (timeout/none) shows no winner callsign.
+- The label clears on reconnect with the rest of the diagnostics-only view state, and focused tests cover the resolved, neutral-fallback, and no-winner cases.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

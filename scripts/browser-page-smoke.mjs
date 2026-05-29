@@ -204,6 +204,10 @@ try {
   assert.match(playtestHtml, /id="playtest-remote-combat"/);
   assert.match(playtestHtml, /id="playtest-render-health"/);
   assert.match(playtestHtml, /id="playtest-look"/);
+  assert.match(playtestHtml, /id="playtest-scoreboard-summary"/);
+  assert.match(playtestHtml, /id="playtest-scoreboard-rows"/);
+  assert.match(playtestHtml, /id="playtest-roster-summary"/);
+  assert.match(playtestHtml, /id="playtest-roster-rows"/);
   assert.match(playtestHtml, /id="playtest-error"/);
   assert.match(playtestHtml, /apps\/client\/dist\/playtest\/main\.js/);
   assert.match(playtestHtml, /packages\/shared\/dist\/index\.js/);
@@ -227,6 +231,8 @@ try {
   assert.match(playtestSource, /classifyNetworkedPlaytestMotionContact/);
   assert.match(playtestSource, /updateNetworkedPlaytestReviewStats/);
   assert.match(playtestSource, /createGreyboxLayout/);
+  assert.match(playtestSource, /createScoreboardPresentation/);
+  assert.match(playtestSource, /createRosterPresentation/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const playtestStateModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/playtest-state.js`);
