@@ -235,12 +235,22 @@ try {
   assert.match(playtestHtml, /id="playtest-error"/);
   // Main-menu server browser ships visible by default so the page opens on the menu.
   assert.match(playtestHtml, /id="playtest-menu"[^>]*data-visible="true"/);
+  assert.match(playtestHtml, /id="playtest-menu-build"/);
+  assert.match(playtestHtml, /data-panel="servers"/);
+  assert.match(playtestHtml, /data-panel="settings"/);
+  assert.match(playtestHtml, /data-panel="controls"/);
+  assert.match(playtestHtml, /data-tab="internet"/);
+  assert.match(playtestHtml, /data-tab="recent"/);
+  assert.match(playtestHtml, /data-tab="favorites"/);
+  assert.match(playtestHtml, /data-sort="players"/);
   assert.match(playtestHtml, /id="playtest-registry-url"/);
   assert.match(playtestHtml, /id="playtest-registry-refresh"/);
   assert.match(playtestHtml, /id="playtest-server-list"/);
   assert.match(playtestHtml, /id="playtest-menu-status"/);
   assert.match(playtestHtml, /id="playtest-manual-join"/);
   assert.match(playtestHtml, /id="playtest-menu-connect"/);
+  assert.match(playtestHtml, /id="playtest-setting-sensitivity"/);
+  assert.match(playtestHtml, /id="playtest-setting-fov"/);
   assert.match(playtestHtml, /apps\/client\/dist\/playtest\/main\.js/);
   assert.match(playtestHtml, /packages\/shared\/dist\/index\.js/);
   assert.match(playtestHtml, /node_modules\/three\/build\/three\.module\.js/);
@@ -266,14 +276,15 @@ try {
   assert.match(playtestSource, /createGreyboxLayout/);
   assert.match(playtestSource, /createScoreboardPresentation/);
   assert.match(playtestSource, /createRosterPresentation/);
-  assert.match(playtestSource, /createServerBrowserView/);
+  assert.match(playtestSource, /buildServerBrowserEntries/);
   assert.match(playtestSource, /fetchRegistryMatches/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const serverBrowserModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/server-browser.js`);
   const serverBrowserSource = await serverBrowserModule.text();
   assert.equal(serverBrowserModule.status, 200);
-  assert.match(serverBrowserSource, /createServerBrowserView/);
+  assert.match(serverBrowserSource, /buildServerBrowserEntries/);
+  assert.match(serverBrowserSource, /sortServerBrowserEntries/);
   assert.match(serverBrowserSource, /parseManualJoinTarget/);
   assert.match(serverBrowserSource, /fetchRegistryMatches/);
 

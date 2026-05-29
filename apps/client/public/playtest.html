@@ -38,20 +38,75 @@
       <section class="playtest-stage" aria-label="Networked renderer playtest view">
         <canvas id="playtest-canvas"></canvas>
         <section id="playtest-menu" class="playtest-menu" data-visible="true" aria-label="Main menu">
-          <div class="playtest-menu-panel">
-            <h2 class="playtest-menu-title">Breachline</h2>
-            <p class="playtest-menu-subtitle">Server Browser</p>
-            <div class="playtest-menu-registry">
-              <input id="playtest-registry-url" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="Registry address (http://host:8788)" />
-              <button id="playtest-registry-refresh" class="playtest-menu-button" type="button">Refresh</button>
-            </div>
-            <ul id="playtest-server-list" class="playtest-server-list" aria-label="Available matches"></ul>
-            <p id="playtest-menu-status" class="playtest-menu-status" role="status"></p>
-            <div class="playtest-menu-manual">
-              <input id="playtest-manual-join" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="ws://host:8787 or paste a join link" />
-              <button id="playtest-menu-connect" class="playtest-menu-button playtest-menu-button-primary" type="button">Connect</button>
-            </div>
-            <p class="playtest-menu-hint">WASD move · mouse aim · click fire · R reload · Space jump · Ctrl/C crouch</p>
+          <div class="playtest-menu-frame">
+            <header class="playtest-menu-header">
+              <div class="playtest-menu-brand">
+                <span class="playtest-menu-wordmark">BREACHLINE</span>
+                <span id="playtest-menu-build" class="playtest-menu-build"></span>
+              </div>
+              <nav class="playtest-menu-nav" aria-label="Menu sections">
+                <button class="playtest-nav-button" data-panel="servers" data-active="true" type="button">Find Servers</button>
+                <button class="playtest-nav-button" data-panel="settings" data-active="false" type="button">Settings</button>
+                <button class="playtest-nav-button" data-panel="controls" data-active="false" type="button">Controls</button>
+              </nav>
+            </header>
+
+            <section class="playtest-menu-section" data-panel="servers" data-active="true">
+              <div class="playtest-browser-tabs" role="tablist" aria-label="Server source">
+                <button class="playtest-browser-tab" data-tab="internet" data-active="true" type="button">Internet (<span data-count="internet">0</span>)</button>
+                <button class="playtest-browser-tab" data-tab="recent" data-active="false" type="button">Recent (<span data-count="recent">0</span>)</button>
+                <button class="playtest-browser-tab" data-tab="favorites" data-active="false" type="button">Favorites (<span data-count="favorites">0</span>)</button>
+              </div>
+              <div class="playtest-browser-table">
+                <div class="playtest-browser-head">
+                  <span class="bcol bcol-lock"></span>
+                  <button class="bcol bcol-name playtest-sort" data-sort="name" type="button">Server</button>
+                  <button class="bcol bcol-players playtest-sort" data-sort="players" type="button">Players</button>
+                  <button class="bcol bcol-map playtest-sort" data-sort="map" type="button">Map</button>
+                  <button class="bcol bcol-ping playtest-sort" data-sort="ping" type="button">Ping</button>
+                  <span class="bcol bcol-fav"></span>
+                </div>
+                <ul id="playtest-server-list" class="playtest-browser-rows" aria-label="Available matches"></ul>
+              </div>
+              <p id="playtest-menu-status" class="playtest-menu-status" role="status"></p>
+              <div class="playtest-browser-actionbar">
+                <input id="playtest-registry-url" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="Registry (http://host:8788)" />
+                <button id="playtest-registry-refresh" class="playtest-menu-button" type="button">Refresh</button>
+                <span class="playtest-actionbar-spacer"></span>
+                <input id="playtest-manual-join" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="ws://host:8787 or join link" />
+                <button id="playtest-menu-connect" class="playtest-menu-button playtest-menu-button-primary" type="button">Connect</button>
+              </div>
+            </section>
+
+            <section class="playtest-menu-section" data-panel="settings" data-active="false">
+              <div class="playtest-setting-row">
+                <label for="playtest-setting-sensitivity">Mouse sensitivity</label>
+                <input id="playtest-setting-sensitivity" type="range" min="0.25" max="3" step="0.05" value="1" />
+                <output id="playtest-setting-sensitivity-value" class="playtest-setting-value">1.00</output>
+              </div>
+              <div class="playtest-setting-row">
+                <label for="playtest-setting-fov">Field of view</label>
+                <input id="playtest-setting-fov" type="range" min="70" max="110" step="1" value="74" />
+                <output id="playtest-setting-fov-value" class="playtest-setting-value">74</output>
+              </div>
+              <p class="playtest-menu-hint">Settings are saved on this device and applied immediately.</p>
+            </section>
+
+            <section class="playtest-menu-section" data-panel="controls" data-active="false">
+              <ul class="playtest-controls-list">
+                <li><span class="playtest-control-key">WASD</span><span>Move</span></li>
+                <li><span class="playtest-control-key">Mouse</span><span>Aim</span></li>
+                <li><span class="playtest-control-key">Left Click</span><span>Fire</span></li>
+                <li><span class="playtest-control-key">R</span><span>Reload</span></li>
+                <li><span class="playtest-control-key">Space</span><span>Jump</span></li>
+                <li><span class="playtest-control-key">Ctrl / C</span><span>Crouch</span></li>
+                <li><span class="playtest-control-key">`</span><span>Toggle diagnostics</span></li>
+              </ul>
+            </section>
+
+            <footer class="playtest-menu-footer">
+              <span class="playtest-menu-hint">Double-click a server to join, or select one and press Connect.</span>
+            </footer>
           </div>
         </section>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>

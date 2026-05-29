@@ -80,14 +80,29 @@ import {
 } from "./scoreboard-presentation.js";
 import {
   SERVER_BROWSER_BUILD_ID,
+  SERVER_BROWSER_TABS,
   addRecentServer,
-  createServerBrowserView,
+  buildServerBrowserEntries,
+  countServerBrowserTabs,
   fetchRegistryMatches,
+  filterServerBrowserEntriesByTab,
+  formatMapCell,
+  formatPingCell,
+  formatPlayersCell,
   parseManualJoinTarget,
+  readFavoriteServers,
   readRecentServers,
+  resolveMenuPanel,
+  sortServerBrowserEntries,
+  toggleFavoriteServer,
+  type FavoriteServerEntry,
+  type MenuPanel,
   type RecentServerEntry,
   type RegistryMatchListing,
-  type ServerBrowserRow
+  type ServerBrowserEntry,
+  type ServerBrowserTab,
+  type ServerSortDirection,
+  type ServerSortKey
 } from "./server-browser.js";
 
 declare global {
@@ -203,12 +218,21 @@ const urlInput = requireInput("playtest-server-url");
 const connectButton = requireButton("playtest-connect");
 const disconnectButton = requireButton("playtest-disconnect");
 const menuEl = requireElement("playtest-menu");
+const menuBuildEl = requireElement("playtest-menu-build");
 const registryUrlInput = requireInput("playtest-registry-url");
 const registryRefreshButton = requireButton("playtest-registry-refresh");
 const serverListEl = requireElement("playtest-server-list");
 const menuStatusEl = requireElement("playtest-menu-status");
 const manualJoinInput = requireInput("playtest-manual-join");
 const menuConnectButton = requireButton("playtest-menu-connect");
+const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-nav-button"));
+const menuSections = Array.from(document.querySelectorAll<HTMLElement>(".playtest-menu-section"));
+const browserTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-browser-tab"));
+const sortButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-sort"));
+const settingsSensitivityInput = requireInput("playtest-setting-sensitivity");
+const settingsSensitivityValueEl = requireElement("playtest-setting-sensitivity-value");
+const settingsFovInput = requireInput("playtest-setting-fov");
+const settingsFovValueEl = requireElement("playtest-setting-fov-value");
 const localEntityEl = requireElement("playtest-local-entity");
 const serverPositionEl = requireElement("playtest-server-position");
 const predictedPositionEl = requireElement("playtest-predicted-position");
@@ -308,9 +332,23 @@ let remotePresentationTargetCenterCount = 0;
 
 const RECENT_SERVERS_STORAGE_KEY = "breachline.recentServers";
 const REGISTRY_URL_STORAGE_KEY = "breachline.registryUrl";
+const FAVORITE_SERVERS_STORAGE_KEY = "breachline.favoriteServers";
+const SENSITIVITY_STORAGE_KEY = "breachline.sensitivity";
+const FOV_STORAGE_KEY = "breachline.fov";
+const BASE_LOOK_RADIANS_PER_PIXEL = 0.0025;
+const DEFAULT_FIELD_OF_VIEW = 74;
 let recentServers: readonly RecentServerEntry[] = loadRecentServers();
+let favoriteServers: readonly FavoriteServerEntry[] = loadFavoriteServers();
 let registryMatches: readonly RegistryMatchListing[] = [];
 let pendingConnect: { joinUrl: string; name: string } | undefined;
+let activeMenuPanel: MenuPanel = "servers";
+let activeServerTab: ServerBrowserTab = "internet";
+let serverSortKey: ServerSortKey = "players";
+let serverSortDirection: ServerSortDirection = "desc";
+let selectedJoinUrl: string | undefined;
+let lookSensitivity = loadSensitivity();
+let fieldOfView = loadFieldOfView();
+let activeCamera: THREE.PerspectiveCamera | undefined;
 
 urlInput.value = `ws://${globalThis.location.host}`;
 manualJoinInput.value = `ws://${globalThis.location.host}`;
@@ -326,7 +364,7 @@ registryRefreshButton.addEventListener("click", () => {
   void refreshServerBrowser();
 });
 menuConnectButton.addEventListener("click", () => {
-  connectFromManualEntry();
+  connectToSelectedServer();
 });
 manualJoinInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
@@ -338,6 +376,44 @@ registryUrlInput.addEventListener("keydown", (event) => {
     void refreshServerBrowser();
   }
 });
+menuBuildEl.textContent = SERVER_BROWSER_BUILD_ID;
+for (const button of navButtons) {
+  button.addEventListener("click", () => {
+    setActiveMenuPanel(resolveMenuPanel(button.dataset.panel));
+  });
+}
+for (const button of browserTabButtons) {
+  button.addEventListener("click", () => {
+    const tab = button.dataset.tab;
+    if (tab !== undefined && (SERVER_BROWSER_TABS as readonly string[]).includes(tab)) {
+      setActiveServerTab(tab as ServerBrowserTab);
+    }
+  });
+}
+for (const button of sortButtons) {
+  button.addEventListener("click", () => {
+    const key = button.dataset.sort;
+    if (key === "name" || key === "players" || key === "map" || key === "ping") {
+      toggleServerSort(key);
+    }
+  });
+}
+settingsSensitivityInput.value = lookSensitivity.toFixed(2);
+settingsFovInput.value = String(fieldOfView);
+applySettingsReadouts();
+settingsSensitivityInput.addEventListener("input", () => {
+  lookSensitivity = clampSensitivity(Number(settingsSensitivityInput.value));
+  persistSetting(SENSITIVITY_STORAGE_KEY, lookSensitivity);
+  applySettingsReadouts();
+});
+settingsFovInput.addEventListener("input", () => {
+  fieldOfView = clampFieldOfView(Number(settingsFovInput.value));
+  persistSetting(FOV_STORAGE_KEY, fieldOfView);
+  applyFieldOfView();
+  applySettingsReadouts();
+});
+setActiveMenuPanel("servers");
+applyServerSortIndicators();
 renderServerBrowser();
 void refreshServerBrowser();
 diagnosticsToggleEl.addEventListener("click", () => {
@@ -365,8 +441,9 @@ try {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#111719");
 
-  const camera = new THREE.PerspectiveCamera(74, 1, 0.05, 220);
+  const camera = new THREE.PerspectiveCamera(fieldOfView, 1, 0.05, 220);
   camera.rotation.order = "YXZ";
+  activeCamera = camera;
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -414,8 +491,9 @@ try {
       return;
     }
 
-    yawRadians = normalizeYaw(yawRadians - event.movementX * 0.0025);
-    pitchRadians = clamp(pitchRadians - event.movementY * 0.0025, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
+    const step = BASE_LOOK_RADIANS_PER_PIXEL * lookSensitivity;
+    yawRadians = normalizeYaw(yawRadians - event.movementX * step);
+    pitchRadians = clamp(pitchRadians - event.movementY * step, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
   });
   document.addEventListener("keydown", (event) => {
     if (event.code === "Backquote") {
@@ -553,12 +631,29 @@ function connectFromManualEntry(): void {
   void connectToServer(parsed.joinUrl, parsed.joinUrl);
 }
 
+function connectToSelectedServer(): void {
+  if (selectedJoinUrl === undefined) {
+    connectFromManualEntry();
+    return;
+  }
+  const entry = currentServerEntries().find((candidate) => candidate.joinUrl === selectedJoinUrl);
+  if (entry === undefined) {
+    connectFromManualEntry();
+    return;
+  }
+  if (entry.full) {
+    setMenuStatus(`${entry.name} is full.`);
+    return;
+  }
+  void connectToServer(entry.joinUrl, entry.name);
+}
+
 async function refreshServerBrowser(): Promise<void> {
   const registryUrl = registryUrlInput.value.trim();
   persistRegistryUrl(registryUrl);
   if (registryUrl.length === 0) {
     registryMatches = [];
-    setMenuStatus("Showing recent servers. Set a registry address to browse public matches.");
+    setMenuStatus("Set a registry address to browse public matches, or use Recent / Favorites.");
     renderServerBrowser();
     return;
   }
@@ -574,48 +669,150 @@ async function refreshServerBrowser(): Promise<void> {
 
   registryMatches = result.matches;
   setMenuStatus(
-    result.matches.length === 0 ? "No public matches right now." : `${result.matches.length} match(es) available.`
+    result.matches.length === 0 ? "No public matches right now." : `${result.matches.length} match(es) on the registry.`
   );
   renderServerBrowser();
 }
 
+function currentServerEntries(): readonly ServerBrowserEntry[] {
+  return buildServerBrowserEntries({ registryMatches, recentServers, favorites: favoriteServers });
+}
+
 function renderServerBrowser(): void {
-  const view = createServerBrowserView({ registryMatches, recentServers });
-  if (view.isEmpty) {
+  const allEntries = currentServerEntries();
+  updateServerTabCounts(allEntries);
+
+  const tabEntries = filterServerBrowserEntriesByTab(allEntries, activeServerTab);
+  const sorted = sortServerBrowserEntries(tabEntries, serverSortKey, serverSortDirection);
+
+  if (sorted.length === 0) {
     const empty = document.createElement("li");
     empty.className = "playtest-server-empty";
-    empty.textContent =
-      registryUrlInput.value.trim().length === 0
-        ? "No recent matches. Set a registry address or paste a join link below."
-        : "No matches found. Refresh, or paste a join link below.";
+    empty.textContent = emptyTabMessage();
     serverListEl.replaceChildren(empty);
     return;
   }
-  serverListEl.replaceChildren(...view.rows.map((row) => createServerRow(row)));
+
+  serverListEl.replaceChildren(...sorted.map((entry) => createServerRow(entry)));
 }
 
-function createServerRow(row: ServerBrowserRow): HTMLLIElement {
-  const item = document.createElement("li");
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "playtest-server-row";
-  button.dataset.source = row.source;
-  button.disabled = row.full;
+function emptyTabMessage(): string {
+  if (activeServerTab === "favorites") {
+    return "No favorites yet. Star a server with ☆ to keep it here.";
+  }
+  if (activeServerTab === "recent") {
+    return "No recent servers yet. Join one and it shows up here.";
+  }
+  return registryUrlInput.value.trim().length === 0
+    ? "Set a registry address and Refresh, or paste a join link below."
+    : "No matches found. Refresh, or paste a join link below.";
+}
 
-  const name = document.createElement("span");
-  name.className = "playtest-server-name";
-  name.textContent = row.name;
+function createServerRow(entry: ServerBrowserEntry): HTMLLIElement {
+  const row = document.createElement("li");
+  row.className = "playtest-server-row";
+  row.tabIndex = 0;
+  row.dataset.selected = entry.joinUrl === selectedJoinUrl ? "true" : "false";
+  row.dataset.full = entry.full ? "true" : "false";
 
-  const detail = document.createElement("span");
-  detail.className = "playtest-server-detail";
-  detail.textContent = row.full ? `${row.detail} · full` : row.detail;
+  const lock = cell("bcol bcol-lock", entry.locked ? "🔒" : "");
+  const name = cell("bcol bcol-name", entry.name);
+  name.title = entry.joinUrl;
+  const players = cell("bcol bcol-players", formatPlayersCell(entry));
+  const map = cell("bcol bcol-map", formatMapCell(entry));
+  const ping = cell("bcol bcol-ping", formatPingCell(entry.ping));
 
-  button.append(name, detail);
-  button.addEventListener("click", () => {
-    void connectToServer(row.joinUrl, row.name);
+  const favWrap = document.createElement("span");
+  favWrap.className = "bcol bcol-fav";
+  const fav = document.createElement("button");
+  fav.type = "button";
+  fav.className = "playtest-fav-toggle";
+  fav.dataset.favorite = entry.isFavorite ? "true" : "false";
+  fav.textContent = entry.isFavorite ? "★" : "☆";
+  fav.title = entry.isFavorite ? "Remove from favorites" : "Add to favorites";
+  fav.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleFavoriteFor(entry);
   });
-  item.append(button);
-  return item;
+  favWrap.append(fav);
+
+  row.append(lock, name, players, map, ping, favWrap);
+  row.addEventListener("click", () => {
+    selectedJoinUrl = entry.joinUrl;
+    renderServerBrowser();
+  });
+  row.addEventListener("dblclick", () => {
+    if (entry.full) {
+      setMenuStatus(`${entry.name} is full.`);
+      return;
+    }
+    void connectToServer(entry.joinUrl, entry.name);
+  });
+  return row;
+}
+
+function cell(className: string, text: string): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+function toggleFavoriteFor(entry: ServerBrowserEntry): void {
+  favoriteServers = toggleFavoriteServer(favoriteServers, { joinUrl: entry.joinUrl, name: entry.name });
+  persistFavoriteServers();
+  renderServerBrowser();
+}
+
+function updateServerTabCounts(entries: readonly ServerBrowserEntry[]): void {
+  const counts = countServerBrowserTabs(entries);
+  for (const tab of SERVER_BROWSER_TABS) {
+    const countEl = document.querySelector<HTMLElement>(`[data-count="${tab}"]`);
+    if (countEl !== null) {
+      countEl.textContent = String(counts[tab]);
+    }
+  }
+}
+
+function setActiveMenuPanel(panel: MenuPanel): void {
+  activeMenuPanel = panel;
+  for (const button of navButtons) {
+    button.dataset.active = button.dataset.panel === panel ? "true" : "false";
+  }
+  for (const section of menuSections) {
+    section.dataset.active = section.dataset.panel === panel ? "true" : "false";
+  }
+}
+
+function setActiveServerTab(tab: ServerBrowserTab): void {
+  activeServerTab = tab;
+  selectedJoinUrl = undefined;
+  for (const button of browserTabButtons) {
+    button.dataset.active = button.dataset.tab === tab ? "true" : "false";
+  }
+  renderServerBrowser();
+}
+
+function toggleServerSort(key: ServerSortKey): void {
+  if (serverSortKey === key) {
+    serverSortDirection = serverSortDirection === "asc" ? "desc" : "asc";
+  } else {
+    serverSortKey = key;
+    // Text columns read best ascending; numeric columns most-first.
+    serverSortDirection = key === "name" || key === "map" ? "asc" : "desc";
+  }
+  applyServerSortIndicators();
+  renderServerBrowser();
+}
+
+function applyServerSortIndicators(): void {
+  for (const button of sortButtons) {
+    if (button.dataset.sort === serverSortKey) {
+      button.dataset.direction = serverSortDirection;
+    } else {
+      delete button.dataset.direction;
+    }
+  }
 }
 
 function recordConnectedServer(): void {
@@ -642,21 +839,55 @@ function setMenuStatus(text: string): void {
   menuStatusEl.textContent = text;
 }
 
-function loadRecentServers(): readonly RecentServerEntry[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(RECENT_SERVERS_STORAGE_KEY);
-    return raw === null || raw === undefined ? [] : readRecentServers(JSON.parse(raw));
-  } catch {
-    return [];
+function applySettingsReadouts(): void {
+  settingsSensitivityValueEl.textContent = lookSensitivity.toFixed(2);
+  settingsFovValueEl.textContent = String(fieldOfView);
+}
+
+function applyFieldOfView(): void {
+  if (activeCamera === undefined) {
+    return;
   }
+  activeCamera.fov = fieldOfView;
+  activeCamera.updateProjectionMatrix();
+}
+
+function clampSensitivity(value: number): number {
+  return Number.isFinite(value) ? Math.min(3, Math.max(0.25, value)) : 1;
+}
+
+function clampFieldOfView(value: number): number {
+  return Number.isFinite(value) ? Math.min(110, Math.max(70, Math.round(value))) : DEFAULT_FIELD_OF_VIEW;
+}
+
+function loadRecentServers(): readonly RecentServerEntry[] {
+  return readRecentServers(readStoredJson(RECENT_SERVERS_STORAGE_KEY));
 }
 
 function persistRecentServers(): void {
-  try {
-    globalThis.localStorage?.setItem(RECENT_SERVERS_STORAGE_KEY, JSON.stringify(recentServers));
-  } catch {
-    // Storage may be unavailable (private mode); recent servers are best-effort.
-  }
+  writeStored(RECENT_SERVERS_STORAGE_KEY, JSON.stringify(recentServers));
+}
+
+function loadFavoriteServers(): readonly FavoriteServerEntry[] {
+  return readFavoriteServers(readStoredJson(FAVORITE_SERVERS_STORAGE_KEY));
+}
+
+function persistFavoriteServers(): void {
+  writeStored(FAVORITE_SERVERS_STORAGE_KEY, JSON.stringify(favoriteServers));
+}
+
+function loadSensitivity(): number {
+  const raw = readStored(SENSITIVITY_STORAGE_KEY);
+  return raw === undefined ? 1 : clampSensitivity(Number(raw));
+}
+
+function loadFieldOfView(): number {
+  const raw = readStored(FOV_STORAGE_KEY);
+  return raw === undefined ? DEFAULT_FIELD_OF_VIEW : clampFieldOfView(Number(raw));
+}
+
+function persistSetting(key: string, value: number): void {
+  writeStored(key, String(value));
 }
 
 function loadRegistryUrl(): string {
@@ -665,17 +896,41 @@ function loadRegistryUrl(): string {
     if (fromQuery !== null && fromQuery.trim().length > 0) {
       return fromQuery.trim();
     }
-    return globalThis.localStorage?.getItem(REGISTRY_URL_STORAGE_KEY) ?? "";
   } catch {
-    return "";
+    // Ignore malformed query strings.
   }
+  return readStored(REGISTRY_URL_STORAGE_KEY) ?? "";
 }
 
 function persistRegistryUrl(value: string): void {
+  writeStored(REGISTRY_URL_STORAGE_KEY, value);
+}
+
+function readStoredJson(key: string): unknown {
+  const raw = readStored(key);
+  if (raw === undefined) {
+    return undefined;
+  }
   try {
-    globalThis.localStorage?.setItem(REGISTRY_URL_STORAGE_KEY, value);
+    return JSON.parse(raw);
   } catch {
-    // Best-effort persistence only.
+    return undefined;
+  }
+}
+
+function readStored(key: string): string | undefined {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+  } catch {
+    // Storage may be unavailable (private mode); persistence is best-effort.
   }
 }
 
