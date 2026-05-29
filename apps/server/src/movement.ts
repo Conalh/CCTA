@@ -7,7 +7,8 @@ import {
   type ClientInputMessage
 } from "@breachline/shared";
 
-export const DEFAULT_PLAYER_MOVE_SPEED_METERS_PER_SECOND = 3.6 as const;
+// Run speed, tuned by feel: the original 3.6 m/s plus a 10% boost (3.6 * 1.1).
+export const DEFAULT_PLAYER_MOVE_SPEED_METERS_PER_SECOND = 3.96 as const;
 export const DEFAULT_MAX_MOVEMENT_DELTA_SECONDS = 0.1 as const;
 
 export type PlayerMovementState = Readonly<{

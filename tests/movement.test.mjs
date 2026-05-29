@@ -54,8 +54,8 @@ test("default server movement speed is tuned for the current playtest feel", () 
     }
   );
 
-  assert.equal(server.DEFAULT_PLAYER_MOVE_SPEED_METERS_PER_SECOND, 3.6);
-  assert.equal(Math.abs(moved.z + 3.6) < 0.000001, true);
+  assert.equal(server.DEFAULT_PLAYER_MOVE_SPEED_METERS_PER_SECOND, 3.96);
+  assert.equal(Math.abs(moved.z + 3.96) < 0.000001, true);
 });
 
 test("movement clamps oversized fixed-tick delta and ignores invalid values", () => {

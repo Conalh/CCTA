@@ -100,8 +100,8 @@ test("client prediction default speed matches the tuned server movement feel", (
     }
   );
 
-  assert.equal(DEFAULT_CLIENT_PREDICTION_SPEED_METERS_PER_SECOND, 3.6);
-  assert.equal(Math.abs(predicted.predictedPose.z + 3.6) < 0.000001, true);
+  assert.equal(DEFAULT_CLIENT_PREDICTION_SPEED_METERS_PER_SECOND, 3.96);
+  assert.equal(Math.abs(predicted.predictedPose.z + 3.96) < 0.000001, true);
 });
 
 test("client prediction reconciles to server authority and replays unacknowledged input", () => {

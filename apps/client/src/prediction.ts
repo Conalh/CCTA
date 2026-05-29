@@ -8,7 +8,9 @@ import {
 } from "@breachline/shared";
 
 export const DEFAULT_CLIENT_PREDICTION_STEP_SECONDS = 1 / 60;
-export const DEFAULT_CLIENT_PREDICTION_SPEED_METERS_PER_SECOND = 3.6;
+// Mirrors the server run speed (DEFAULT_PLAYER_MOVE_SPEED_METERS_PER_SECOND) so
+// prediction stays in parity; the server owns the authoritative value.
+export const DEFAULT_CLIENT_PREDICTION_SPEED_METERS_PER_SECOND = 3.96;
 export const DEFAULT_CLIENT_PREDICTION_HISTORY_LIMIT = 64;
 
 export type ClientPredictedPose = Readonly<{
