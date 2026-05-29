@@ -705,6 +705,65 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   });
 });
 
+test("server runtime broadcasts authoritative match stats when a kill is confirmed", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("stats-a");
+  const second = createFakeTransportSession("stats-b");
+
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({
+      kind: "protocol.hello",
+      protocolVersion: PROTOCOL_VERSION,
+      clientName: transport.session.id
+    });
+  }
+  runtime.step(5, 1016);
+
+  // No kill has happened yet, so no stat line has been broadcast.
+  assert.equal(first.sent.some((message) => message.kind === "server.match.stats"), false);
+  assert.equal(second.sent.some((message) => message.kind === "server.match.stats"), false);
+
+  // Two accepted hits from full health drop the target; only the lethal shot publishes stats.
+  for (const sequence of [1, 2]) {
+    first.receive(
+      createClientFireIntent({
+        sequence,
+        clientTimeMs: 1040 + sequence,
+        clientTick: 5,
+        yaw: -Math.PI / 2,
+        pitch: 0
+      })
+    );
+  }
+
+  assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).alive, false);
+
+  const expectedStats = {
+    kind: "server.match.stats",
+    serverTick: 5,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, kills: 1, deaths: 0 },
+      { sessionId: 2, kills: 0, deaths: 1 }
+    ]
+  };
+
+  // Exactly one broadcast (on the lethal shot, not the first wounding hit) reaches every session.
+  const firstStats = first.sent.filter((message) => message.kind === "server.match.stats");
+  const secondStats = second.sent.filter((message) => message.kind === "server.match.stats");
+  assert.equal(firstStats.length, 1);
+  assert.equal(secondStats.length, 1);
+  assert.deepEqual(firstStats[0], expectedStats);
+  assert.deepEqual(secondStats[0], expectedStats);
+  assert.deepEqual(runtime.getMatchStats(5), expectedStats);
+});
+
 test("server runtime ignores a duplicate hello and keeps authoritative combat and input state", () => {
   const runtime = createServerRuntime({
     tickRateHz: 20,

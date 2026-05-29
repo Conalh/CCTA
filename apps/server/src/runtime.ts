@@ -1,4 +1,5 @@
 import {
+  COMBAT_EVENT_KIND,
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
   createServerSnapshotPlaceholder,
@@ -20,6 +21,7 @@ import {
   type ProtocolRejectMessage,
   type ServerCombatStateMessage,
   type ServerLoadoutStateMessage,
+  type ServerMatchStatsMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
   type ServerTickMessage
@@ -58,6 +60,7 @@ import {
   type RoundState,
   type RoundStateConfig
 } from "./round-state.js";
+import { createMatchStats } from "./match-stats.js";
 
 export type ServerClock = () => number;
 
@@ -98,6 +101,7 @@ export type ServerRuntime = Readonly<{
   getCombatState(sessionId: number, serverTick?: number): ServerCombatStateMessage | undefined;
   getLoadoutState(sessionId: number, serverTick?: number): ServerLoadoutStateMessage | undefined;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
+  getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   step(tick: number, serverTimeMs?: number): void;
   close(): void;
 }>;
@@ -123,6 +127,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getDamagePerHit: (sessionId) => loadoutState.getCombatDamagePerHit(sessionId)
   });
   const roundState = createRoundState(config.round);
+  const matchStats = createMatchStats();
   let lastServerTick = 0;
 
   function attachSession(transport: MessageTransport): void {
@@ -144,6 +149,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       if (hadMatchSlot) {
         loadoutState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         combatState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
+        matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchSession.disconnect(transport.id);
       }
@@ -225,6 +231,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       sessionId: assignment.sessionId,
       entityId: worldEntity.entityId
     });
+    matchStats.assignSession(assignment.sessionId);
     session.transport.send(response);
     session.transport.send(createMatchAssignedMessage(assignment));
     sendCombatStateToSession(assignment.sessionId);
@@ -304,6 +311,19 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
   function getRoundState(serverTick = lastServerTick): ServerRoundStateMessage {
     return roundState.createStateMessage(serverTick);
+  }
+
+  function getMatchStats(serverTick = lastServerTick): ServerMatchStatsMessage {
+    return matchStats.createStateMessage(serverTick);
+  }
+
+  function broadcastMatchStats(): void {
+    const message = matchStats.createStateMessage(lastServerTick);
+    for (const session of sessions.values()) {
+      if (session.accepted) {
+        session.transport.send(message);
+      }
+    }
   }
 
   function broadcastMatchUpdate(): void {
@@ -388,6 +408,13 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     const combatResult = combatState.applyFireResult(validation.result);
     if (combatResult.applied && combatResult.state !== undefined) {
       sendCombatStateToSession(combatResult.state.targetSessionId);
+      if (combatResult.state.lastEventKind === COMBAT_EVENT_KIND.death) {
+        matchStats.recordKill({
+          killerSessionId: combatResult.state.sourceSessionId,
+          victimSessionId: combatResult.state.targetSessionId
+        });
+        broadcastMatchStats();
+      }
     }
   }
 
@@ -472,6 +499,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getCombatState,
     getLoadoutState,
     getRoundState,
+    getMatchStats,
     step,
     close
   };

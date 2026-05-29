@@ -42,7 +42,11 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 33. Renderer-only round/combat playtest presentation.
 34. Local two-player playtest harness.
 35. Local loop-feel review and tuning.
-36. **Current: Local network-condition simulation.**
+36. Local network-condition simulation.
+
+## Gameplay Milestones
+
+37. **Current: Server-authoritative kill/death stats feed (first gameplay-meaning slice).**
 
 ## Phase 8 Status
 
@@ -419,21 +423,35 @@ Phase 36 is current when validation passes because:
 - Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, and round authority remain intact.
 - WebTransport status remains honest.
 
+## Phase 37 Status
+
+Phase 37 is current when validation passes because:
+
+- The proof spine is reviewed as fully server-authoritative, so the deliberate next step is match-level meaning rather than another presentation/diagnostics lane. This phase opens the gameplay milestone with the smallest honest slice: a server-owned kill/death stat feed.
+- The server tallies kills and deaths only from combat death events it already owns. A confirmed kill credits the killer and charges the victim a death; a self-inflicted or untracked-killer death charges only the victim death and never resurrects a tally for an unknown session.
+- The authoritative `server.match.stats` message reports a server tick, an entry count, and an insertion-ordered per-session `{ sessionId, kills, deaths }` line, encoded as a reliable control message in the shared binary protocol (uint16 count plus reserved pad plus fixed 12-byte records, mirroring the snapshot layout and its malformed-packet guards).
+- Stats are broadcast only when a kill is confirmed, never on join or leave, so existing message-kind ordering remains intact.
+- The client treats match stats as a diagnostics-only view-state field; it is reset on reconnect and adds no client-owned authority, no gameplay HUD, and no win/loss rule.
+- No new combat, damage, health, death, respawn, round, movement, collision, loadout, or transport behavior is introduced; this phase derives meaning purely from events the server already produces.
+- Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, and round authority remain intact.
+- WebTransport status remains honest.
+
 ## Transport Decision
 
 Phase 2 keeps WebTransport as the intended browser transport, but validates the runtime loop through a WebSocket fallback. The blocker is local WebTransport server support: this stack does not yet provide an HTTP/3 plus TLS server endpoint for browser WebTransport.
 
 ## Next Proof Milestone
 
-The next milestone is **use the Phase 36 network-condition harness evidence to choose the next renderer/playtest lane without adding new gameplay authority**.
+The next milestone is **surface the server-authoritative kill/death stats as a readable in-renderer scoreboard without granting the client any new authority**.
+
+The gameplay pivot is deliberate. With the proof spine confirmed fully server-authoritative, the project is now building match-level meaning. The kill/death stats feed (Phase 37) is the first slice: the server owns the tallies, the protocol carries them as a reliable broadcast, and the client only mirrors them. The next step makes that authoritative feed legible to a player, still as a read-only reflection of server truth.
 
 Expected proof:
 
-- The prototype is reviewed against measured local two-client browser connection, authority, diagnostics, networked renderer playtest, movement/collision evidence, round/combat readability, remote stand-in readability, first-person shell visibility, accepted hit/miss fire-result visual readability, reconnect cleanup, renderer-sandbox, optional private asset previews, curated preset usefulness, renderer-only arena dressing usefulness, private asset audit output, and private playtest feedback.
-- Keep, pivot, or rewrite recommendations are tied to Phase 36 baseline and impaired-profile harness evidence from the current prototype instead of speculative feature expansion.
-- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, and transport smokes remain intact.
-- The milestone does not add economy, matchmaking queue, ranked systems, persistence, art, objectives, weapon gameplay, gameplay HUD, or client-owned authority.
+- The renderer presents the authoritative `server.match.stats` entries (kills, deaths per session) as a read-only scoreboard, driven entirely by the broadcast and never recomputed client-side.
+- The scoreboard updates only from received stats messages, clears on reconnect, and never infers kills, deaths, or scores from local fire input or predicted state.
+- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 
-Do not add weapon gameplay, matchmaking queue, client-owned hits, client-owned damage/health/death, client-owned win/loss, ammo/reload simulation, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, ranked systems, or gameplay HUD during this milestone.
+The gameplay pivot does not relax server authority. Do not add client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, ammo/reload simulation, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, or ranked systems during this milestone. All match meaning continues to originate from events the server already owns.

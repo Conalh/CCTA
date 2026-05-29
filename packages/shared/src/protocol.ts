@@ -29,7 +29,8 @@ export const PACKET_KIND = {
   serverCombatState: 14,
   clientLoadoutSelect: 15,
   serverLoadoutState: 16,
-  serverRoundState: 17
+  serverRoundState: 17,
+  serverMatchStats: 18
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -131,7 +132,8 @@ export type ServerProtocolMessage =
   | ServerFireResultMessage
   | ServerCombatStateMessage
   | ServerLoadoutStateMessage
-  | ServerRoundStateMessage;
+  | ServerRoundStateMessage
+  | ServerMatchStatsMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -255,6 +257,19 @@ export type ServerRoundStateMessage = Readonly<{
   lastEventKind: RoundEventKind;
   lastEventTick: number;
   lastEventSequence: number;
+}>;
+
+export type MatchStatsEntry = Readonly<{
+  sessionId: number;
+  kills: number;
+  deaths: number;
+}>;
+
+export type ServerMatchStatsMessage = Readonly<{
+  kind: "server.match.stats";
+  serverTick: number;
+  entryCount: number;
+  entries: readonly MatchStatsEntry[];
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -449,6 +464,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerRoundStatePayload(message)
+      );
+    case "server.match.stats":
+      return writePacket(
+        PACKET_KIND.serverMatchStats,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerMatchStatsPayload(message)
       );
   }
 }
@@ -650,6 +672,14 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         lastEventTick: payload.getUint32(28, true),
         lastEventSequence: payload.getUint32(32, true)
       };
+    case PACKET_KIND.serverMatchStats:
+      requireServerMatchStatsPayloadLength(payloadLength);
+      return {
+        kind: "server.match.stats",
+        serverTick: sequenceOrTick,
+        entryCount: payload.getUint16(0, true),
+        entries: decodeMatchStatsEntries(payload, payloadLength)
+      };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
   }
@@ -845,6 +875,28 @@ function encodeServerRoundStatePayload(message: ServerRoundStateMessage): Uint8A
   return payload;
 }
 
+function encodeServerMatchStatsPayload(message: ServerMatchStatsMessage): Uint8Array {
+  const entryCount = readUint16(message.entryCount, "entryCount");
+  if (entryCount !== message.entries.length) {
+    throw new Error(`server.match.stats entry count ${entryCount} does not match ${message.entries.length} entries.`);
+  }
+
+  const payload = new Uint8Array(4 + message.entries.length * 12);
+  const view = new DataView(payload.buffer);
+  view.setUint16(0, entryCount, true);
+  view.setUint16(2, 0, true);
+
+  let offset = 4;
+  for (const entry of message.entries) {
+    view.setUint32(offset, readUint32(entry.sessionId, "sessionId"), true);
+    view.setUint32(offset + 4, readUint32(entry.kills, "kills"), true);
+    view.setUint32(offset + 8, readUint32(entry.deaths, "deaths"), true);
+    offset += 12;
+  }
+
+  return payload;
+}
+
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
 }
@@ -906,6 +958,37 @@ function decodeSnapshotEntities(payload: DataView, payloadLength: number): reado
     offset += 28;
   }
   return entities;
+}
+
+function requireServerMatchStatsPayloadLength(payloadLength: number): void {
+  if (payloadLength < 4) {
+    throw new Error(`server.match.stats payload length must be at least 4 bytes, got ${payloadLength}.`);
+  }
+
+  const entryPayloadLength = payloadLength - 4;
+  if (entryPayloadLength % 12 !== 0) {
+    throw new Error("server.match.stats entry payload length must be a multiple of 12 bytes.");
+  }
+}
+
+function decodeMatchStatsEntries(payload: DataView, payloadLength: number): readonly MatchStatsEntry[] {
+  const entryCount = payload.getUint16(0, true);
+  const recordCount = (payloadLength - 4) / 12;
+  if (entryCount !== recordCount) {
+    throw new Error(`server.match.stats entry count ${entryCount} does not match ${recordCount} entry records.`);
+  }
+
+  const entries: MatchStatsEntry[] = [];
+  let offset = 4;
+  for (let index = 0; index < entryCount; index += 1) {
+    entries.push({
+      sessionId: payload.getUint32(offset, true),
+      kills: payload.getUint32(offset + 4, true),
+      deaths: payload.getUint32(offset + 8, true)
+    });
+    offset += 12;
+  }
+  return entries;
 }
 
 function readPacketVersion(value: number): number {

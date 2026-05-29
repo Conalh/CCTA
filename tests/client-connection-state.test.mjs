@@ -1000,6 +1000,53 @@ test("connection state reducer tracks diagnostics-only round state", () => {
   assert.equal(state.lastRoundServerTick, 20);
 });
 
+test("connection state reducer tracks diagnostics-only match stats", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.deepEqual(state.matchStats, []);
+  assert.equal(state.lastMatchStatsServerTick, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.match.stats",
+      serverTick: 42,
+      entryCount: 2,
+      entries: [
+        { sessionId: 1, kills: 3, deaths: 1 },
+        { sessionId: 2, kills: 1, deaths: 3 }
+      ]
+    }
+  });
+
+  assert.deepEqual(state.matchStats, [
+    { sessionId: 1, kills: 3, deaths: 1 },
+    { sessionId: 2, kills: 1, deaths: 3 }
+  ]);
+  assert.equal(state.lastMatchStatsServerTick, 42);
+});
+
+test("connection state reducer resets match stats on reconnect", () => {
+  let state = createInitialConnectionViewState(0);
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.match.stats",
+      serverTick: 42,
+      entryCount: 1,
+      entries: [{ sessionId: 1, kills: 2, deaths: 0 }]
+    }
+  });
+  state = reduceConnectionViewState(state, {
+    type: "connecting",
+    nowMs: 30
+  });
+
+  assert.deepEqual(state.matchStats, []);
+  assert.equal(state.lastMatchStatsServerTick, undefined);
+});
+
 test("connection state reducer resets round diagnostics on reconnect", () => {
   let state = createInitialConnectionViewState(0);
   state = reduceConnectionViewState(state, {

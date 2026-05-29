@@ -490,6 +490,58 @@ test("decodeProtocolMessage rejects malformed Phase 18 round state packets", () 
   assert.throws(() => decodeProtocolMessage(badLength), /Packet length mismatch/);
 });
 
+test("protocol helpers round-trip match stats messages", () => {
+  assert.equal(PACKET_KIND.serverMatchStats, 18);
+
+  const message = {
+    kind: "server.match.stats",
+    serverTick: 50,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, kills: 3, deaths: 1 },
+      { sessionId: 2, kills: 1, deaths: 3 }
+    ]
+  };
+
+  const encoded = encodeProtocolMessage(message);
+  const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength);
+  assert.equal(encoded[3], PACKET_KIND.serverMatchStats);
+  assert.equal(view.getUint32(8, true), 4 + 2 * 12);
+  assert.deepEqual(decodeProtocolMessage(encoded), message);
+
+  const empty = {
+    kind: "server.match.stats",
+    serverTick: 0,
+    entryCount: 0,
+    entries: []
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(empty)), empty);
+});
+
+test("decodeProtocolMessage rejects malformed match stats packets", () => {
+  const stats = encodeProtocolMessage({
+    kind: "server.match.stats",
+    serverTick: 50,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, kills: 3, deaths: 1 },
+      { sessionId: 2, kills: 1, deaths: 3 }
+    ]
+  });
+
+  const badEntryCount = patchPacket(stats, (packet) => {
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    view.setUint16(PACKET_HEADER_LENGTH, 3, true);
+  });
+  assert.throws(() => decodeProtocolMessage(badEntryCount), /entry count/i);
+
+  const badLength = patchPacket(stats, (packet) => {
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    view.setUint32(8, 8, true);
+  });
+  assert.throws(() => decodeProtocolMessage(badLength), /Packet length mismatch/);
+});
+
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {
   assert.equal(PACKET_KIND.inputAck, 11);
 

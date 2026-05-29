@@ -7,6 +7,7 @@ export * from "./hitscan.js";
 export * from "./combat-state.js";
 export * from "./loadout-state.js";
 export * from "./round-state.js";
+export * from "./match-stats.js";
 export * from "./static-client.js";
 export * from "./tick-loop.js";
 export * from "./transport-loop-server.js";
