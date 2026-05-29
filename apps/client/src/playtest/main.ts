@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   createClientFireIntent,
   createClientLoadoutSelect,
+  createClientWeaponReload,
   type MessageTransport
 } from "@breachline/shared";
 
@@ -165,6 +166,7 @@ declare global {
       connect(): Promise<void>;
       disconnect(): void;
       fire(): void;
+      reload(): void;
     }>;
   }
 }
@@ -230,6 +232,7 @@ let roundCombatPresentationState: RoundCombatPresentationState = createInitialRo
 let sequence = 0;
 let fireSequence = 0;
 let loadoutSequence = 0;
+let reloadSequence = 0;
 let yawRadians = 0;
 let pitchRadians = 0;
 let smoothedCameraPosition: readonly [number, number, number] | undefined;
@@ -274,7 +277,8 @@ window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__ = {
   disconnect: () => {
     disconnect("local diagnostics disconnect");
   },
-  fire: sendFireIntent
+  fire: sendFireIntent,
+  reload: sendReloadIntent
 };
 
 try {
@@ -334,6 +338,12 @@ try {
     pitchRadians = clamp(pitchRadians - event.movementY * 0.0025, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
   });
   document.addEventListener("keydown", (event) => {
+    if (event.code === "KeyR") {
+      event.preventDefault();
+      sendReloadIntent();
+      return;
+    }
+
     if (!isPlaytestInputKey(event.code)) {
       return;
     }
@@ -535,6 +545,21 @@ function sendLoadoutSelection(): void {
     createClientLoadoutSelect({
       sequence: loadoutSequence,
       profileId: DEFAULT_WEAPON_PROFILE_ID
+    })
+  );
+}
+
+function sendReloadIntent(): void {
+  if (transport === undefined) {
+    return;
+  }
+
+  // Reload is intent-only: the server decides whether a reload starts and owns
+  // ammo/reload state. The client never sets ammo or reload truth.
+  reloadSequence += 1;
+  transport.send(
+    createClientWeaponReload({
+      sequence: reloadSequence
     })
   );
 }

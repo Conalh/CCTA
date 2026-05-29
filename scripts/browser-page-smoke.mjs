@@ -224,6 +224,7 @@ try {
   assert.match(playtestSource, /createFirstPersonShellPresentation/);
   assert.match(playtestSource, /updateFireResultPresentationState/);
   assert.match(playtestSource, /createClientFireIntent/);
+  assert.match(playtestSource, /createClientWeaponReload/);
   assert.match(playtestSource, /fireResultExpiredEffectCount/);
   assert.match(playtestSource, /__BREACHLINE_PLAYTEST_DIAGNOSTICS__/);
   assert.match(playtestSource, /deriveNetworkedPlaytestAimAtRemote/);

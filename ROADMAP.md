@@ -619,7 +619,7 @@ What already exists (proven): server-authoritative connect, movement+collision o
 
 Milestones (each stays server-authoritative, original, and validated; HUD milestones are the deliberate, scoped place where the long-standing "no gameplay HUD" guard is relaxed for exactly the read-only feedback a player needs):
 
-52. **Human aim and fire controls.** Confirm/finish pointer-lock mouse-look aim, click-to-fire, and a reload key in `/playtest.html` driving the existing `client.fire`/reload intents (no new authority; the server still validates every shot). Prove a human-style input path in a focused test/harness hook.
+52. **Human aim and fire controls.** ✅ Done. Pointer-lock mouse-look aim and left-click-to-fire already existed; added a reload key (KeyR) and a `reload()` diagnostics hook sending the existing `client.weapon.reload` intent. Reload stays intent-only (server owns ammo/reload). The browser-page smoke guards the reload wiring.
 53. **Crosshair + hit feedback.** A minimal centered crosshair and a brief, read-only hitmarker driven only by server `server.fire.result` (hit/miss) — the shooter can tell when the server confirmed a hit. No client-decided hits.
 54. **Readable player HUD (deliberate HUD relaxation).** Read-only health, alive/dead state, and respawn countdown sourced straight from server combat/round state. This is where the contract's "no gameplay HUD" guard is intentionally narrowed to "read-only server-owned HUD only."
 55. **Weapon/ammo readout.** Read-only current weapon, magazine ammo, and reload progress from the existing `server.weapon.state` (the Phase 39 "no ammo HUD" guard is intentionally lifted to read-only display only).
