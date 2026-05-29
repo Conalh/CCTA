@@ -608,6 +608,28 @@ test("decodeProtocolMessage rejects malformed match roster packets", () => {
   assert.throws(() => decodeProtocolMessage(badLength), /Packet length mismatch/);
 });
 
+test("protocol helpers round-trip the Phase 57 server match result message", () => {
+  assert.equal(PACKET_KIND.serverMatchResult, 22);
+
+  const decided = {
+    kind: "server.match.result",
+    serverTick: 240,
+    matchOver: true,
+    winnerSessionId: 3,
+    killTarget: 10
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(decided)), decided);
+
+  const pending = {
+    kind: "server.match.result",
+    serverTick: 12,
+    matchOver: false,
+    winnerSessionId: 0,
+    killTarget: 10
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(pending)), pending);
+});
+
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {
   assert.equal(PACKET_KIND.inputAck, 11);
 

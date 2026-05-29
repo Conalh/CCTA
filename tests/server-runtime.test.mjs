@@ -817,6 +817,57 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   assert.deepEqual(runtime.getMatchStats(6), expectedStats);
 });
 
+test("server runtime declares a server-owned match winner at the kill target", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    matchKillTarget: 1,
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("matchend-a");
+  const second = createFakeTransportSession("matchend-b");
+
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({
+      kind: "protocol.hello",
+      protocolVersion: PROTOCOL_VERSION,
+      clientName: transport.session.id
+    });
+  }
+  runtime.step(5, 1016);
+
+  // No kill yet: the match is not over.
+  assert.equal(first.sent.some((message) => message.kind === "server.match.result"), false);
+  assert.equal(runtime.getMatchResult(5).matchOver, false);
+
+  // First hit wounds; lethal hit lands next tick (fire cadence blocks same-tick re-fire).
+  first.receive(
+    createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 })
+  );
+  runtime.step(6, 1020);
+  first.receive(
+    createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 6, yaw: -Math.PI / 2, pitch: 0 })
+  );
+
+  const expectedResult = {
+    kind: "server.match.result",
+    serverTick: 6,
+    matchOver: true,
+    winnerSessionId: 1,
+    killTarget: 1
+  };
+  const firstResults = first.sent.filter((message) => message.kind === "server.match.result");
+  const secondResults = second.sent.filter((message) => message.kind === "server.match.result");
+  assert.equal(firstResults.length, 1);
+  assert.equal(secondResults.length, 1);
+  assert.deepEqual(firstResults[0], expectedResult);
+  assert.deepEqual(secondResults[0], expectedResult);
+  assert.deepEqual(runtime.getMatchResult(6), expectedResult);
+});
+
 test("server runtime broadcasts an authoritative roster on join, loadout, leave, and round reset", () => {
   const runtime = createServerRuntime({
     tickRateHz: 2,

@@ -1047,6 +1047,34 @@ test("connection state reducer resets match stats on reconnect", () => {
   assert.equal(state.lastMatchStatsServerTick, undefined);
 });
 
+test("connection state reducer mirrors the server-owned match result and resets it on reconnect", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.matchOver, false);
+  assert.equal(state.matchWinnerSessionId, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.match.result",
+      serverTick: 240,
+      matchOver: true,
+      winnerSessionId: 1,
+      killTarget: 10
+    }
+  });
+  assert.equal(state.matchOver, true);
+  assert.equal(state.matchWinnerSessionId, 1);
+  assert.equal(state.matchKillTarget, 10);
+  assert.equal(state.lastMatchResultServerTick, 240);
+
+  state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
+  assert.equal(state.matchOver, false);
+  assert.equal(state.matchWinnerSessionId, undefined);
+  assert.equal(state.matchKillTarget, undefined);
+  assert.equal(state.lastMatchResultServerTick, undefined);
+});
+
 test("connection state reducer tracks diagnostics-only match roster", () => {
   let state = createInitialConnectionViewState(0);
   assert.deepEqual(state.matchRoster, []);

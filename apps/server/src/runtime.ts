@@ -23,6 +23,7 @@ import {
   type ServerCombatStateMessage,
   type ServerLoadoutStateMessage,
   type ServerMatchRosterMessage,
+  type ServerMatchResultMessage,
   type ServerMatchStatsMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
@@ -65,6 +66,7 @@ import {
   type RoundStateConfig
 } from "./round-state.js";
 import { createMatchStats } from "./match-stats.js";
+import { createMatchProgress } from "./match-progress.js";
 import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
@@ -78,6 +80,7 @@ export type ServerRuntimeConfig = Readonly<{
   firstWorldEntityId?: number;
   round?: RoundStateConfig;
   weapon?: WeaponStateConfig;
+  matchKillTarget?: number;
   now?: ServerClock;
 }>;
 
@@ -110,6 +113,7 @@ export type ServerRuntime = Readonly<{
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   getMatchRoster(serverTick?: number): ServerMatchRosterMessage;
+  getMatchResult(serverTick?: number): ServerMatchResultMessage;
   step(tick: number, serverTimeMs?: number): void;
   close(): void;
 }>;
@@ -137,6 +141,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   });
   const roundState = createRoundState(config.round);
   const matchStats = createMatchStats();
+  const matchProgress = createMatchProgress({ killTarget: config.matchKillTarget });
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -258,6 +263,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     broadcastMatchUpdate();
     broadcastMatchRoster();
+    if (matchProgress.isMatchOver()) {
+      session.transport.send(matchProgress.createResultMessage(lastServerTick));
+    }
   }
 
   function step(tick: number, serverTimeMs = now()): void {
@@ -356,8 +364,21 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     return playerRegistry.createRosterMessage(serverTick);
   }
 
+  function getMatchResult(serverTick = lastServerTick): ServerMatchResultMessage {
+    return matchProgress.createResultMessage(serverTick);
+  }
+
   function broadcastMatchStats(): void {
     const message = matchStats.createStateMessage(lastServerTick);
+    for (const session of sessions.values()) {
+      if (session.accepted) {
+        session.transport.send(message);
+      }
+    }
+  }
+
+  function broadcastMatchResult(): void {
+    const message = matchProgress.createResultMessage(lastServerTick);
     for (const session of sessions.values()) {
       if (session.accepted) {
         session.transport.send(message);
@@ -484,6 +505,10 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
           victimSessionId: combatResult.state.targetSessionId
         });
         broadcastMatchStats();
+        // The match win condition is decided only from server-owned kill tallies.
+        if (matchProgress.evaluate(matchStats.entries())) {
+          broadcastMatchResult();
+        }
       }
     }
   }
@@ -609,6 +634,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getRoundState,
     getMatchStats,
     getMatchRoster,
+    getMatchResult,
     step,
     close
   };

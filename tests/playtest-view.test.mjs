@@ -18,6 +18,7 @@ import {
   formatPlaytestMatchOccupancy,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
+  formatPlaytestMatchResult,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   NETWORKED_PLAYTEST_INPUT_RATE_HZ,
   classifyNetworkedPlaytestMotionContact,
@@ -334,6 +335,25 @@ test("networked playtest weapon readout resolves server-owned name and ammo with
   assert.equal(formatPlaytestWeaponAmmo(undefined, 30, false), "-");
   assert.equal(formatPlaytestWeaponAmmo(12, undefined, false), "-");
   assert.equal(formatPlaytestWeaponAmmo(-1, 30, false), "-");
+});
+
+test("networked playtest match result resolves the server-owned winner without client truth", () => {
+  const rosterEntries = [
+    { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
+    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1 }
+  ];
+
+  // Not over: no banner.
+  assert.equal(formatPlaytestMatchResult(false, undefined, rosterEntries), "-");
+  assert.equal(formatPlaytestMatchResult(undefined, 1, rosterEntries), "-");
+
+  // Over with a roster-resolved winner.
+  assert.equal(formatPlaytestMatchResult(true, 1, rosterEntries), "Vesper wins the match");
+  assert.equal(formatPlaytestMatchResult(true, 2, rosterEntries), "Quill wins the match");
+
+  // Over with no winner or an unknown session: neutral fallback, never a fabricated callsign.
+  assert.equal(formatPlaytestMatchResult(true, undefined, rosterEntries), "Match over");
+  assert.equal(formatPlaytestMatchResult(true, 9, rosterEntries), "Match over");
 });
 
 test("networked playtest review stats track max correction, reconnect count, and last error", () => {

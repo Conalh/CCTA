@@ -199,6 +199,7 @@ try {
   assert.match(playtestHtml, /id="playtest-round-outcome"/);
   assert.match(playtestHtml, /id="playtest-round-winner"/);
   assert.match(playtestHtml, /id="playtest-round-banner"/);
+  assert.match(playtestHtml, /id="playtest-match-banner"/);
   assert.match(playtestHtml, /id="playtest-round-transition"/);
   assert.match(playtestHtml, /id="playtest-round-reset-cue"/);
   assert.match(playtestHtml, /id="playtest-local-health"/);
@@ -254,6 +255,7 @@ try {
   assert.match(playtestStateSource, /formatPlaytestRoundPhase/);
   assert.match(playtestStateSource, /formatPlaytestMatchOccupancy/);
   assert.match(playtestStateSource, /formatPlaytestWeaponAmmo/);
+  assert.match(playtestStateSource, /formatPlaytestMatchResult/);
   assert.match(playtestStateSource, /createInitialNetworkedPlaytestReviewStats/);
   assert.match(playtestStateSource, /classifyNetworkedPlaytestMotionContact/);
 

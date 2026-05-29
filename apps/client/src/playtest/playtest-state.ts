@@ -3,9 +3,11 @@ import {
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
   createClientInputPlaceholder,
+  getPlayerCallsign,
   getWeaponDefinition,
   type ArenaMapMetadata,
   type ClientInputMessage,
+  type MatchRosterEntry,
   type RoundPhase
 } from "@breachline/shared";
 
@@ -348,6 +350,41 @@ export function formatPlaytestWeaponAmmo(
     return "-";
   }
   return `${ammo} / ${size}`;
+}
+
+export function formatPlaytestMatchResult(
+  matchOver: boolean | undefined,
+  winnerSessionId: number | undefined,
+  rosterEntries: readonly MatchRosterEntry[] | undefined
+): string {
+  // Match over and the winning session are server-owned (server.match.result). The
+  // client only resolves the winner session to a roster callsign and never decides the
+  // match outcome. A winner with no roster entry falls back to a neutral label.
+  if (matchOver !== true) {
+    return "-";
+  }
+  const winner = readPositiveInteger(winnerSessionId);
+  if (winner === undefined) {
+    return "Match over";
+  }
+  const callsign = resolvePlaytestRosterCallsign(rosterEntries, winner);
+  return callsign === undefined ? "Match over" : `${callsign} wins the match`;
+}
+
+function resolvePlaytestRosterCallsign(
+  entries: readonly MatchRosterEntry[] | undefined,
+  sessionId: number
+): string | undefined {
+  if (entries === undefined) {
+    return undefined;
+  }
+  for (const entry of entries) {
+    if (readPositiveInteger(entry?.sessionId) !== sessionId) {
+      continue;
+    }
+    return typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+  }
+  return undefined;
 }
 
 export function createInitialNetworkedPlaytestReviewStats(): NetworkedPlaytestReviewStats {

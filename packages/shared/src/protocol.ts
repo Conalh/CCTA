@@ -33,7 +33,8 @@ export const PACKET_KIND = {
   serverMatchStats: 18,
   clientWeaponReload: 19,
   serverWeaponState: 20,
-  serverMatchRoster: 21
+  serverMatchRoster: 21,
+  serverMatchResult: 22
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -159,7 +160,8 @@ export type ServerProtocolMessage =
   | ServerWeaponStateMessage
   | ServerRoundStateMessage
   | ServerMatchStatsMessage
-  | ServerMatchRosterMessage;
+  | ServerMatchRosterMessage
+  | ServerMatchResultMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -328,6 +330,14 @@ export type ServerMatchRosterMessage = Readonly<{
   serverTick: number;
   entryCount: number;
   entries: readonly MatchRosterEntry[];
+}>;
+
+export type ServerMatchResultMessage = Readonly<{
+  kind: "server.match.result";
+  serverTick: number;
+  matchOver: boolean;
+  winnerSessionId: number;
+  killTarget: number;
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -557,6 +567,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerMatchRosterPayload(message)
+      );
+    case "server.match.result":
+      return writePacket(
+        PACKET_KIND.serverMatchResult,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerMatchResultPayload(message)
       );
   }
 }
@@ -793,6 +810,15 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         serverTick: sequenceOrTick,
         entryCount: payload.getUint16(0, true),
         entries: decodeMatchRosterEntries(payload, payloadLength)
+      };
+    case PACKET_KIND.serverMatchResult:
+      requirePayloadLength(payloadLength, 8, "server.match.result");
+      return {
+        kind: "server.match.result",
+        serverTick: sequenceOrTick,
+        winnerSessionId: payload.getUint32(0, true),
+        killTarget: payload.getUint16(4, true),
+        matchOver: payload.getUint16(6, true) !== 0
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1047,6 +1073,15 @@ function encodeServerMatchRosterPayload(message: ServerMatchRosterMessage): Uint
     offset += 12;
   }
 
+  return payload;
+}
+
+function encodeServerMatchResultPayload(message: ServerMatchResultMessage): Uint8Array {
+  const payload = new Uint8Array(8);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, readUint32(message.winnerSessionId, "winnerSessionId"), true);
+  view.setUint16(4, readUint16(message.killTarget, "killTarget"), true);
+  view.setUint16(6, message.matchOver ? 1 : 0, true);
   return payload;
 }
 

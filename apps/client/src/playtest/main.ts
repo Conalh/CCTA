@@ -47,6 +47,7 @@ import {
   formatPlaytestMatchOccupancy,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
+  formatPlaytestMatchResult,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   smoothNetworkedPlaytestCameraPosition,
   updateNetworkedPlaytestReviewStats,
@@ -146,6 +147,8 @@ declare global {
       roundTransitionActive: boolean;
       roundWinner: string;
       roundBanner: string;
+      matchOver: boolean;
+      matchBanner: string;
       scoreboardEntryCount: number;
       scoreboardLastServerTick: number | undefined;
       scoreboardLocalPosition: number | undefined;
@@ -209,6 +212,7 @@ const roundPhaseEl = requireElement("playtest-round-phase");
 const roundOutcomeEl = requireElement("playtest-round-outcome");
 const roundWinnerEl = requireElement("playtest-round-winner");
 const roundBannerEl = requireElement("playtest-round-banner");
+const matchBannerEl = requireElement("playtest-match-banner");
 const roundTransitionEl = requireElement("playtest-round-transition");
 const roundResetCueEl = requireElement("playtest-round-reset-cue");
 const localHealthEl = requireElement("playtest-local-health");
@@ -1090,10 +1094,18 @@ function updateReadout(
   roundPhaseEl.textContent = roundCombatPresentationState.roundPhaseLabel;
   roundOutcomeEl.textContent = roundCombatPresentationState.roundOutcomeLabel;
   roundWinnerEl.textContent = roundCombatPresentationState.roundWinnerLabel;
-  roundBannerEl.textContent = roundCombatPresentationState.roundBannerActive
-    ? roundCombatPresentationState.roundBannerLabel
-    : "";
-  roundBannerEl.dataset.active = roundCombatPresentationState.roundBannerActive ? "true" : "false";
+  const matchBannerLabel = formatPlaytestMatchResult(
+    state.matchOver,
+    state.matchWinnerSessionId,
+    state.matchRoster
+  );
+  const matchBannerActive = matchBannerLabel !== "-";
+  matchBannerEl.textContent = matchBannerActive ? matchBannerLabel : "";
+  matchBannerEl.dataset.active = matchBannerActive ? "true" : "false";
+  // The match-over banner supersedes the per-round banner.
+  const roundBannerActive = roundCombatPresentationState.roundBannerActive && !matchBannerActive;
+  roundBannerEl.textContent = roundBannerActive ? roundCombatPresentationState.roundBannerLabel : "";
+  roundBannerEl.dataset.active = roundBannerActive ? "true" : "false";
   roundTransitionEl.textContent = roundCombatPresentationState.roundTransitionLabel;
   roundTransitionEl.dataset.active = roundCombatPresentationState.roundTransitionActive ? "true" : "false";
   roundResetCueEl.textContent = roundCombatPresentationState.resetCueLabel;
@@ -1190,9 +1202,9 @@ function updateReadout(
     roundTransition: roundCombatPresentationState.roundTransitionLabel,
     roundTransitionActive: roundCombatPresentationState.roundTransitionActive,
     roundWinner: roundCombatPresentationState.roundWinnerLabel,
-    roundBanner: roundCombatPresentationState.roundBannerActive
-      ? roundCombatPresentationState.roundBannerLabel
-      : "-",
+    roundBanner: roundBannerActive ? roundCombatPresentationState.roundBannerLabel : "-",
+    matchOver: state.matchOver,
+    matchBanner: matchBannerActive ? matchBannerLabel : "-",
     scoreboardEntryCount: scoreboard.entryCount,
     scoreboardLastServerTick: scoreboard.lastServerTick,
     scoreboardLocalPosition: scoreboard.localPosition,
