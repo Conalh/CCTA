@@ -592,6 +592,10 @@ li {
   color: #ffb4a8;
 }
 
+.playtest-hud-stance[data-crouched="true"] {
+  color: #8ed0bd;
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;

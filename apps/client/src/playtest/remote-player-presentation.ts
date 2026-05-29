@@ -31,10 +31,13 @@ export type RemotePlayerPresentationPart = Readonly<{
   heightMeters?: number;
 }>;
 
+export const REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE = 0.6 as const;
+
 export type RemotePlayerPresentationModel = Readonly<{
   entityId: number;
   heightMeters: number;
   highlighted: boolean;
+  crouched: boolean;
   id: string;
   parts: readonly RemotePlayerPresentationPart[];
   position: Vector3Tuple;
@@ -74,10 +77,14 @@ export function createRemotePlayerPresentationModels(
     }
 
     const highlighted = entityId === highlightedRemoteEntityId;
+    const crouched = placeholder.crouched === true;
     models.push({
       entityId,
-      heightMeters: REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS,
+      heightMeters: crouched
+        ? REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS * REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE
+        : REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS,
       highlighted,
+      crouched,
       id: `remote-model-${entityId}`,
       parts: createRemotePlayerParts(entityId, highlighted),
       position,

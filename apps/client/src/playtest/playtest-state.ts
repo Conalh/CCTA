@@ -5,6 +5,7 @@ import {
   createClientInputPlaceholder,
   getPlayerCallsign,
   getWeaponDefinition,
+  playerEyeHeightMeters,
   type ArenaMapMetadata,
   type ClientInputMessage,
   type MatchRosterEntry,
@@ -38,6 +39,7 @@ export type NetworkedPlaytestRemotePlaceholder = Readonly<{
   slotIndex: number;
   sourceTick: number;
   yawRadians: number;
+  crouched: boolean;
 }>;
 
 export type NetworkedPlaytestRemoteAim = Readonly<{
@@ -60,6 +62,7 @@ export type NetworkedPlaytestPresentation = Readonly<{
   error: string | undefined;
   localCameraPose: PlayerCameraPose;
   localCameraSource: "predicted" | "authoritative" | "fallback";
+  localCrouched: boolean;
   localEntityId: number | undefined;
   localSessionId: number | undefined;
   mapId: string;
@@ -183,6 +186,7 @@ export function createNetworkedPlaytestPresentation(
   const localCameraSource = readLocalCameraSource(input.state);
   const localCameraPose = derivePlayerCameraPose({
     clampToBounds: false,
+    eyeHeightMeters: playerEyeHeightMeters(input.state.localEntityCrouched === true),
     map,
     sourcePose: applyLookOverride(localCameraSource.pose, input.lookYawRadians, input.lookPitchRadians)
   });
@@ -198,7 +202,8 @@ export function createNetworkedPlaytestPresentation(
     shape: "remote-placeholder" as const,
     slotIndex: pose.slotIndex,
     sourceTick: pose.sourceTick,
-    yawRadians: pose.yaw
+    yawRadians: pose.yaw,
+    crouched: pose.crouched
   }));
 
   return {
@@ -206,6 +211,7 @@ export function createNetworkedPlaytestPresentation(
     error: input.state.error,
     localCameraPose,
     localCameraSource: localCameraSource.source,
+    localCrouched: input.state.localEntityCrouched === true,
     localEntityId: input.state.localEntityId,
     localSessionId: input.state.sessionId,
     mapId: map.id,
@@ -338,6 +344,11 @@ export function formatPlaytestRoundPhase(value: RoundPhase | number | undefined)
     default:
       return `unknown ${value}`;
   }
+}
+
+export function formatPlaytestStance(crouched: boolean | undefined): string {
+  // Stance is server-owned (snapshot crouch flag); the client only labels the mirrored value.
+  return crouched === true ? "Crouched" : "Standing";
 }
 
 export function formatPlaytestMatchOccupancy(
@@ -523,6 +534,9 @@ function readMovementButtons(keys: ReadonlySet<string>): number {
   }
   if (keys.has("Space")) {
     buttons |= CLIENT_INPUT_BUTTONS.jump;
+  }
+  if (keys.has("ControlLeft") || keys.has("ControlRight") || keys.has("KeyC")) {
+    buttons |= CLIENT_INPUT_BUTTONS.crouch;
   }
   return buttons;
 }

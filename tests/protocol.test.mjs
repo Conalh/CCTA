@@ -142,6 +142,7 @@ test("protocol helpers round-trip Phase 8 world snapshot metadata and entity ref
         sessionId: 10,
         slotIndex: 0,
         active: true,
+        crouched: false,
         x: 1.5,
         y: 0,
         z: -2.25,
@@ -152,10 +153,37 @@ test("protocol helpers round-trip Phase 8 world snapshot metadata and entity ref
         sessionId: 11,
         slotIndex: 1,
         active: true,
+        crouched: false,
         x: -1,
         y: 0,
         z: 3,
         yaw: -0.25
+      }
+    ]
+  };
+
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(message)), message);
+});
+
+test("protocol helpers round-trip a crouched snapshot entity stance flag", () => {
+  const message = {
+    kind: "server.snapshot",
+    tick: 9,
+    serverTimeMs: 200,
+    sessionCount: 1,
+    worldId: 1,
+    entityCount: 1,
+    entities: [
+      {
+        entityId: 100,
+        sessionId: 10,
+        slotIndex: 0,
+        active: true,
+        crouched: true,
+        x: 0,
+        y: 0,
+        z: 0,
+        yaw: 0
       }
     ]
   };

@@ -167,6 +167,24 @@ async (page) => {
     4000
   ).catch(() => undefined);
 
+  // Crouch: hold the crouch key and confirm the server-owned stance flips, then releases.
+  let crouchObserved = false;
+  let crouchStance = "Standing";
+  await page.keyboard.down("KeyC");
+  try {
+    await waitForPlaytestState(
+      page,
+      (state) => state.localCrouched === true && state.localStance === "Crouched",
+      4000
+    );
+    crouchObserved = true;
+    crouchStance = (await readPlaytestState(page)).localStance;
+  } catch {
+    crouchObserved = false;
+  }
+  await page.keyboard.up("KeyC");
+  await waitForPlaytestState(page, (state) => state.localCrouched === false, 4000).catch(() => undefined);
+
   await page.evaluate(() => window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__.fire());
   await waitForPlaytestState(
     page,
@@ -450,6 +468,10 @@ async (page) => {
     jump: {
       observed: jumpObserved,
       peakY: jumpPeakY
+    },
+    crouch: {
+      observed: crouchObserved,
+      stance: crouchStance
     },
     fire: {
       acceptedMiss: {

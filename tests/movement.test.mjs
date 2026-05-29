@@ -124,6 +124,27 @@ test("server movement launches a server-owned jump from the jump button and land
   assert.equal(state.verticalVelocity, 0);
 });
 
+test("server movement crouch slows planar speed and marks the stance", () => {
+  const step = { deltaSeconds: 1, speedMetersPerSecond: 3.6, maxDeltaSeconds: 1 };
+  const standing = server.advancePlayerMovement(
+    server.createInitialPlayerMovementState({ x: 0, y: 0, z: 0, yaw: 0 }),
+    input({ buttons: CLIENT_INPUT_BUTTONS.forward, yaw: 0 }),
+    step
+  );
+  const crouched = server.advancePlayerMovement(
+    server.createInitialPlayerMovementState({ x: 0, y: 0, z: 0, yaw: 0 }),
+    input({ buttons: CLIENT_INPUT_BUTTONS.forward | CLIENT_INPUT_BUTTONS.crouch, yaw: 0 }),
+    step
+  );
+
+  assert.equal(standing.crouched, false);
+  assert.equal(crouched.crouched, true);
+  // Crouch-walking covers less ground over the same time.
+  assert.equal(Math.abs(crouched.z) < Math.abs(standing.z), true);
+  // The default crouch multiplier is one half.
+  assert.equal(Math.abs(Math.abs(crouched.z) - Math.abs(standing.z) / 2) < 1e-6, true);
+});
+
 test("server movement stops against arena collision blockers when collision geometry is provided", () => {
   const collisionGeometry = deriveArenaCollisionGeometry(EBB_TERMINAL_ARENA);
   const moved = server.advancePlayerMovement(

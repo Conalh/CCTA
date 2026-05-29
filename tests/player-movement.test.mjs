@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DEFAULT_PLAYER_CROUCH_EYE_HEIGHT_METERS,
   DEFAULT_PLAYER_GRAVITY_METERS_PER_SECOND_SQUARED,
   DEFAULT_PLAYER_JUMP_SPEED_METERS_PER_SECOND,
+  DEFAULT_PLAYER_STANDING_EYE_HEIGHT_METERS,
   advancePlayerVerticalMotion,
-  isPlayerOnGround
+  isPlayerOnGround,
+  playerEyeHeightMeters
 } from "../packages/shared/dist/index.js";
 
 const STEP = 1 / 60;
@@ -60,4 +63,14 @@ test("player vertical motion holds the ground at rest and clamps oversized steps
   // Rejump is allowed once back on the ground.
   const rejump = advancePlayerVerticalMotion({ y: 0, verticalVelocity: 0 }, { deltaSeconds: STEP, jump: true });
   assert.equal(rejump.verticalVelocity > 0, true);
+});
+
+test("player eye height drops when crouched so the shared eye point lowers for all consumers", () => {
+  assert.equal(playerEyeHeightMeters(false), DEFAULT_PLAYER_STANDING_EYE_HEIGHT_METERS);
+  assert.equal(playerEyeHeightMeters(true), DEFAULT_PLAYER_CROUCH_EYE_HEIGHT_METERS);
+  // The crouch eye must drop more than the hit radius so a level shot can sail over a duck.
+  assert.equal(
+    DEFAULT_PLAYER_STANDING_EYE_HEIGHT_METERS - DEFAULT_PLAYER_CROUCH_EYE_HEIGHT_METERS > 0.55,
+    true
+  );
 });

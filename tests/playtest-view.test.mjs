@@ -196,6 +196,31 @@ test("networked playtest presentation follows server-owned movement beyond rende
   assert.equal(presentation.localCameraPose.clampedToBounds, false);
 });
 
+test("networked playtest presentation lowers the camera eye and surfaces the server-owned crouch stance", () => {
+  const baseState = {
+    ...createInitialConnectionViewState(0),
+    status: "accepted",
+    localEntityId: 42,
+    predictedLocalEntityPosition: {
+      x: 12,
+      y: 0,
+      z: -12
+    },
+    predictedLocalEntityYaw: 0,
+    predictionCorrectionMagnitude: 0
+  };
+
+  const standing = createNetworkedPlaytestPresentation({ state: baseState });
+  const crouched = createNetworkedPlaytestPresentation({
+    state: { ...baseState, localEntityCrouched: true }
+  });
+
+  assert.equal(standing.localCrouched, false);
+  assert.equal(standing.localCameraPose.position[1], 1.62);
+  assert.equal(crouched.localCrouched, true);
+  assert.equal(crouched.localCameraPose.position[1] < standing.localCameraPose.position[1], true);
+});
+
 test("networked playtest input cadence matches the authoritative server tick target", () => {
   assert.equal(NETWORKED_PLAYTEST_INPUT_RATE_HZ, 60);
   assert.equal(NETWORKED_PLAYTEST_INPUT_INTERVAL_MS, 1000 / 60);

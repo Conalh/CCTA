@@ -1,5 +1,6 @@
 import {
   FIRE_REJECT_REASON,
+  playerEyeHeightMeters,
   type ClientFireIntentMessage,
   type FireRejectReason,
   type ServerFireResultMessage,
@@ -60,8 +61,9 @@ export function castHitscanRay(input: HitscanRayInput): HitscanCastResult {
 
   const radius = readPositiveFinite(input.entityRadiusMeters, DEFAULT_HITSCAN_ENTITY_RADIUS_METERS);
   const maxDistance = readPositiveFinite(input.maxDistanceMeters, DEFAULT_HITSCAN_MAX_DISTANCE_METERS);
-  const eyeHeight = readPositiveFinite(input.eyeHeightMeters, DEFAULT_HITSCAN_EYE_HEIGHT_METERS);
-  const origin = toEyePoint(source, eyeHeight);
+  // Eye height is per-entity so a crouched player presents a lower point and can duck a
+  // level shot. An explicit override (tests) still applies to every entity.
+  const origin = toEyePoint(source, eyeHeightForEntity(source, input.eyeHeightMeters));
   const direction = aimToDirection(input.yaw, input.pitch);
   let nearest: HitscanCastResult | undefined;
 
@@ -70,7 +72,7 @@ export function castHitscanRay(input: HitscanRayInput): HitscanCastResult {
       continue;
     }
 
-    const target = toEyePoint(entity, eyeHeight);
+    const target = toEyePoint(entity, eyeHeightForEntity(entity, input.eyeHeightMeters));
     const targetDelta = {
       x: target.x - origin.x,
       y: target.y - origin.y,
@@ -189,6 +191,10 @@ function aimToDirection(yaw: number, pitch: number): Readonly<{ x: number; y: nu
     y: Math.sin(pitch),
     z: -Math.cos(yaw) * horizontalScale
   };
+}
+
+function eyeHeightForEntity(entity: SnapshotEntityReference, override: number | undefined): number {
+  return readPositiveFinite(override, playerEyeHeightMeters(entity.crouched === true));
 }
 
 function toEyePoint(

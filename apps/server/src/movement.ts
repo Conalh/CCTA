@@ -1,5 +1,6 @@
 import {
   CLIENT_INPUT_BUTTONS,
+  DEFAULT_PLAYER_CROUCH_SPEED_MULTIPLIER,
   advancePlayerVerticalMotion,
   resolveArenaCollisionMotion,
   type ArenaCollisionGeometry,
@@ -15,6 +16,7 @@ export type PlayerMovementState = Readonly<{
   z: number;
   yaw: number;
   verticalVelocity: number;
+  crouched: boolean;
 }>;
 
 export type InitialPlayerMovementStateInput = Partial<PlayerMovementState>;
@@ -41,7 +43,8 @@ export function createInitialPlayerMovementState(
     y: readFiniteOrDefault(input.y, 0),
     z: readFiniteOrDefault(input.z, 0),
     yaw: normalizeYaw(readFiniteOrDefault(input.yaw, 0)),
-    verticalVelocity: readFiniteOrDefault(input.verticalVelocity, 0)
+    verticalVelocity: readFiniteOrDefault(input.verticalVelocity, 0),
+    crouched: input.crouched === true
   };
 }
 
@@ -71,7 +74,9 @@ export function advancePlayerMovement(
   const intentLength = Math.hypot(forwardIntent, rightIntent);
   const normalizedForward = intentLength > 1 ? forwardIntent / intentLength : forwardIntent;
   const normalizedRight = intentLength > 1 ? rightIntent / intentLength : rightIntent;
-  const distance = speedMetersPerSecond * deltaSeconds;
+  const crouched = hasButton(input.buttons, CLIENT_INPUT_BUTTONS.crouch);
+  const effectiveSpeed = speedMetersPerSecond * (crouched ? DEFAULT_PLAYER_CROUCH_SPEED_MULTIPLIER : 1);
+  const distance = effectiveSpeed * deltaSeconds;
   const forwardX = -Math.sin(yaw);
   const forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw);
@@ -109,7 +114,8 @@ export function advancePlayerMovement(
     y: vertical.y,
     z: position.z,
     yaw,
-    verticalVelocity: vertical.verticalVelocity
+    verticalVelocity: vertical.verticalVelocity,
+    crouched
   };
 }
 

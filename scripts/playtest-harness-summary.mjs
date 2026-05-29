@@ -13,6 +13,7 @@ export function createPlaytestHarnessSummary(evidence) {
     `- render: ${formatRenderStatus(evidence.render)}`,
     `- movement/collision: ${formatMovementStatus(evidence.movement)}`,
     `- jump: ${formatJumpStatus(evidence.jump)}`,
+    `- crouch: ${formatCrouchStatus(evidence.crouch)}`,
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
     `- accepted hit: ${formatHitStatus(evidence.fire?.acceptedHit)}`,
     `- combat/round: ${formatCombatRoundStatus(evidence.combatRound)}`,
@@ -100,6 +101,14 @@ function formatJumpStatus(jump) {
   }
 
   return "caveat (jump arc not observed)";
+}
+
+function formatCrouchStatus(crouch) {
+  if (crouch?.observed === true && crouch.stance === "Crouched") {
+    return `ok (stance ${readText(crouch.stance, "?")})`;
+  }
+
+  return "caveat (crouch stance not observed)";
 }
 
 function formatMissStatus(miss) {

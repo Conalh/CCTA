@@ -352,11 +352,17 @@ export type ServerSnapshotMessage = Readonly<{
   entities: readonly SnapshotEntityReference[];
 }>;
 
+export const SNAPSHOT_ENTITY_FLAGS = {
+  active: 1 << 0,
+  crouched: 1 << 1
+} as const;
+
 export type SnapshotEntityReference = Readonly<{
   entityId: number;
   sessionId: number;
   slotIndex: number;
   active: boolean;
+  crouched: boolean;
   x: number;
   y: number;
   z: number;
@@ -915,7 +921,11 @@ function encodeServerSnapshotPayload(message: ServerSnapshotMessage): Uint8Array
     view.setUint32(offset, readUint32(entity.entityId, "entityId"), true);
     view.setUint32(offset + 4, readUint32(entity.sessionId, "sessionId"), true);
     view.setUint16(offset + 8, readUint16(entity.slotIndex, "slotIndex"), true);
-    view.setUint16(offset + 10, entity.active ? 1 : 0, true);
+    view.setUint16(
+      offset + 10,
+      (entity.active ? SNAPSHOT_ENTITY_FLAGS.active : 0) | (entity.crouched ? SNAPSHOT_ENTITY_FLAGS.crouched : 0),
+      true
+    );
     view.setFloat32(offset + 12, readFiniteNumber(entity.x, "x"), true);
     view.setFloat32(offset + 16, readFiniteNumber(entity.y, "y"), true);
     view.setFloat32(offset + 20, readFiniteNumber(entity.z, "z"), true);
@@ -1134,12 +1144,13 @@ function decodeSnapshotEntities(payload: DataView, payloadLength: number): reado
   const entities: SnapshotEntityReference[] = [];
   let offset = 18;
   for (let index = 0; index < entityCount; index += 1) {
-    const activeFlags = payload.getUint16(offset + 10, true);
+    const entityFlags = payload.getUint16(offset + 10, true);
     entities.push({
       entityId: payload.getUint32(offset, true),
       sessionId: payload.getUint32(offset + 4, true),
       slotIndex: payload.getUint16(offset + 8, true),
-      active: activeFlags !== 0,
+      active: (entityFlags & SNAPSHOT_ENTITY_FLAGS.active) !== 0,
+      crouched: (entityFlags & SNAPSHOT_ENTITY_FLAGS.crouched) !== 0,
       x: readFiniteNumber(payload.getFloat32(offset + 12, true), "x"),
       y: readFiniteNumber(payload.getFloat32(offset + 16, true), "y"),
       z: readFiniteNumber(payload.getFloat32(offset + 20, true), "z"),

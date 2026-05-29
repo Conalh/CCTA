@@ -11,6 +11,7 @@ export type RemotePresentationPose = Readonly<{
   y: number;
   z: number;
   yaw: number;
+  crouched: boolean;
   sourceTick: number;
 }>;
 
@@ -174,6 +175,7 @@ function readRemotePose(entity: SnapshotEntityReference, sourceTick: number): Re
     y: entity.y,
     z: entity.z,
     yaw: normalizeYaw(entity.yaw),
+    crouched: entity.crouched === true,
     sourceTick
   };
 }
@@ -231,6 +233,7 @@ function interpolateRemotePoses(
       y: lerp(olderPose.y, newerPose.y, alpha),
       z: lerp(olderPose.z, newerPose.z, alpha),
       yaw: interpolateYaw(olderPose.yaw, newerPose.yaw, alpha),
+      crouched: newerPose.crouched,
       sourceTick: newerSnapshot.tick
     });
   }

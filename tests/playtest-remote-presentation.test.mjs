@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE,
   REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS,
   createRemotePlayerPresentationModels
 } from "../apps/client/dist/playtest/remote-player-presentation.js";
@@ -60,6 +61,31 @@ test("remote player presentation exposes hit accent state and compact diagnostic
   assert.equal(highlighted?.sourceTick, 41);
   assert.equal(highlighted?.parts.find((part) => part.role === "hit-accent")?.visible, true);
   assert.equal(normal?.parts.find((part) => part.role === "hit-accent")?.visible, false);
+});
+
+test("remote player presentation squashes the stand-in height for a crouched stance", () => {
+  const models = createRemotePlayerPresentationModels({
+    highlightedRemoteEntityId: undefined,
+    remotePlaceholders: [
+      remotePlaceholder({ entityId: 101, id: "remote-101", crouched: false }),
+      remotePlaceholder({ entityId: 102, id: "remote-102", position: [3, 0, -2], crouched: true })
+    ]
+  });
+
+  const standing = models.find((model) => model.entityId === 101);
+  const crouched = models.find((model) => model.entityId === 102);
+
+  assert.equal(standing?.crouched, false);
+  assert.equal(standing?.heightMeters, REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS);
+  assert.equal(crouched?.crouched, true);
+  assert.equal(
+    Math.abs(
+      crouched.heightMeters -
+        REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS * REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE
+    ) < 0.000001,
+    true
+  );
+  assert.equal(crouched.heightMeters < standing.heightMeters, true);
 });
 
 test("remote player presentation ignores unusable placeholder data without poisoning models", () => {

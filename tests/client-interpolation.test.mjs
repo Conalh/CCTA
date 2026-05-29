@@ -206,6 +206,52 @@ test("remote interpolation follows the shortest yaw path across wrap boundaries"
   assert.equal(Math.abs(Math.abs(sampled.representativeRemotePose.yaw) - Math.PI) < 0.000001, true);
 });
 
+test("remote interpolation carries the authoritative crouch stance onto the presentation pose", () => {
+  let state = createInitialRemoteInterpolationState({
+    interpolationDelayMs: 50
+  });
+  state = recordRemoteInterpolationSnapshot(
+    state,
+    snapshot({
+      tick: 30,
+      serverTimeMs: 1000,
+      entityCount: 1,
+      entities: [
+        entity({
+          entityId: 60,
+          sessionId: 600,
+          crouched: false
+        })
+      ]
+    }),
+    {
+      localSessionId: 999
+    }
+  );
+  state = recordRemoteInterpolationSnapshot(
+    state,
+    snapshot({
+      tick: 31,
+      serverTimeMs: 1100,
+      entityCount: 1,
+      entities: [
+        entity({
+          entityId: 60,
+          sessionId: 600,
+          crouched: true
+        })
+      ]
+    }),
+    {
+      localSessionId: 999
+    }
+  );
+
+  const sampled = sampleRemoteInterpolation(state, 1100);
+
+  assert.equal(sampled.representativeRemotePose.crouched, true);
+});
+
 test("remote interpolation ignores stale, inactive, and malformed snapshot data without poisoning state", () => {
   let state = createInitialRemoteInterpolationState();
   state = recordRemoteInterpolationSnapshot(

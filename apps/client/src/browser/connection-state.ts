@@ -73,6 +73,7 @@ export type ConnectionViewState = Readonly<{
   localEntityId: number | undefined;
   localEntityPosition: LocalEntityPosition | undefined;
   localEntityYaw: number | undefined;
+  localEntityCrouched: boolean;
   predictedLocalEntityPosition: LocalEntityPosition | undefined;
   predictedLocalEntityYaw: number | undefined;
   predictionCorrectionMagnitude: number | undefined;
@@ -229,6 +230,7 @@ export function createInitialConnectionViewState(
     localEntityId: undefined,
     localEntityPosition: undefined,
     localEntityYaw: undefined,
+    localEntityCrouched: false,
     predictedLocalEntityPosition: undefined,
     predictedLocalEntityYaw: undefined,
     predictionCorrectionMagnitude: undefined,
@@ -441,7 +443,8 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
                 y: localEntity.y,
                 z: localEntity.z
               },
-        localEntityYaw: localEntity?.yaw
+        localEntityYaw: localEntity?.yaw,
+        localEntityCrouched: localEntity?.crouched === true
       }, nowMs);
       const snapshottedState =
         state.sessionId === undefined
@@ -660,6 +663,7 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     localEntityId: undefined,
     localEntityPosition: undefined,
     localEntityYaw: undefined,
+    localEntityCrouched: false,
     predictedLocalEntityPosition: undefined,
     predictedLocalEntityYaw: undefined,
     predictionCorrectionMagnitude: undefined,

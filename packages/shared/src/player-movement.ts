@@ -8,6 +8,17 @@ export const DEFAULT_PLAYER_JUMP_SPEED_METERS_PER_SECOND = 7 as const;
 export const DEFAULT_PLAYER_GROUND_Y = 0 as const;
 export const DEFAULT_PLAYER_VERTICAL_MAX_DELTA_SECONDS = 0.1 as const;
 
+// Crouch is server-authoritative: it slows planar movement and lowers the stance, which
+// lowers the eye point (used by the camera, the remote model, and hitscan) so a crouched
+// player can duck a level shot.
+export const DEFAULT_PLAYER_CROUCH_SPEED_MULTIPLIER = 0.5 as const;
+export const DEFAULT_PLAYER_STANDING_EYE_HEIGHT_METERS = 1.62 as const;
+export const DEFAULT_PLAYER_CROUCH_EYE_HEIGHT_METERS = 1.0 as const;
+
+export function playerEyeHeightMeters(crouched: boolean): number {
+  return crouched ? DEFAULT_PLAYER_CROUCH_EYE_HEIGHT_METERS : DEFAULT_PLAYER_STANDING_EYE_HEIGHT_METERS;
+}
+
 export type PlayerVerticalMotionState = Readonly<{
   y: number;
   verticalVelocity: number;

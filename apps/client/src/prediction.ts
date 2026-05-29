@@ -1,5 +1,6 @@
 import {
   CLIENT_INPUT_BUTTONS,
+  DEFAULT_PLAYER_CROUCH_SPEED_MULTIPLIER,
   resolveArenaCollisionMotion,
   type ArenaCollisionGeometry,
   type ClientInputMessage,
@@ -143,7 +144,11 @@ function advancePredictedPose(
   const intentLength = Math.hypot(forwardIntent, rightIntent);
   const normalizedForward = intentLength > 1 ? forwardIntent / intentLength : forwardIntent;
   const normalizedRight = intentLength > 1 ? rightIntent / intentLength : rightIntent;
-  const distance = speedMetersPerSecond * stepSeconds;
+  // Match the server's crouch slow-down so crouch-walking does not desync horizontally.
+  const crouchMultiplier = hasButton(input.buttons, CLIENT_INPUT_BUTTONS.crouch)
+    ? DEFAULT_PLAYER_CROUCH_SPEED_MULTIPLIER
+    : 1;
+  const distance = speedMetersPerSecond * crouchMultiplier * stepSeconds;
   const forwardX = -Math.sin(yaw);
   const forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw);

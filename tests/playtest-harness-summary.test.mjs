@@ -44,6 +44,10 @@ const completeEvidence = {
     observed: true,
     peakY: 1.01
   },
+  crouch: {
+    observed: true,
+    stance: "Crouched"
+  },
   fire: {
     acceptedMiss: {
       status: "accepted miss",
@@ -128,6 +132,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /render: ok \(nonblank, remote models 1\)/);
   assert.match(text, /movement\/collision: ok \(moving -> blocked -> sliding\)/);
   assert.match(text, /jump: ok \(peak Y 1\.01\)/);
+  assert.match(text, /crouch: ok \(stance Crouched\)/);
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
   assert.match(text, /accepted hit: ok \(accepted hit, target 2\)/);
   assert.match(text, /combat\/round: ok \(dead, ended, elimination, reset in 12 ticks\)/);
@@ -154,6 +159,19 @@ test("playtest harness summary keeps optional death or reset evidence honest", (
 
   assert.match(text, /combat\/round: caveat \(death\/round transition not observed\)/);
   assert.doesNotMatch(text, /combat\/round: ok/);
+});
+
+test("playtest harness summary keeps the crouch stance evidence honest when it is not observed", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    crouch: {
+      observed: false,
+      stance: "Standing"
+    }
+  });
+
+  assert.match(text, /crouch: caveat \(crouch stance not observed\)/);
+  assert.doesNotMatch(text, /crouch: ok/);
 });
 
 test("playtest harness summary flags an incomplete server-owned roster", () => {

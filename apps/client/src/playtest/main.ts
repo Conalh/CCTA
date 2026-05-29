@@ -46,6 +46,7 @@ import {
   classifyNetworkedPlaytestMotionContact,
   holdPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
+  formatPlaytestStance,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
   formatPlaytestMatchResult,
@@ -60,6 +61,7 @@ import {
 } from "./playtest-state.js";
 import {
   createRemotePlayerPresentationModels,
+  REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE,
   type RemotePlayerPresentationModel,
   type RemotePlayerPresentationPart
 } from "./remote-player-presentation.js";
@@ -99,8 +101,10 @@ declare global {
       localCameraSource: string;
       localCombatCue: string;
       localCombatEvent: string;
+      localCrouched: boolean;
       localHealth: string;
       localLife: string;
+      localStance: string;
       localRespawnCue: string;
       localLookPitchRadians: number;
       localLookYawRadians: number;
@@ -220,6 +224,7 @@ const localHealthEl = requireElement("playtest-local-health");
 const localLifeEl = requireElement("playtest-local-life");
 const hudHealthEl = requireElement("playtest-hud-health");
 const hudLifeEl = requireElement("playtest-hud-life");
+const hudStanceEl = requireElement("playtest-hud-stance");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
 const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
@@ -802,7 +807,14 @@ function updateRemotePlayerPresentation(
     const mesh = readRemotePlayerMesh(model);
     mesh.position.set(...model.position);
     mesh.rotation.y = model.yawRadians;
-    mesh.scale.setScalar(model.highlighted ? 1.08 : 1);
+    const planarScale = model.highlighted ? 1.08 : 1;
+    // Squash a crouched remote model vertically (feet stay on the ground) so other players
+    // can read the stance.
+    mesh.scale.set(
+      planarScale,
+      planarScale * (model.crouched ? REMOTE_PLAYER_PRESENTATION_CROUCH_SCALE : 1),
+      planarScale
+    );
     updateRemotePlayerMeshParts(mesh, model.parts);
     if (mesh.parent !== remoteGroup) {
       remoteGroup.add(mesh);
@@ -1145,6 +1157,8 @@ function updateReadout(
       : roundCombatPresentationState.localLifeLabel === "dead"
         ? "dead"
         : "unknown";
+  hudStanceEl.textContent = formatPlaytestStance(presentation.localCrouched);
+  hudStanceEl.dataset.crouched = presentation.localCrouched ? "true" : "false";
   hudRespawnEl.textContent =
     roundCombatPresentationState.respawnCueLabel === "-"
       ? ""
@@ -1190,8 +1204,10 @@ function updateReadout(
     localCameraSource: presentation.localCameraSource,
     localCombatCue: roundCombatPresentationState.localCombatCueLabel,
     localCombatEvent: roundCombatPresentationState.localCombatEventLabel,
+    localCrouched: presentation.localCrouched,
     localHealth: roundCombatPresentationState.localHealthLabel,
     localLife: roundCombatPresentationState.localLifeLabel,
+    localStance: formatPlaytestStance(presentation.localCrouched),
     localRespawnCue: roundCombatPresentationState.respawnCueLabel,
     localLookPitchRadians: presentation.localCameraPose.pitchRadians,
     localLookYawRadians: presentation.localCameraPose.yawRadians,
@@ -1429,7 +1445,10 @@ function isPlaytestInputKey(code: string): boolean {
     code === "ArrowLeft" ||
     code === "ArrowDown" ||
     code === "ArrowRight" ||
-    code === "Space"
+    code === "Space" ||
+    code === "ControlLeft" ||
+    code === "ControlRight" ||
+    code === "KeyC"
   );
 }
 

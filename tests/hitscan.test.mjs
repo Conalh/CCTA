@@ -80,6 +80,39 @@ test("hitscan ray ignores local, inactive, and behind-ray entity data", () => {
   });
 });
 
+test("hitscan lets a crouched target duck a level shot the standing target would take", () => {
+  function targetStance(crouched) {
+    return {
+      ...baseWorldSnapshot,
+      entities: [
+        baseWorldSnapshot.entities[0],
+        { ...baseWorldSnapshot.entities[1], crouched },
+        baseWorldSnapshot.entities[2]
+      ]
+    };
+  }
+
+  // A level shot from the standing shooter connects with the standing target.
+  const standingHit = castHitscanRay({
+    sourceSessionId: 1,
+    yaw: -Math.PI / 2,
+    pitch: 0,
+    worldSnapshot: targetStance(false)
+  });
+  assert.equal(standingHit.hit, true);
+  assert.equal(standingHit.targetEntityId, 2);
+
+  // The same level shot sails over a crouched target whose eye point dropped below the ray.
+  const crouchedMiss = castHitscanRay({
+    sourceSessionId: 1,
+    yaw: -Math.PI / 2,
+    pitch: 0,
+    worldSnapshot: targetStance(true)
+  });
+  assert.equal(crouchedMiss.hit, false);
+  assert.equal(crouchedMiss.targetEntityId, 0);
+});
+
 test("server fire validation rejects stale or invalid fire intent without advancing authority state", () => {
   const stale = validateServerFireIntent({
     fireIntent: createClientFireIntent({

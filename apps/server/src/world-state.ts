@@ -187,6 +187,7 @@ function createInitialMovementForSlot(slotIndex: number): PlayerMovementState {
 
 function toReadonlyEntity(entity: MutableWorldEntity): WorldEntity {
   return {
+    crouched: entity.movement.crouched,
     entityId: entity.entityId,
     sessionId: entity.sessionId,
     slotIndex: entity.slotIndex,
