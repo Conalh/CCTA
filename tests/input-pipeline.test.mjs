@@ -51,6 +51,22 @@ test("input pipeline accepts strictly increasing sequences and drops stale dupli
   assert.deepEqual(pipeline.acceptedSequences(), [1, 3]);
 });
 
+test("input pipeline keeps only a recent window of accepted sequences", () => {
+  const pipeline = server.createInputPipeline({
+    sessionId: 11,
+    maxTrackedSequences: 3
+  });
+
+  for (let sequence = 1; sequence <= 6; sequence += 1) {
+    assert.equal(pipeline.record(input(sequence)).accepted, true);
+  }
+
+  // The diagnostic buffer is bounded; the accepted-sequence floor still advances fully.
+  assert.deepEqual(pipeline.acceptedSequences(), [4, 5, 6]);
+  assert.equal(pipeline.snapshot().lastAcceptedInputSequence, 6);
+  assert.equal(pipeline.snapshot().droppedInputCount, 0);
+});
+
 test("input pipeline drops impossible numeric values without advancing sequence", () => {
   assert.equal(typeof server.createInputPipeline, "function");
 
