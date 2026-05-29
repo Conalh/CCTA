@@ -8,6 +8,7 @@ export const FIRE_RESULT_INTENT_DURATION_MS = 420 as const;
 export const FIRE_RESULT_MISS_DISTANCE_METERS = 8 as const;
 export const FIRE_RESULT_REJECT_DURATION_MS = 640 as const;
 export const FIRE_RESULT_TARGET_EYE_HEIGHT_METERS = 1.62 as const;
+export const FIRE_RESULT_HITMARKER_DURATION_MS = 220 as const;
 
 export type FireResultPresentationResultState =
   | "none"
@@ -43,7 +44,9 @@ export type FireResultPresentationState = Readonly<{
   activeTracerCount: number;
   expiredEffectCount: number;
   highlightedRemoteEntityId: number | undefined;
+  hitmarkerActive: boolean;
   hitState: FireResultPresentationHitState;
+  lastHitAtMs: number | undefined;
   lastRejectReason: FireRejectReason | undefined;
   lastVisualizedFireSequence: number | undefined;
   lastVisualizedIntentSequence: number | undefined;
@@ -73,7 +76,9 @@ export function createInitialFireResultPresentationState(): FireResultPresentati
     activeTracerCount: 0,
     expiredEffectCount: 0,
     highlightedRemoteEntityId: undefined,
+    hitmarkerActive: false,
     hitState: "none",
+    lastHitAtMs: undefined,
     lastRejectReason: undefined,
     lastVisualizedFireSequence: undefined,
     lastVisualizedIntentSequence: undefined,
@@ -107,7 +112,11 @@ export function updateFireResultPresentationState(
     activeTracerCount: activeEffects.filter((effect) => effect.kind === "authority-tracer").length,
     highlightedRemoteEntityId: hasActiveTargetAccent(activeEffects, nextState.lastVisualizedFireSequence)
       ? nextState.highlightedRemoteEntityId
-      : undefined
+      : undefined,
+    // Hitmarker is a short, read-only flash gated only by a server-confirmed hit.
+    hitmarkerActive:
+      nextState.lastHitAtMs !== undefined &&
+      nowMs - nextState.lastHitAtMs <= FIRE_RESULT_HITMARKER_DURATION_MS
   };
 }
 
@@ -249,6 +258,7 @@ function maybeAddServerResultEffects(
     ],
     highlightedRemoteEntityId,
     hitState,
+    lastHitAtMs: input.lastFireHit ? nowMs : state.lastHitAtMs,
     lastRejectReason: undefined,
     lastVisualizedFireSequence: sequence,
     resultState

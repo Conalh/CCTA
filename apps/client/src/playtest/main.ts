@@ -83,6 +83,7 @@ declare global {
       fireResultExpiredEffectCount: number;
       fireResultHighlightedRemoteEntityId: number | undefined;
       fireResultHitState: string;
+      fireResultHitmarkerActive: boolean;
       fireResultPresentationStatus: string;
       fireResultVisualizedSequence: number | undefined;
       frameCount: number;
@@ -186,6 +187,7 @@ const firstPersonShellEl = requireElement("playtest-first-person-shell");
 const fireIntentEl = requireElement("playtest-fire-intent");
 const fireResultEl = requireElement("playtest-fire-result");
 const fireHitEl = requireElement("playtest-fire-hit");
+const hitmarkerEl = requireElement("playtest-hitmarker");
 const fireVisualSequenceEl = requireElement("playtest-fire-visual-sequence");
 const fireTracerCountEl = requireElement("playtest-fire-tracers");
 const fireExpiredCountEl = requireElement("playtest-fire-expired");
@@ -1058,6 +1060,7 @@ function updateReadout(
   fireIntentEl.textContent = lastFireIntentSequence === undefined ? "-" : lastFireIntentSequence.toString();
   fireResultEl.textContent = formatFireResultPresentationStatus(fireResultPresentationState);
   fireHitEl.textContent = fireResultPresentationState.hitState;
+  hitmarkerEl.dataset.active = fireResultPresentationState.hitmarkerActive ? "true" : "false";
   fireVisualSequenceEl.textContent =
     fireResultPresentationState.lastVisualizedFireSequence === undefined
       ? "-"
@@ -1103,6 +1106,7 @@ function updateReadout(
     fireResultExpiredEffectCount: fireResultPresentationState.expiredEffectCount,
     fireResultHighlightedRemoteEntityId: fireResultPresentationState.highlightedRemoteEntityId,
     fireResultHitState: fireResultPresentationState.hitState,
+    fireResultHitmarkerActive: fireResultPresentationState.hitmarkerActive,
     fireResultPresentationStatus: formatFireResultPresentationStatus(fireResultPresentationState),
     fireResultVisualizedSequence: fireResultPresentationState.lastVisualizedFireSequence,
     frameCount,

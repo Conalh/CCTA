@@ -168,6 +168,8 @@ try {
   const playtestHtml = await playtestPage.text();
   assert.equal(playtestPage.status, 200);
   assert.match(playtestHtml, /id="playtest-canvas"/);
+  assert.match(playtestHtml, /id="playtest-crosshair"/);
+  assert.match(playtestHtml, /id="playtest-hitmarker"/);
   assert.match(playtestHtml, /id="playtest-status"/);
   assert.match(playtestHtml, /id="playtest-server-url"/);
   assert.match(playtestHtml, /id="playtest-connect"/);

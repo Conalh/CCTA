@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FIRE_RESULT_HITMARKER_DURATION_MS,
   FIRE_RESULT_INTENT_DURATION_MS,
   FIRE_RESULT_PRESENTATION_MAX_EFFECTS,
   FIRE_RESULT_REJECT_DURATION_MS,
@@ -45,6 +46,45 @@ test("fire result presentation creates local intent feedback without server auth
   assert.equal(state.activeTracerCount, 0);
   assert.equal(state.activeEffects.some((effect) => effect.kind === "local-intent-pulse"), true);
   assert.doesNotMatch(JSON.stringify(state), forbiddenPresentationIdentityPattern);
+});
+
+test("fire result presentation flashes a read-only hitmarker only on a server-confirmed hit", () => {
+  const hitInput = {
+    nowMs: 1200,
+    localCameraPosition: [0, 1.62, 0],
+    localPitchRadians: 0,
+    localYawRadians: -Math.PI / 2,
+    lastFireResultSequence: 4,
+    lastFireAccepted: true,
+    lastFireHit: true,
+    lastFireTargetEntityId: 101,
+    lastFireDistance: 1.5,
+    remotePlaceholders: [remotePlaceholder(101)]
+  };
+  let state = updateFireResultPresentationState(createInitialFireResultPresentationState(), hitInput);
+  assert.equal(state.hitState, "hit");
+  assert.equal(state.hitmarkerActive, true);
+
+  // The hitmarker is a brief flash: it clears after its duration with no new result.
+  state = updateFireResultPresentationState(state, {
+    ...hitInput,
+    nowMs: 1200 + FIRE_RESULT_HITMARKER_DURATION_MS + 1
+  });
+  assert.equal(state.hitmarkerActive, false);
+
+  // A server-confirmed miss never raises the hitmarker.
+  const missState = updateFireResultPresentationState(createInitialFireResultPresentationState(), {
+    nowMs: 2000,
+    localCameraPosition: [0, 1.62, 0],
+    localPitchRadians: 0,
+    localYawRadians: -Math.PI / 2,
+    lastFireResultSequence: 5,
+    lastFireAccepted: true,
+    lastFireHit: false,
+    lastFireDistance: 8
+  });
+  assert.equal(missState.hitState, "miss");
+  assert.equal(missState.hitmarkerActive, false);
 });
 
 test("fire result presentation visualizes authoritative accepted hit results against remote placeholders", () => {
