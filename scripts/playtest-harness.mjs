@@ -13,6 +13,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const defaultBaseUrl = "http://127.0.0.1:8787";
+const harnessBrowserSession = "breachline-playtest-harness";
 
 const options = readOptions(process.argv.slice(2));
 let devServerProcess;
@@ -135,40 +136,46 @@ async function waitForDevServerOrExit(child, baseUrl) {
 }
 
 async function runPlaywrightHarness(options) {
-  const command = process.platform === "win32" ? "cmd.exe" : "npx";
   const browserScript = await createTemplatedBrowserScript(options);
-  const npxArgs = [
-    "--yes",
-    "--package",
-    "@playwright/cli",
-    "playwright-cli",
-    "run-code",
-    "--filename",
-    browserScript
-  ];
-  const args = process.platform === "win32" ? ["/c", "npx.cmd", ...npxArgs] : npxArgs;
+  const sessionArg = `-s=${harnessBrowserSession}`;
+  let browserOpened = false;
 
   try {
-    return await new Promise((resolveOutput, reject) => {
-      execFile(command, args, {
-        cwd: repoRoot,
-        env: process.env,
-        maxBuffer: 1024 * 1024 * 10,
-        timeout: 120000,
-        windowsHide: true
-      }, (error, stdout, stderr) => {
-        const output = `${stdout}${stderr}`;
-        if (error !== null) {
-          reject(new Error(`${output || error.message}\nBrowser automation depends on npx @playwright/cli being available locally or fetchable by npm.`));
-          return;
-        }
-
-        resolveOutput(output);
-      });
-    });
+    // The @playwright/cli client is daemon/session based: a browser must be
+    // opened (headless by default) before run-code can attach to it.
+    await runPlaywrightCli([sessionArg, "open"], 120000);
+    browserOpened = true;
+    return await runPlaywrightCli([sessionArg, "run-code", "--filename", browserScript], 120000);
   } finally {
+    if (browserOpened) {
+      await runPlaywrightCli([sessionArg, "close"], 30000).catch(() => undefined);
+    }
     await unlink(browserScript).catch(() => undefined);
   }
+}
+
+function runPlaywrightCli(cliArgs, timeout) {
+  const command = process.platform === "win32" ? "cmd.exe" : "npx";
+  const npxArgs = ["--yes", "--package", "@playwright/cli", "playwright-cli", ...cliArgs];
+  const args = process.platform === "win32" ? ["/c", "npx.cmd", ...npxArgs] : npxArgs;
+
+  return new Promise((resolveOutput, reject) => {
+    execFile(command, args, {
+      cwd: repoRoot,
+      env: process.env,
+      maxBuffer: 1024 * 1024 * 10,
+      timeout,
+      windowsHide: true
+    }, (error, stdout, stderr) => {
+      const output = `${stdout}${stderr}`;
+      if (error !== null) {
+        reject(new Error(`${output || error.message}\nBrowser automation depends on npx @playwright/cli being available locally or fetchable by npm.`));
+        return;
+      }
+
+      resolveOutput(output);
+    });
+  });
 }
 
 async function createTemplatedBrowserScript(options) {
