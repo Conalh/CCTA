@@ -288,6 +288,41 @@ export function classifyNetworkedPlaytestMotionContact(
   return "moving";
 }
 
+export const NETWORKED_PLAYTEST_MOTION_BLOCKED_HOLD_MS = 110 as const;
+
+export type HoldMotionContactInput = Readonly<{
+  raw: NetworkedPlaytestMotionContact;
+  previous: NetworkedPlaytestMotionContact;
+  lastMovingAtMs: number | undefined;
+  nowMs: number;
+  holdMs?: number;
+}>;
+
+export type HoldMotionContactResult = Readonly<{
+  contact: NetworkedPlaytestMotionContact;
+  lastMovingAtMs: number | undefined;
+}>;
+
+export function holdPlaytestMotionContact(input: HoldMotionContactInput): HoldMotionContactResult {
+  // Server position advances only at the tick rate, so render frames between snapshots can
+  // momentarily read as stationary ("blocked" while a move is held). Hold the recent
+  // moving/sliding state briefly so the camera-attached first-person shell does not flicker
+  // every frame; commit to "blocked" only once non-movement is sustained.
+  if (input.raw === "moving" || input.raw === "sliding") {
+    return { contact: input.raw, lastMovingAtMs: input.nowMs };
+  }
+
+  if (input.raw === "blocked") {
+    const holdMs = readPositiveFinite(input.holdMs, NETWORKED_PLAYTEST_MOTION_BLOCKED_HOLD_MS);
+    if (input.lastMovingAtMs !== undefined && input.nowMs - input.lastMovingAtMs < holdMs) {
+      return { contact: input.previous, lastMovingAtMs: input.lastMovingAtMs };
+    }
+    return { contact: "blocked", lastMovingAtMs: input.lastMovingAtMs };
+  }
+
+  return { contact: input.raw, lastMovingAtMs: undefined };
+}
+
 export function formatPlaytestRoundPhase(value: RoundPhase | number | undefined): string {
   switch (value) {
     case undefined:

@@ -619,6 +619,8 @@ Goal: **two humans on different machines connect to one Breachline server and ac
 
 Polish (Phase 60): the developer diagnostics readout is hidden by default so `/playtest.html` reads as a clean game; a controls-bar button or the Backquote key toggles it for debugging. (Also fixed: a LAN peer on plain http could not connect because `crypto.randomUUID` needs a secure context — the transport id now builds from `crypto.getRandomValues` with fallbacks.)
 
+Polish (Phase 61): fixed jittery first-person hands/gun. The motion classifier ran every render frame against the per-tick server position, so frames between snapshots read as momentarily "blocked" and snapped the camera-attached shell. Motion is now held briefly (tested `holdPlaytestMotionContact`): a recent moving/sliding state persists through snapshot gaps and only commits to "blocked" on sustained non-movement.
+
 What already exists (proven): server-authoritative connect, movement+collision on the eight-player Drydock Span arena, validated hitscan, damage/health/death, round setup/active/ended/reset, weapons with ammo/reload, kill/death stats, player roster/callsigns, and read-only diagnostics for all of it. The two-client harness already drives one client to kill another and observes the elimination. The gap to a *playable* match is human I/O, reachability, and readable feedback — not new core authority.
 
 Milestones (each stays server-authoritative, original, and validated; HUD milestones are the deliberate, scoped place where the long-standing "no gameplay HUD" guard is relaxed for exactly the read-only feedback a player needs):

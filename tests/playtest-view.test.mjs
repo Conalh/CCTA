@@ -22,6 +22,8 @@ import {
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   NETWORKED_PLAYTEST_INPUT_RATE_HZ,
   classifyNetworkedPlaytestMotionContact,
+  holdPlaytestMotionContact,
+  NETWORKED_PLAYTEST_MOTION_BLOCKED_HOLD_MS,
   smoothNetworkedPlaytestCameraPosition,
   updateNetworkedPlaytestReviewStats
 } from "../apps/client/dist/playtest/playtest-state.js";
@@ -307,6 +309,43 @@ test("networked playtest round phase formatting stays compact and diagnostic-onl
   assert.equal(formatPlaytestRoundPhase(ROUND_PHASE.ended), "ended");
   assert.equal(formatPlaytestRoundPhase(ROUND_PHASE.reset), "reset");
   assert.equal(formatPlaytestRoundPhase(999), "unknown 999");
+});
+
+test("networked playtest motion hold suppresses per-frame blocked flicker between snapshots", () => {
+  const hold = NETWORKED_PLAYTEST_MOTION_BLOCKED_HOLD_MS;
+
+  // Moving/sliding pass through and stamp the last-moving time.
+  const moving = holdPlaytestMotionContact({ raw: "moving", previous: "idle", lastMovingAtMs: undefined, nowMs: 1000 });
+  assert.deepEqual(moving, { contact: "moving", lastMovingAtMs: 1000 });
+  const sliding = holdPlaytestMotionContact({ raw: "sliding", previous: "moving", lastMovingAtMs: 1000, nowMs: 1010 });
+  assert.deepEqual(sliding, { contact: "sliding", lastMovingAtMs: 1010 });
+
+  // A blocked reading shortly after moving (a snapshot gap) holds the previous state.
+  const gap = holdPlaytestMotionContact({
+    raw: "blocked",
+    previous: "moving",
+    lastMovingAtMs: 1000,
+    nowMs: 1000 + hold - 1
+  });
+  assert.equal(gap.contact, "moving");
+  assert.equal(gap.lastMovingAtMs, 1000);
+
+  // Sustained non-movement past the hold window commits to blocked.
+  const sustained = holdPlaytestMotionContact({
+    raw: "blocked",
+    previous: "moving",
+    lastMovingAtMs: 1000,
+    nowMs: 1000 + hold + 1
+  });
+  assert.equal(sustained.contact, "blocked");
+
+  // Blocked with no recent movement is reported immediately (e.g., spawned against a wall).
+  const cold = holdPlaytestMotionContact({ raw: "blocked", previous: "idle", lastMovingAtMs: undefined, nowMs: 2000 });
+  assert.equal(cold.contact, "blocked");
+
+  // Releasing movement clears the hold immediately.
+  const idle = holdPlaytestMotionContact({ raw: "idle", previous: "moving", lastMovingAtMs: 1000, nowMs: 1020 });
+  assert.deepEqual(idle, { contact: "idle", lastMovingAtMs: undefined });
 });
 
 test("networked playtest match occupancy formats server-owned slots without client math", () => {

@@ -44,6 +44,7 @@ import {
   createNetworkedPlaytestInputMessage,
   createNetworkedPlaytestPresentation,
   classifyNetworkedPlaytestMotionContact,
+  holdPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
@@ -263,6 +264,9 @@ let previousServerPositionForMotion: readonly [number, number, number] | undefin
 let lastFireIntentSequence: number | undefined;
 let lastFireIntentTimeMs: number | undefined;
 let lastMotionContact: NetworkedPlaytestMotionContact = "idle";
+// Tracks when motion was last classified as moving/sliding, so a blocked reading between
+// server snapshots can be held briefly instead of flickering the camera-attached shell.
+let lastMotionMovingAtMs: number | undefined;
 let firstPersonShellAttachedToCamera = false;
 let pingTimer: ReturnType<typeof setInterval> | undefined;
 let inputTimer: ReturnType<typeof setInterval> | undefined;
@@ -1020,7 +1024,7 @@ function updateReadout(
     number
   ];
   const renderSampleHealthy = isRenderablePixelSampleHealthy(latestRenderSample);
-  const motionContact = classifyNetworkedPlaytestMotionContact({
+  const rawMotionContact = classifyNetworkedPlaytestMotionContact({
     currentServerPosition: presentation.serverPosition,
     forwardIntent: readForwardIntent(keys),
     hasMoveIntent: hasMovementIntent(keys),
@@ -1029,12 +1033,19 @@ function updateReadout(
     yawRadians: presentation.localCameraPose.yawRadians
   });
   previousServerPositionForMotion = presentation.serverPosition;
-  lastMotionContact = motionContact;
+  const heldMotion = holdPlaytestMotionContact({
+    raw: rawMotionContact,
+    previous: lastMotionContact,
+    lastMovingAtMs: lastMotionMovingAtMs,
+    nowMs: performance.now()
+  });
+  lastMotionContact = heldMotion.contact;
+  lastMotionMovingAtMs = heldMotion.lastMovingAtMs;
   const firstPersonShell = createFirstPersonShellPresentation({
     enabled: true,
     fireIntentActive: readFireIntentActive(performance.now()),
     lookPitchRadians: presentation.localCameraPose.pitchRadians,
-    motionContact,
+    motionContact: lastMotionContact,
     nowMs
   });
   roundCombatPresentationState = updateRoundCombatPresentationState(roundCombatPresentationState, {
@@ -1086,7 +1097,7 @@ function updateReadout(
   predictedPositionEl.textContent = formatVector(presentation.predictedPosition);
   predictionCorrectionEl.textContent = formatMeters(presentation.predictionCorrectionMagnitude);
   predictionCorrectionMaxEl.textContent = formatMeters(reviewStats.predictionCorrectionMaxMagnitude);
-  motionContactEl.textContent = motionContact;
+  motionContactEl.textContent = lastMotionContact;
   firstPersonShellEl.textContent = formatFirstPersonShellStatus(firstPersonShell);
   fireIntentEl.textContent = lastFireIntentSequence === undefined ? "-" : lastFireIntentSequence.toString();
   fireResultEl.textContent = formatFireResultPresentationStatus(fireResultPresentationState);
@@ -1188,7 +1199,7 @@ function updateReadout(
     mapId: presentation.mapId,
     mapRevision: presentation.mapRevision,
     matchOccupancy: formatPlaytestMatchOccupancy(state.connectedSlots, state.matchCapacity),
-    motionContact,
+    motionContact: lastMotionContact,
     networkSimulationBaseLatencyMs: networkSimulationProfile.baseLatencyMs,
     networkSimulationDropRate: networkSimulationProfile.dropRate,
     networkSimulationJitterMs: networkSimulationProfile.jitterMs,
