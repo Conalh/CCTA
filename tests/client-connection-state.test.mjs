@@ -541,6 +541,88 @@ test("connection state reducer predicts local presentation and reconciles to ser
   assert.equal(state.predictionCorrectionMagnitude > 0, true);
 });
 
+test("connection state reducer ignores stale out-of-order snapshots for authoritative-derived state", () => {
+  let state = createInitialConnectionViewState(0);
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 10,
+    message: {
+      kind: "match.assigned",
+      matchId: 1,
+      sessionId: 10,
+      slotIndex: 0,
+      capacity: 4,
+      connectedSlots: 1
+    }
+  });
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 100,
+    message: {
+      kind: "server.snapshot",
+      tick: 5,
+      serverTimeMs: 100,
+      sessionCount: 1,
+      worldId: 1,
+      entityCount: 1,
+      entities: [
+        {
+          entityId: 100,
+          sessionId: 10,
+          slotIndex: 0,
+          active: true,
+          x: 2,
+          y: 0,
+          z: -3,
+          yaw: 0.5
+        }
+      ]
+    }
+  });
+
+  assert.equal(state.lastSnapshotTick, 5);
+  assert.deepEqual(state.localEntityPosition, { x: 2, y: 0, z: -3 });
+  assert.equal(state.lastReconciledSnapshotTick, 5);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 120,
+    message: {
+      kind: "server.snapshot",
+      tick: 3,
+      serverTimeMs: 80,
+      sessionCount: 1,
+      worldId: 1,
+      entityCount: 1,
+      entities: [
+        {
+          entityId: 100,
+          sessionId: 10,
+          slotIndex: 0,
+          active: true,
+          x: -9,
+          y: 0,
+          z: 9,
+          yaw: -1
+        }
+      ]
+    }
+  });
+
+  // The newer snapshot's authoritative-derived state survives the late arrival.
+  assert.equal(state.lastSnapshotTick, 5);
+  assert.equal(state.lastWorldSnapshotTick, 5);
+  assert.deepEqual(state.localEntityPosition, { x: 2, y: 0, z: -3 });
+  assert.equal(state.localEntityYaw, 0.5);
+  assert.deepEqual(state.predictedLocalEntityPosition, { x: 2, y: 0, z: -3 });
+  assert.equal(state.lastReconciledSnapshotTick, 5);
+
+  // The stale snapshot is still recorded as an arrival for diagnostics.
+  assert.equal(state.messageCounts["server.snapshot"], 2);
+  assert.equal(state.lastMessageTimeMs, 120);
+});
+
 test("connection state reducer resets prediction diagnostics on reconnect", () => {
   let state = createInitialConnectionViewState(0);
   state = reduceConnectionViewState(state, {

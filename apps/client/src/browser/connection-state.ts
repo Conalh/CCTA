@@ -383,6 +383,13 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         serverTick: message.tick
       }, nowMs);
     case "server.snapshot":
+      // Out-of-order delivery (the Phase 36 jitter profile, and the intended datagram
+      // transport) can land an older snapshot after a newer one. Applying it would rewind
+      // the local pose and reconcile prediction backwards, so a non-newer tick only updates
+      // arrival diagnostics. Mirrors the staleness guard in recordRemoteInterpolationSnapshot.
+      if (state.lastSnapshotTick !== undefined && message.tick <= state.lastSnapshotTick) {
+        return reduceSnapshot(baseState, nowMs);
+      }
       const localEntity = message.entities?.find((entity) => entity.sessionId === state.sessionId);
       const reducedSnapshotState = reduceSnapshot({
         ...baseState,
