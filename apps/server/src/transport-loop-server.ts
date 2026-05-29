@@ -16,6 +16,7 @@ export type TransportLoopServerConfig = Readonly<{
   serveClient?: boolean;
   tickRateHz?: number;
   matchCapacity?: number;
+  matchKillTarget?: number;
 }>;
 
 export type TransportLoopServer = Readonly<{
@@ -30,7 +31,11 @@ export async function startTransportLoopServer(
   config: TransportLoopServerConfig = {}
 ): Promise<TransportLoopServer> {
   const tickRateHz = config.tickRateHz ?? DEFAULT_SERVER_CONFIG.tickRateHz;
-  const runtime = createServerRuntime({ tickRateHz, matchCapacity: config.matchCapacity });
+  const runtime = createServerRuntime({
+    tickRateHz,
+    matchCapacity: config.matchCapacity,
+    matchKillTarget: config.matchKillTarget
+  });
   const tickLoop = createFixedTickLoop({ tickRateHz });
   const webSocketServer = await createWebSocketFallbackServer(
     {

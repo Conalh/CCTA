@@ -14,6 +14,7 @@
     "dev": "npm run dev:server",
     "dev:client": "npm run typecheck && node apps/client/dist/dev-client.js",
     "dev:server": "npm run typecheck && node apps/server/dist/dev-server.js",
+    "host:match": "npm run typecheck && node scripts/host-match.mjs",
     "audit:private-assets": "npm run typecheck && node scripts/private-asset-audit.mjs",
     "playtest:harness": "node scripts/playtest-harness.mjs",
     "playtest:harness:network": "node scripts/playtest-network-harness.mjs",
