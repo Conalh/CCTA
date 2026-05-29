@@ -8,6 +8,7 @@ export function createPlaytestHarnessSummary(evidence) {
     "",
     "Evidence:",
     `- two clients: ${formatClientStatus(evidence.clients)}`,
+    `- roster: ${formatRosterStatus(evidence.roster)}`,
     `- render: ${formatRenderStatus(evidence.render)}`,
     `- movement/collision: ${formatMovementStatus(evidence.movement)}`,
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
@@ -41,6 +42,23 @@ function formatClientStatus(clients) {
   }
 
   return `fail (${readText(clients?.primaryStatus, "missing")}, ${readText(clients?.peerStatus, "missing")})`;
+}
+
+function formatRosterStatus(roster) {
+  const callsigns = Array.isArray(roster?.primaryCallsigns) ? roster.primaryCallsigns.join(", ") : "";
+  const weapons = Array.isArray(roster?.primaryWeapons)
+    ? [...new Set(roster.primaryWeapons)].join(", ")
+    : "";
+  if (
+    roster?.primaryEntryCount === 2 &&
+    roster.peerEntryCount === 2 &&
+    roster.distinctLocalCallsigns === true &&
+    roster.peerEntryCountAfterPrimaryDisconnect === 1
+  ) {
+    return `ok (both see 2 [${callsigns}], weapons [${weapons}], local ${readText(roster.primaryLocalCallsign, "?")}/${readText(roster.peerLocalCallsign, "?")}, disconnect -> ${roster.peerEntryCountAfterPrimaryDisconnect})`;
+  }
+
+  return `fail (primary ${readNumber(roster?.primaryEntryCount)}, peer ${readNumber(roster?.peerEntryCount)}, distinct ${readBoolean(roster?.distinctLocalCallsigns)}, disconnect -> ${readNumber(roster?.peerEntryCountAfterPrimaryDisconnect)})`;
 }
 
 function formatRenderStatus(render) {

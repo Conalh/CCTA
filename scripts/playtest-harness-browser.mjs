@@ -41,6 +41,9 @@ async (page) => {
   const readPlaytestState = async (targetPage) =>
     targetPage.evaluate(() => window.__BREACHLINE_PLAYTEST_STATE__);
 
+  const rosterColumn = (state, key) =>
+    Array.isArray(state?.rosterRows) ? state.rosterRows.map((row) => row[key]) : [];
+
   const buildPlaytestUrl = (seedOffset) => {
     const params = [];
     if (networkProfileId.length > 0) {
@@ -110,7 +113,11 @@ async (page) => {
   );
   await waitForPlaytestState(peerPage, (state) => state.connectionStatus === "accepted");
 
+  await waitForPlaytestState(page, (state) => state.rosterEntryCount === 2);
+  await waitForPlaytestState(peerPage, (state) => state.rosterEntryCount === 2);
+
   const initialPrimary = await readPlaytestState(page);
+  const initialPeerRoster = await readPlaytestState(peerPage);
   const blockedSamples = await sampleContactWhile(
     page,
     async (phase) => {
@@ -237,6 +244,8 @@ async (page) => {
     { timeout: 12000 }
   );
   const primaryAfterDisconnect = await readPlaytestState(page);
+  await waitForPlaytestState(peerPage, (state) => state.rosterEntryCount === 1, 12000);
+  const peerRosterAfterPrimaryDisconnect = await readPlaytestState(peerPage);
   await page.evaluate(() => window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__.connect());
   await page.waitForFunction(
     () => window.__BREACHLINE_PLAYTEST_STATE__?.connectionStatus === "accepted",
@@ -294,6 +303,22 @@ async (page) => {
       connected: 2,
       primaryStatus: initialPrimary.connectionStatus,
       peerStatus: (await readPlaytestState(peerPage)).connectionStatus
+    },
+    roster: {
+      primaryEntryCount: initialPrimary.rosterEntryCount,
+      peerEntryCount: initialPeerRoster.rosterEntryCount,
+      primaryLocalCallsign: initialPrimary.rosterLocalCallsign,
+      peerLocalCallsign: initialPeerRoster.rosterLocalCallsign,
+      distinctLocalCallsigns:
+        typeof initialPrimary.rosterLocalCallsign === "string" &&
+        typeof initialPeerRoster.rosterLocalCallsign === "string" &&
+        initialPrimary.rosterLocalCallsign.length > 0 &&
+        initialPeerRoster.rosterLocalCallsign.length > 0 &&
+        initialPrimary.rosterLocalCallsign !== initialPeerRoster.rosterLocalCallsign,
+      primaryCallsigns: rosterColumn(initialPrimary, "callsign"),
+      peerCallsigns: rosterColumn(initialPeerRoster, "callsign"),
+      primaryWeapons: rosterColumn(initialPrimary, "weaponLabel"),
+      peerEntryCountAfterPrimaryDisconnect: peerRosterAfterPrimaryDisconnect.rosterEntryCount
     },
     render: {
       primaryNonblank: initialPrimary.renderSampleHealthy,

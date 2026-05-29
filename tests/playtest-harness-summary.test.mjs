@@ -15,6 +15,17 @@ const completeEvidence = {
     primaryStatus: "accepted",
     peerStatus: "accepted"
   },
+  roster: {
+    primaryEntryCount: 2,
+    peerEntryCount: 2,
+    primaryLocalCallsign: "Vesper",
+    peerLocalCallsign: "Quill",
+    distinctLocalCallsigns: true,
+    primaryCallsigns: ["Vesper", "Quill"],
+    peerCallsigns: ["Vesper", "Quill"],
+    primaryWeapons: ["Halcyon", "Halcyon"],
+    peerEntryCountAfterPrimaryDisconnect: 1
+  },
   render: {
     primaryNonblank: true,
     remoteModelCount: 1,
@@ -81,6 +92,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /WebSocket fallback/);
   assert.match(text, /WebTransport remains pending\/unproven/);
   assert.match(text, /two clients: ok \(accepted, accepted\)/);
+  assert.match(text, /roster: ok \(both see 2 \[Vesper, Quill\], weapons \[Halcyon\], local Vesper\/Quill, disconnect -> 1\)/);
   assert.match(text, /render: ok \(nonblank, remote models 1\)/);
   assert.match(text, /movement\/collision: ok \(moving -> blocked -> sliding\)/);
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
@@ -106,6 +118,21 @@ test("playtest harness summary keeps optional death or reset evidence honest", (
 
   assert.match(text, /combat\/round: caveat \(death\/round transition not observed\)/);
   assert.doesNotMatch(text, /combat\/round: ok/);
+});
+
+test("playtest harness summary flags an incomplete server-owned roster", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    roster: {
+      ...completeEvidence.roster,
+      peerEntryCount: 1,
+      distinctLocalCallsigns: false,
+      peerEntryCountAfterPrimaryDisconnect: 2
+    }
+  });
+
+  assert.match(text, /roster: fail \(primary 2, peer 1, distinct false, disconnect -> 2\)/);
+  assert.doesNotMatch(text, /roster: ok/);
 });
 
 test("playtest harness summary reports optional local network simulation evidence", () => {
