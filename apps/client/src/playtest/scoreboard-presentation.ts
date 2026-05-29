@@ -1,6 +1,7 @@
-import { type MatchStatsEntry } from "@breachline/shared";
+import { getPlayerCallsign, type MatchRosterEntry, type MatchStatsEntry } from "@breachline/shared";
 
 export type ScoreboardPresentationRow = Readonly<{
+  callsign: string | undefined;
   deaths: number;
   isLocalSession: boolean;
   kills: number;
@@ -22,6 +23,7 @@ export type ScoreboardPresentationInput = Readonly<{
   entries: readonly MatchStatsEntry[] | undefined;
   lastServerTick?: number;
   localSessionId?: number;
+  rosterEntries?: readonly MatchRosterEntry[];
 }>;
 
 const EMPTY_SUMMARY = "no stats yet";
@@ -31,6 +33,10 @@ export function createScoreboardPresentation(
 ): ScoreboardPresentation {
   const localSessionId = readPositiveInteger(input.localSessionId);
   const usableEntries = readUsableEntries(input.entries);
+  // Callsigns are a presentation-only label join from the server-owned roster: kills and
+  // deaths still come straight from the broadcast, identity resolves from the numeric
+  // handle id, and a session with no roster entry falls back to a neutral session label.
+  const callsignBySession = readRosterCallsigns(input.rosterEntries);
   // Row order is presentation-only readability; kills/deaths come straight from the
   // server broadcast and the client never derives standings, scores, or a winner.
   const sortedEntries = [...usableEntries].sort(compareEntriesForReadability);
@@ -43,11 +49,15 @@ export function createScoreboardPresentation(
       localPosition = position;
     }
 
+    const callsign = callsignBySession.get(entry.sessionId);
+    const displayName = callsign ?? `session ${entry.sessionId}`;
+
     return {
+      callsign,
       deaths: entry.deaths,
       isLocalSession,
       kills: entry.kills,
-      label: isLocalSession ? `session ${entry.sessionId} (you)` : `session ${entry.sessionId}`,
+      label: isLocalSession ? `${displayName} (you)` : displayName,
       position,
       sessionId: entry.sessionId
     };
@@ -84,6 +94,30 @@ function readUsableEntries(
   return usable;
 }
 
+function readRosterCallsigns(
+  entries: readonly MatchRosterEntry[] | undefined
+): Map<number, string> {
+  const callsignBySession = new Map<number, string>();
+  if (entries === undefined) {
+    return callsignBySession;
+  }
+
+  for (const entry of entries) {
+    const sessionId = readPositiveInteger(entry?.sessionId);
+    const callsign =
+      typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+    if (sessionId === undefined || callsign === undefined) {
+      continue;
+    }
+
+    // First usable entry wins; the server roster is the only identity source.
+    if (!callsignBySession.has(sessionId)) {
+      callsignBySession.set(sessionId, callsign);
+    }
+  }
+  return callsignBySession;
+}
+
 function compareEntriesForReadability(
   left: Readonly<{ deaths: number; kills: number; sessionId: number }>,
   right: Readonly<{ deaths: number; kills: number; sessionId: number }>
@@ -109,7 +143,8 @@ function formatSummary(
     ? undefined
     : rows.find((row) => row.sessionId === localSessionId);
   if (localRow !== undefined) {
-    return `session ${localRow.sessionId}: ${localRow.kills} kills / ${localRow.deaths} deaths`;
+    const name = localRow.callsign ?? `session ${localRow.sessionId}`;
+    return `${name}: ${localRow.kills} kills / ${localRow.deaths} deaths`;
   }
 
   return rows.length === 1 ? "1 session" : `${rows.length} sessions`;

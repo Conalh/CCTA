@@ -51,7 +51,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 39. Server-authoritative weapons (original catalog, ammo/reload/damage truth).
 40. Server-authoritative player roster (stable identity, broadcast roster).
 41. Read-only in-renderer participant panel.
-42. **Current: Local two-client harness asserts the server-owned roster end to end.**
+42. Local two-client harness asserts the server-owned roster end to end.
+43. **Current: Read-only scoreboard labelled with roster-resolved callsigns.**
 
 ## Phase 8 Status
 
@@ -506,19 +507,30 @@ Phase 42 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and scoreboard, the roster feed and participant panel, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 43 Status
+
+Phase 43 is current when validation passes because:
+
+- `/playtest.html` labels the read-only kill/death scoreboard with roster-resolved callsigns by joining the existing `server.match.stats` feed with the existing `server.match.roster` view state at the presentation layer.
+- The join is presentation-only: kills and deaths still come straight from `server.match.stats`, the callsign resolves from the numeric handle id the roster already carries, and the client never infers tallies or invents participants.
+- A scoreboard row for a session with no current roster entry falls back to a neutral `session <id>` label rather than fabricating identity, consistent with the prototype's hostile-client posture. Malformed roster entries (non-positive session ids, unknown handle ids) are dropped during the join and leave the affected row on the neutral fallback.
+- The scoreboard still declares no winner, and the labelled board clears on reconnect with the rest of the diagnostics-only view state. The resolved callsign is also exposed on the diagnostics view state for review.
+- The change is backward compatible: with no roster present the scoreboard keeps its prior neutral session labels, so the existing scoreboard projection and tests are unchanged in spirit.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed, the roster feed and participant panel, the two-client harness roster assertion, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **label the read-only kill/death scoreboard with roster-resolved callsigns, so the scoreboard reads as participants rather than bare numeric session ids**.
+The next milestone is **assert the roster-labelled scoreboard end to end in the local two-client harness, so the kill/death board is proven to read participant callsigns across a real connection after a confirmed kill**.
 
-The match-stats scoreboard (Phase 38) keys rows by session id, while the roster (Phase 40/41) already maps each session to a handle-derived callsign. Both are diagnostics-only view state already mirrored on the client, so the matching step is a pure presentation join: resolve each scoreboard row's callsign from the roster view state, with a neutral fallback when a session has no roster entry yet.
+The scoreboard label join (Phase 43) is proven in unit projection, and the harness already drives a confirmed kill and an end-of-round transition (Phase 34/42). The matching integration step is to have `npm run playtest:harness` read the diagnostics-only scoreboard view state after the kill and confirm the killer/victim rows carry roster-resolved callsigns rather than bare session ids, printed in the human-review summary.
 
 Expected proof:
 
-- The read-only scoreboard presentation joins the existing match-stats feed with the existing roster view state to label each row with a roster-resolved callsign.
-- The join is presentation-only: kills and deaths still come straight from `server.match.stats`, callsigns still resolve from the numeric handle id, and the client never infers tallies or invents participants.
-- A scoreboard row for a session with no current roster entry falls back to a neutral label rather than fabricating identity, consistent with the prototype's hostile-client posture.
-- The scoreboard still declares no winner, and the labelled board clears on reconnect with the rest of the diagnostics-only view state.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed, the roster feed and participant panel, the two-client harness roster assertion, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- After the harness confirms a kill, it reads the diagnostics-only scoreboard view state and confirms the scored rows carry roster-resolved callsigns matching the observed roster, with kills/deaths sourced from the broadcast.
+- A scored session with no roster entry would still surface as a neutral session label, and the harness reports this honestly rather than fabricating a callsign.
+- The harness prints the scoreboard-callsign evidence in its human-review summary without uploading analytics, writing remote logs, or starting hosted services.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

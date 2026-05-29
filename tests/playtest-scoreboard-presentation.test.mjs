@@ -108,3 +108,66 @@ test("scoreboard presentation tolerates undefined entries", () => {
   assert.equal(presentation.entryCount, 0);
   assert.equal(presentation.summaryLabel, "no stats yet");
 });
+
+test("scoreboard presentation labels rows with roster-resolved callsigns", () => {
+  const presentation = createScoreboardPresentation({
+    entries: [
+      { sessionId: 1, kills: 2, deaths: 1 },
+      { sessionId: 2, kills: 1, deaths: 3 }
+    ],
+    lastServerTick: 50,
+    localSessionId: 1,
+    rosterEntries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
+      { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1 }
+    ]
+  });
+
+  const localRow = presentation.rows.find((row) => row.sessionId === 1);
+  const peerRow = presentation.rows.find((row) => row.sessionId === 2);
+  // Kills/deaths are untouched; only the label is joined from the server roster.
+  assert.equal(localRow?.callsign, "Vesper");
+  assert.equal(localRow?.label, "Vesper (you)");
+  assert.equal(localRow?.kills, 2);
+  assert.equal(peerRow?.callsign, "Quill");
+  assert.equal(peerRow?.label, "Quill");
+  assert.equal(presentation.summaryLabel, "Vesper: 2 kills / 1 deaths");
+  assert.equal(forbiddenLabelPattern.test(labelText(presentation)), false);
+});
+
+test("scoreboard presentation falls back to a neutral label without a roster entry", () => {
+  const presentation = createScoreboardPresentation({
+    entries: [
+      { sessionId: 1, kills: 1, deaths: 0 },
+      { sessionId: 2, kills: 0, deaths: 1 }
+    ],
+    localSessionId: 1,
+    rosterEntries: [{ sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 }]
+  });
+
+  assert.equal(presentation.rows.find((row) => row.sessionId === 1)?.label, "Vesper (you)");
+  const peerRow = presentation.rows.find((row) => row.sessionId === 2);
+  assert.equal(peerRow?.callsign, undefined);
+  assert.equal(peerRow?.label, "session 2");
+});
+
+test("scoreboard presentation drops malformed roster entries when resolving callsigns", () => {
+  const presentation = createScoreboardPresentation({
+    entries: [
+      { sessionId: 6, kills: 3, deaths: 2 },
+      { sessionId: 7, kills: 1, deaths: 1 }
+    ],
+    localSessionId: 6,
+    rosterEntries: [
+      { sessionId: 0, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
+      { sessionId: 7, handleId: 99, weaponProfileId: 2, slotIndex: 1 },
+      { sessionId: 6, handleId: 4, weaponProfileId: 2, slotIndex: 2 }
+    ]
+  });
+
+  // sessionId 0 is non-positive and handle 99 is outside the pool, so neither
+  // resolves; only session 6 -> handle 4 (Marlow) labels and session 7 stays neutral.
+  assert.equal(presentation.rows.find((row) => row.sessionId === 6)?.label, "Marlow (you)");
+  assert.equal(presentation.rows.find((row) => row.sessionId === 7)?.callsign, undefined);
+  assert.equal(presentation.rows.find((row) => row.sessionId === 7)?.label, "session 7");
+});

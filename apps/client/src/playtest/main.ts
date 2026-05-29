@@ -141,6 +141,7 @@ declare global {
       scoreboardLastServerTick: number | undefined;
       scoreboardLocalPosition: number | undefined;
       scoreboardRows: readonly Readonly<{
+        callsign: string | undefined;
         deaths: number;
         isLocalSession: boolean;
         kills: number;
@@ -1004,7 +1005,8 @@ function updateReadout(
   const scoreboard = createScoreboardPresentation({
     entries: state.matchStats,
     lastServerTick: state.lastMatchStatsServerTick,
-    localSessionId: presentation.localSessionId
+    localSessionId: presentation.localSessionId,
+    rosterEntries: state.matchRoster
   });
   const roster = createRosterPresentation({
     entries: state.matchRoster,
@@ -1117,6 +1119,7 @@ function updateReadout(
     scoreboardLastServerTick: scoreboard.lastServerTick,
     scoreboardLocalPosition: scoreboard.localPosition,
     scoreboardRows: scoreboard.rows.map((row) => ({
+      callsign: row.callsign,
       deaths: row.deaths,
       isLocalSession: row.isLocalSession,
       kills: row.kills,
