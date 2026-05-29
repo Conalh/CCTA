@@ -45,6 +45,8 @@ import {
   createNetworkedPlaytestPresentation,
   classifyNetworkedPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
+  formatPlaytestWeaponName,
+  formatPlaytestWeaponAmmo,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   smoothNetworkedPlaytestCameraPosition,
   updateNetworkedPlaytestReviewStats,
@@ -161,6 +163,8 @@ declare global {
       weaponMagazineSize: number | undefined;
       weaponProfileId: number | undefined;
       weaponReloading: boolean | undefined;
+      weaponNameLabel: string;
+      weaponAmmoLabel: string;
     }>;
     __BREACHLINE_PLAYTEST_DIAGNOSTICS__?: Readonly<{
       aimAtRemote(targetEntityId?: number): NetworkedPlaytestRemoteAim | undefined;
@@ -209,6 +213,8 @@ const localHealthEl = requireElement("playtest-local-health");
 const localLifeEl = requireElement("playtest-local-life");
 const hudHealthEl = requireElement("playtest-hud-health");
 const hudLifeEl = requireElement("playtest-hud-life");
+const hudWeaponEl = requireElement("playtest-hud-weapon");
+const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
 const localCombatEventEl = requireElement("playtest-combat-event");
 const localCombatCueEl = requireElement("playtest-combat-cue");
@@ -1099,6 +1105,12 @@ function updateReadout(
     roundCombatPresentationState.respawnCueLabel === "-"
       ? ""
       : roundCombatPresentationState.respawnCueLabel;
+  hudWeaponEl.textContent = formatPlaytestWeaponName(state.weaponProfileId);
+  hudAmmoEl.textContent = formatPlaytestWeaponAmmo(
+    state.weaponAmmoInMagazine,
+    state.weaponMagazineSize,
+    state.weaponReloading
+  );
   localCombatEventEl.textContent = roundCombatPresentationState.localCombatEventLabel;
   localCombatCueEl.textContent = roundCombatPresentationState.localCombatCueLabel;
   localCombatCueEl.dataset.active = roundCombatPresentationState.localCombatCueActive ? "true" : "false";
@@ -1199,7 +1211,13 @@ function updateReadout(
     weaponAmmoInMagazine: state.weaponAmmoInMagazine,
     weaponMagazineSize: state.weaponMagazineSize,
     weaponProfileId: state.weaponProfileId,
-    weaponReloading: state.weaponReloading
+    weaponReloading: state.weaponReloading,
+    weaponNameLabel: formatPlaytestWeaponName(state.weaponProfileId),
+    weaponAmmoLabel: formatPlaytestWeaponAmmo(
+      state.weaponAmmoInMagazine,
+      state.weaponMagazineSize,
+      state.weaponReloading
+    )
   };
 }
 

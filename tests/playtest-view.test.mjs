@@ -16,6 +16,8 @@ import {
   createNetworkedPlaytestPresentation,
   formatPlaytestRoundPhase,
   formatPlaytestMatchOccupancy,
+  formatPlaytestWeaponName,
+  formatPlaytestWeaponAmmo,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   NETWORKED_PLAYTEST_INPUT_RATE_HZ,
   classifyNetworkedPlaytestMotionContact,
@@ -316,6 +318,22 @@ test("networked playtest match occupancy formats server-owned slots without clie
   assert.equal(formatPlaytestMatchOccupancy(1.5, 8), "-");
   assert.equal(formatPlaytestMatchOccupancy(-1, 8), "-");
   assert.equal(formatPlaytestMatchOccupancy(2, 0), "-");
+});
+
+test("networked playtest weapon readout resolves server-owned name and ammo without client truth", () => {
+  // Name resolves from the server-broadcast profile id; unselected/unknown falls back.
+  assert.equal(formatPlaytestWeaponName(2), "Halcyon");
+  assert.equal(formatPlaytestWeaponName(0), "-");
+  assert.equal(formatPlaytestWeaponName(undefined), "-");
+  assert.equal(formatPlaytestWeaponName(99), "-");
+
+  // Ammo formats the mirrored magazine; reloading takes precedence; malformed falls back.
+  assert.equal(formatPlaytestWeaponAmmo(12, 30, false), "12 / 30");
+  assert.equal(formatPlaytestWeaponAmmo(0, 30, false), "0 / 30");
+  assert.equal(formatPlaytestWeaponAmmo(5, 30, true), "reloading");
+  assert.equal(formatPlaytestWeaponAmmo(undefined, 30, false), "-");
+  assert.equal(formatPlaytestWeaponAmmo(12, undefined, false), "-");
+  assert.equal(formatPlaytestWeaponAmmo(-1, 30, false), "-");
 });
 
 test("networked playtest review stats track max correction, reconnect count, and last error", () => {

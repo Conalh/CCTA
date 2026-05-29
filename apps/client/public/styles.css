@@ -528,6 +528,10 @@ li {
   font-variant-numeric: tabular-nums;
 }
 
+.playtest-hud-ammo {
+  font-variant-numeric: tabular-nums;
+}
+
 .playtest-hud-life[data-life="alive"] {
   color: #9ee2af;
 }

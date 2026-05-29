@@ -3,6 +3,7 @@ import {
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
   createClientInputPlaceholder,
+  getWeaponDefinition,
   type ArenaMapMetadata,
   type ClientInputMessage,
   type RoundPhase
@@ -317,6 +318,36 @@ export function formatPlaytestMatchOccupancy(
     return "-";
   }
   return `${safeConnected} / ${safeCapacity}`;
+}
+
+export function formatPlaytestWeaponName(weaponProfileId: number | undefined): string {
+  // Weapon identity is server-owned; the client only resolves the broadcast profile id
+  // to its catalog name and never invents a weapon.
+  if (weaponProfileId === undefined || weaponProfileId === 0) {
+    return "-";
+  }
+  return getWeaponDefinition(weaponProfileId)?.name ?? "-";
+}
+
+export function formatPlaytestWeaponAmmo(
+  ammoInMagazine: number | undefined,
+  magazineSize: number | undefined,
+  reloading: boolean | undefined
+): string {
+  // Ammo and reload state are server-owned (server.weapon.state); the client only
+  // formats the mirrored values for a read-only readout and never sets ammo truth.
+  if (reloading === true) {
+    return "reloading";
+  }
+  const ammo =
+    typeof ammoInMagazine === "number" && Number.isInteger(ammoInMagazine) && ammoInMagazine >= 0
+      ? ammoInMagazine
+      : undefined;
+  const size = readPositiveInteger(magazineSize);
+  if (ammo === undefined || size === undefined) {
+    return "-";
+  }
+  return `${ammo} / ${size}`;
 }
 
 export function createInitialNetworkedPlaytestReviewStats(): NetworkedPlaytestReviewStats {

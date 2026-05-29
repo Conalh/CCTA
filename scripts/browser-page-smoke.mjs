@@ -204,6 +204,8 @@ try {
   assert.match(playtestHtml, /id="playtest-local-life"/);
   assert.match(playtestHtml, /id="playtest-hud-health"/);
   assert.match(playtestHtml, /id="playtest-hud-life"/);
+  assert.match(playtestHtml, /id="playtest-hud-weapon"/);
+  assert.match(playtestHtml, /id="playtest-hud-ammo"/);
   assert.match(playtestHtml, /id="playtest-hud-respawn"/);
   assert.match(playtestHtml, /id="playtest-combat-event"/);
   assert.match(playtestHtml, /id="playtest-combat-cue"/);
@@ -250,6 +252,7 @@ try {
   assert.match(playtestStateSource, /CLIENT_INPUT_BUTTONS/);
   assert.match(playtestStateSource, /formatPlaytestRoundPhase/);
   assert.match(playtestStateSource, /formatPlaytestMatchOccupancy/);
+  assert.match(playtestStateSource, /formatPlaytestWeaponAmmo/);
   assert.match(playtestStateSource, /createInitialNetworkedPlaytestReviewStats/);
   assert.match(playtestStateSource, /classifyNetworkedPlaytestMotionContact/);
 
