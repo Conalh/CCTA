@@ -49,7 +49,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 37. Server-authoritative kill/death stats feed (first gameplay-meaning slice).
 38. Read-only in-renderer kill/death scoreboard.
 39. Server-authoritative weapons (original catalog, ammo/reload/damage truth).
-40. **Current: Server-authoritative player roster (stable identity, broadcast roster).**
+40. Server-authoritative player roster (stable identity, broadcast roster).
+41. **Current: Read-only in-renderer participant panel.**
 
 ## Phase 8 Status
 
@@ -479,19 +480,31 @@ Phase 40 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 41 Status
+
+Phase 41 is current when validation passes because:
+
+- `/playtest.html` presents the authoritative `server.match.roster` feed as a read-only participant panel built by a pure presentation projection, mirroring the Phase 38 scoreboard pattern.
+- The panel mirrors the broadcast exactly: callsign, equipped weapon, and slot all come straight from the roster. The callsign is resolved from the numeric handle id at the presentation layer, the weapon label is resolved from the shared catalog, and the client never invents participants or identity.
+- Rows are ordered for readability (by slot index, then session id) and the local session is highlighted, but the panel declares no authority: it shows no kills, deaths, score, standings, or winner.
+- The panel is a projection of the diagnostics-only roster view state, so it clears automatically on reconnect with the rest of the per-connection diagnostics.
+- Malformed or partial roster entries are dropped without poisoning the panel (non-positive session ids, unknown handle ids, and non-integer slots are discarded), and an unselected weapon profile renders as a neutral pending label rather than fabricating a weapon.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and scoreboard, the roster feed, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **present the existing server-owned roster as a read-only in-renderer participant list, without granting the client any authority**.
+The next milestone is **let the local two-client playtest harness assert the server-owned roster end to end, so roster identity is proven across a real connection rather than only in unit projection**.
 
-The direction mirrors the stats slice: Phase 37 produced the server-owned kill/death feed and Phase 38 presented it read-only; Phase 40 produced the server-owned roster, so the matching half is a read-only renderer presentation. The `/playtest.html` view would project the diagnostics-only `server.match.roster` into a compact participant panel (callsign resolved from handle id, equipped weapon, slot, local-session highlight), driven entirely by the broadcast and cleared on reconnect.
+The roster feed (Phase 40) and its read-only presentation (Phase 41) are both proven in isolation. The matching integration step is to have `npm run playtest:harness` confirm that two connected clients each observe a two-entry roster with distinct handle-derived callsigns and the expected equipped weapon, and that a disconnect shrinks the observed roster — all read from the diagnostics-only view state already exposed on the page.
 
 Expected proof:
 
-- `/playtest.html` presents the authoritative `server.match.roster` feed as a read-only participant panel built by a pure presentation projection.
-- The panel mirrors the broadcast exactly: callsign, weapon, and slot come straight from the roster (callsign resolved from the numeric handle id), and the client never invents participants or identity.
-- Rows are ordered for readability (by slot index) and the local session is highlighted, but the panel declares no authority and clears on reconnect with the rest of the per-connection diagnostics.
-- Malformed or partial roster entries are dropped without poisoning the panel, consistent with the prototype's hostile-client posture.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and scoreboard, the roster feed, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- The local browser harness opens two `/playtest.html` clients and reads the diagnostics-only roster view state from each.
+- Each client observes both participants with distinct callsigns resolved from the numeric handle id, the server-default weapon, and stable slot ordering.
+- A client disconnect is reflected as a smaller observed roster on the remaining client, with no client-invented identity.
+- The harness prints the roster evidence in its human-review summary without uploading analytics, writing remote logs, or starting hosted services.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and scoreboard, the roster feed and participant panel, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

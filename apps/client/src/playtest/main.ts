@@ -5,7 +5,6 @@ import {
   PROTOCOL_VERSION,
   createClientFireIntent,
   createClientLoadoutSelect,
-  getPlayerCallsign,
   type MessageTransport
 } from "@breachline/shared";
 
@@ -64,6 +63,10 @@ import {
   type RoundCombatPresentationState
 } from "./round-combat-presentation.js";
 import {
+  createRosterPresentation,
+  type RosterPresentation
+} from "./roster-presentation.js";
+import {
   createScoreboardPresentation,
   type ScoreboardPresentation
 } from "./scoreboard-presentation.js";
@@ -118,6 +121,13 @@ declare global {
       rosterEntryCount: number;
       rosterLastServerTick: number | undefined;
       rosterLocalCallsign: string | undefined;
+      rosterRows: readonly Readonly<{
+        callsign: string;
+        isLocalSession: boolean;
+        sessionId: number;
+        slotIndex: number;
+        weaponLabel: string;
+      }>[];
       remoteCombatCue: string;
       remoteCombatCueActive: boolean;
       remoteCombatTargetEntityId: number | undefined;
@@ -192,6 +202,8 @@ const localCombatCueEl = requireElement("playtest-combat-cue");
 const remoteCombatCueEl = requireElement("playtest-remote-combat");
 const scoreboardSummaryEl = requireElement("playtest-scoreboard-summary");
 const scoreboardRowsEl = requireElement("playtest-scoreboard-rows");
+const rosterSummaryEl = requireElement("playtest-roster-summary");
+const rosterRowsEl = requireElement("playtest-roster-rows");
 const renderHealthEl = requireElement("playtest-render-health");
 const frameCountEl = requireElement("playtest-frame-count");
 const cameraSourceEl = requireElement("playtest-camera-source");
@@ -994,7 +1006,11 @@ function updateReadout(
     lastServerTick: state.lastMatchStatsServerTick,
     localSessionId: presentation.localSessionId
   });
-  const rosterLocalEntry = state.matchRoster.find((entry) => entry.sessionId === presentation.localSessionId);
+  const roster = createRosterPresentation({
+    entries: state.matchRoster,
+    lastServerTick: state.lastMatchRosterServerTick,
+    localSessionId: presentation.localSessionId
+  });
 
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
@@ -1035,6 +1051,7 @@ function updateReadout(
   remoteCombatCueEl.textContent = roundCombatPresentationState.remoteCombatCueLabel;
   remoteCombatCueEl.dataset.active = roundCombatPresentationState.remoteCombatCueActive ? "true" : "false";
   renderScoreboard(scoreboard);
+  renderRoster(roster);
   renderHealthEl.textContent = renderSampleHealthy ? "nonblank" : "pending";
   frameCountEl.textContent = frameCount.toString();
   cameraSourceEl.textContent = presentation.localCameraSource;
@@ -1109,10 +1126,16 @@ function updateReadout(
     scoreboardSummary: scoreboard.summaryLabel,
     serverPosition: presentation.serverPosition,
     sessionId: presentation.localSessionId,
-    rosterEntryCount: state.matchRoster.length,
-    rosterLastServerTick: state.lastMatchRosterServerTick,
-    rosterLocalCallsign:
-      rosterLocalEntry === undefined ? undefined : getPlayerCallsign(rosterLocalEntry.handleId),
+    rosterEntryCount: roster.entryCount,
+    rosterLastServerTick: roster.lastServerTick,
+    rosterLocalCallsign: roster.localCallsign,
+    rosterRows: roster.rows.map((row) => ({
+      callsign: row.callsign,
+      isLocalSession: row.isLocalSession,
+      sessionId: row.sessionId,
+      slotIndex: row.slotIndex,
+      weaponLabel: row.weaponLabel
+    })),
     weaponAmmoInMagazine: state.weaponAmmoInMagazine,
     weaponMagazineSize: state.weaponMagazineSize,
     weaponProfileId: state.weaponProfileId,
@@ -1147,6 +1170,28 @@ function renderScoreboard(scoreboard: ScoreboardPresentation): void {
       tallyEl.textContent = `${row.kills} / ${row.deaths}`;
 
       rowEl.append(nameEl, tallyEl);
+      return rowEl;
+    })
+  );
+}
+
+function renderRoster(roster: RosterPresentation): void {
+  rosterSummaryEl.textContent = roster.summaryLabel;
+  rosterRowsEl.replaceChildren(
+    ...roster.rows.map((row) => {
+      const rowEl = document.createElement("li");
+      rowEl.className = "playtest-roster-row";
+      rowEl.dataset.local = row.isLocalSession ? "true" : "false";
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "playtest-roster-name";
+      nameEl.textContent = `${row.slotIndex + 1}. ${row.label}`;
+
+      const weaponEl = document.createElement("span");
+      weaponEl.className = "playtest-roster-weapon";
+      weaponEl.textContent = row.weaponLabel;
+
+      rowEl.append(nameEl, weaponEl);
       return rowEl;
     })
   );
