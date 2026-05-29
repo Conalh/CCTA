@@ -705,6 +705,72 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   });
 });
 
+test("server runtime ignores a duplicate hello and keeps authoritative combat and input state", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("rehello-a");
+  const second = createFakeTransportSession("rehello-b");
+
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({
+      kind: "protocol.hello",
+      protocolVersion: PROTOCOL_VERSION,
+      clientName: transport.session.id
+    });
+  }
+  runtime.step(5, 1016);
+
+  first.receive({
+    kind: "client.input",
+    sequence: 7,
+    clientTimeMs: 1020,
+    buttons: 0,
+    yaw: 0,
+    pitch: 0
+  });
+  for (const sequence of [1, 2]) {
+    first.receive(
+      createClientFireIntent({
+        sequence,
+        clientTimeMs: 1040 + sequence,
+        clientTick: 5,
+        yaw: -Math.PI / 2,
+        pitch: 0
+      })
+    );
+  }
+
+  assert.equal(runtime.getCombatState(2, 5).alive, false);
+  assert.equal(runtime.getCombatState(2, 5).health, 0);
+  assert.equal(runtime.getCombatState(2, 5).respawnEligibleTick, 8);
+  const inputStateBefore = runtime.getSessionInputState("rehello-a");
+  assert.equal(inputStateBefore.lastAcceptedInputSequence, 7);
+
+  // A hostile or buggy duplicate hello over the already-accepted transports must be a no-op.
+  for (const transport of [first, second]) {
+    transport.receive({
+      kind: "protocol.hello",
+      protocolVersion: PROTOCOL_VERSION,
+      clientName: transport.session.id
+    });
+  }
+
+  // The dead player stays dead with its respawn timer intact (no free revive/heal).
+  assert.equal(runtime.getCombatState(2, 5).alive, false);
+  assert.equal(runtime.getCombatState(2, 5).health, 0);
+  assert.equal(runtime.getCombatState(2, 5).respawnEligibleTick, 8);
+  // Input sequencing is not reset, so old input sequences cannot be replayed.
+  assert.deepEqual(runtime.getSessionInputState("rehello-a"), inputStateBefore);
+  // The duplicate hello emits no second accept / match assignment.
+  assert.equal(first.sent.filter((message) => message.kind === "protocol.accept").length, 1);
+  assert.equal(first.sent.filter((message) => message.kind === "match.assigned").length, 1);
+});
+
 test("server runtime gates dead movement, fire, and targeting until server respawn reset", () => {
   const runtime = createServerRuntime({
     tickRateHz: 2,

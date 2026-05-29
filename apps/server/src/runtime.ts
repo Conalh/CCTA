@@ -187,6 +187,14 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   }
 
   function handleHello(session: MutableServerRuntimeSession, message: ProtocolHelloMessage): void {
+    // A session completes connection setup exactly once. Re-running it for an already-accepted
+    // session would reset authoritative state — a hostile or buggy client could heal/revive its
+    // combat state, teleport its world entity back to spawn, and reset input sequencing to replay
+    // old inputs. Ignore the duplicate; a rejected assignment leaves accepted false so retries work.
+    if (session.accepted) {
+      return;
+    }
+
     const response = acceptProtocolHello(message, config.tickRateHz);
     if (response.kind === "protocol.reject") {
       session.transport.send(response);
