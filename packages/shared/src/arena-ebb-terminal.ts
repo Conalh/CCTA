@@ -71,6 +71,34 @@ export const EBB_TERMINAL_ARENA: ArenaMapMetadata = {
       label: "Rear step",
       position: [2.8, 0.35, -4.6],
       size: [3.2, 0.7, 1]
+    },
+    {
+      id: "north-bulwark",
+      kind: "cover",
+      label: "North bulwark",
+      position: [-3.5, 0.6, -7.5],
+      size: [3, 1.2, 1.4]
+    },
+    {
+      id: "south-bulwark",
+      kind: "cover",
+      label: "South bulwark",
+      position: [3.5, 0.6, 7.5],
+      size: [3, 1.2, 1.4]
+    },
+    {
+      id: "west-pillar",
+      kind: "cover",
+      label: "West pillar",
+      position: [-9.5, 0.8, 1],
+      size: [1.4, 1.6, 3]
+    },
+    {
+      id: "east-pillar",
+      kind: "cover",
+      label: "East pillar",
+      position: [9.5, 0.8, -1],
+      size: [1.4, 1.6, 3]
     }
   ],
   playerScaleReferences: [

@@ -18,7 +18,7 @@ test("shared collision geometry derives static blockers from the original arena 
     min: [-14, -11],
     max: [14, 11]
   });
-  assert.equal(geometry.blockers.length, 8);
+  assert.equal(geometry.blockers.length, 12);
   assert.equal(geometry.blockers.some((blocker) => blocker.sourcePrimitiveId === "floor-plate"), false);
   assert.equal(geometry.blockers.some((blocker) => blocker.sourcePrimitiveId === "central-sill"), true);
   assert.equal(new Set(geometry.blockers.map((blocker) => blocker.id)).size, geometry.blockers.length);
