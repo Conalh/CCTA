@@ -22,6 +22,7 @@ import {
   type ProtocolRejectMessage,
   type ServerCombatStateMessage,
   type ServerLoadoutStateMessage,
+  type ServerMatchRosterMessage,
   type ServerMatchStatsMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
@@ -64,6 +65,7 @@ import {
   type RoundStateConfig
 } from "./round-state.js";
 import { createMatchStats } from "./match-stats.js";
+import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
 
@@ -107,6 +109,7 @@ export type ServerRuntime = Readonly<{
   getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
+  getMatchRoster(serverTick?: number): ServerMatchRosterMessage;
   step(tick: number, serverTimeMs?: number): void;
   close(): void;
 }>;
@@ -134,6 +137,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   });
   const roundState = createRoundState(config.round);
   const matchStats = createMatchStats();
+  const playerRegistry = createPlayerRegistry({
+    defaultWeaponProfileId: config.weapon?.defaultProfileId
+  });
   let lastServerTick = 0;
 
   function attachSession(transport: MessageTransport): void {
@@ -157,12 +163,14 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         weaponState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         combatState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
+        playerRegistry.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchSession.disconnect(transport.id);
       }
       sessions.delete(transport.id);
       if (hadMatchSlot) {
         broadcastMatchUpdate();
+        broadcastMatchRoster();
       }
     });
     sessions.set(transport.id, runtimeSession);
@@ -243,11 +251,13 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       entityId: worldEntity.entityId
     });
     matchStats.assignSession(assignment.sessionId);
+    playerRegistry.assignSession(assignment.sessionId, assignment.slotIndex);
     session.transport.send(response);
     session.transport.send(createMatchAssignedMessage(assignment));
     sendCombatStateToSession(assignment.sessionId);
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     broadcastMatchUpdate();
+    broadcastMatchRoster();
   }
 
   function step(tick: number, serverTimeMs = now()): void {
@@ -264,6 +274,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     const resetWeaponStates = roundAdvance.resetRound ? weaponState.resetAll(tick) : [];
     if (roundAdvance.resetRound) {
       worldState.resetMovement();
+      playerRegistry.resetWeapons();
     }
     const completedReloads = roundAdvance.resetRound ? [] : weaponState.advanceReloads(tick);
     const respawned = roundState.allowsRespawn() ? combatState.advanceRespawns(tick) : [];
@@ -295,6 +306,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     }
     for (const state of [...resetCombatStates, ...respawned]) {
       sendCombatStateToSession(state.sessionId);
+    }
+    if (roundAdvance.resetRound) {
+      broadcastMatchRoster();
     }
   }
 
@@ -338,6 +352,10 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     return matchStats.createStateMessage(serverTick);
   }
 
+  function getMatchRoster(serverTick = lastServerTick): ServerMatchRosterMessage {
+    return playerRegistry.createRosterMessage(serverTick);
+  }
+
   function broadcastMatchStats(): void {
     const message = matchStats.createStateMessage(lastServerTick);
     for (const session of sessions.values()) {
@@ -354,6 +372,15 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       matchSession.connectedSlotCount()
     );
 
+    for (const session of sessions.values()) {
+      if (session.accepted) {
+        session.transport.send(message);
+      }
+    }
+  }
+
+  function broadcastMatchRoster(): void {
+    const message = playerRegistry.createRosterMessage(lastServerTick);
     for (const session of sessions.values()) {
       if (session.accepted) {
         session.transport.send(message);
@@ -498,6 +525,8 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     session.transport.send(loadoutResult);
     if (loadoutResult.status === LOADOUT_STATUS.accepted && loadoutResult.profileId !== 0) {
       sendWeaponStateToSession(weaponState.setWeapon(loadoutResult.sessionId, loadoutResult.profileId));
+      playerRegistry.setWeapon(loadoutResult.sessionId, loadoutResult.profileId);
+      broadcastMatchRoster();
     }
   }
 
@@ -579,6 +608,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getWeaponState,
     getRoundState,
     getMatchStats,
+    getMatchRoster,
     step,
     close
   };

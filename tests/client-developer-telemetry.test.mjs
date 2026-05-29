@@ -52,6 +52,7 @@ test("developer telemetry summarizes a private playtest-ready diagnostics connec
     weaponAmmoInMagazine: 24,
     weaponMagazineSize: 24,
     weaponReloading: false,
+    matchRoster: [{ sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 }],
     lastFireResultSequence: 3,
     lastFireAccepted: true,
     lastFireHit: false,
@@ -79,6 +80,7 @@ test("developer telemetry summarizes a private playtest-ready diagnostics connec
   assert.equal(itemById(summary, "fire").status, "ok");
   assert.equal(itemById(summary, "combat").status, "ok");
   assert.equal(itemById(summary, "round").status, "ok");
+  assert.equal(itemById(summary, "roster").status, "ok");
   assert.equal(itemById(summary, "errors").status, "ok");
 });
 

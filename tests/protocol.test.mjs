@@ -542,6 +542,72 @@ test("decodeProtocolMessage rejects malformed match stats packets", () => {
   assert.throws(() => decodeProtocolMessage(badLength), /Packet length mismatch/);
 });
 
+test("protocol helpers round-trip match roster messages", () => {
+  assert.equal(PACKET_KIND.serverMatchRoster, 21);
+
+  const message = {
+    kind: "server.match.roster",
+    serverTick: 90,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1 }
+    ]
+  };
+
+  const encoded = encodeProtocolMessage(message);
+  const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength);
+  assert.equal(encoded[3], PACKET_KIND.serverMatchRoster);
+  assert.equal(view.getUint32(8, true), 4 + 2 * 12);
+  assert.deepEqual(decodeProtocolMessage(encoded), message);
+
+  const empty = {
+    kind: "server.match.roster",
+    serverTick: 0,
+    entryCount: 0,
+    entries: []
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(empty)), empty);
+
+  const unequipped = {
+    kind: "server.match.roster",
+    serverTick: 12,
+    entryCount: 1,
+    entries: [{ sessionId: 7, handleId: 3, weaponProfileId: 0, slotIndex: 4 }]
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(unequipped)), unequipped);
+});
+
+test("decodeProtocolMessage rejects malformed match roster packets", () => {
+  const roster = encodeProtocolMessage({
+    kind: "server.match.roster",
+    serverTick: 90,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1 }
+    ]
+  });
+
+  const badEntryCount = patchPacket(roster, (packet) => {
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    view.setUint16(PACKET_HEADER_LENGTH, 3, true);
+  });
+  assert.throws(() => decodeProtocolMessage(badEntryCount), /entry count/i);
+
+  const badProfile = patchPacket(roster, (packet) => {
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    view.setUint16(PACKET_HEADER_LENGTH + 4 + 6, 99, true);
+  });
+  assert.throws(() => decodeProtocolMessage(badProfile), /loadout profile id/i);
+
+  const badLength = patchPacket(roster, (packet) => {
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength);
+    view.setUint32(8, 8, true);
+  });
+  assert.throws(() => decodeProtocolMessage(badLength), /Packet length mismatch/);
+});
+
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {
   assert.equal(PACKET_KIND.inputAck, 11);
 

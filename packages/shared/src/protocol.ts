@@ -32,7 +32,8 @@ export const PACKET_KIND = {
   serverRoundState: 17,
   serverMatchStats: 18,
   clientWeaponReload: 19,
-  serverWeaponState: 20
+  serverWeaponState: 20,
+  serverMatchRoster: 21
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -157,7 +158,8 @@ export type ServerProtocolMessage =
   | ServerLoadoutStateMessage
   | ServerWeaponStateMessage
   | ServerRoundStateMessage
-  | ServerMatchStatsMessage;
+  | ServerMatchStatsMessage
+  | ServerMatchRosterMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -312,6 +314,20 @@ export type ServerMatchStatsMessage = Readonly<{
   serverTick: number;
   entryCount: number;
   entries: readonly MatchStatsEntry[];
+}>;
+
+export type MatchRosterEntry = Readonly<{
+  sessionId: number;
+  handleId: number;
+  weaponProfileId: LoadoutProfileId | 0;
+  slotIndex: number;
+}>;
+
+export type ServerMatchRosterMessage = Readonly<{
+  kind: "server.match.roster";
+  serverTick: number;
+  entryCount: number;
+  entries: readonly MatchRosterEntry[];
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -534,6 +550,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerMatchStatsPayload(message)
+      );
+    case "server.match.roster":
+      return writePacket(
+        PACKET_KIND.serverMatchRoster,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerMatchRosterPayload(message)
       );
   }
 }
@@ -762,6 +785,14 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         serverTick: sequenceOrTick,
         entryCount: payload.getUint16(0, true),
         entries: decodeMatchStatsEntries(payload, payloadLength)
+      };
+    case PACKET_KIND.serverMatchRoster:
+      requireServerMatchRosterPayloadLength(payloadLength);
+      return {
+        kind: "server.match.roster",
+        serverTick: sequenceOrTick,
+        entryCount: payload.getUint16(0, true),
+        entries: decodeMatchRosterEntries(payload, payloadLength)
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -995,6 +1026,30 @@ function encodeServerMatchStatsPayload(message: ServerMatchStatsMessage): Uint8A
   return payload;
 }
 
+function encodeServerMatchRosterPayload(message: ServerMatchRosterMessage): Uint8Array {
+  const entryCount = readUint16(message.entryCount, "entryCount");
+  if (entryCount !== message.entries.length) {
+    throw new Error(`server.match.roster entry count ${entryCount} does not match ${message.entries.length} entries.`);
+  }
+
+  const payload = new Uint8Array(4 + message.entries.length * 12);
+  const view = new DataView(payload.buffer);
+  view.setUint16(0, entryCount, true);
+  view.setUint16(2, 0, true);
+
+  let offset = 4;
+  for (const entry of message.entries) {
+    view.setUint32(offset, readUint32(entry.sessionId, "sessionId"), true);
+    view.setUint16(offset + 4, readUint16(entry.handleId, "handleId"), true);
+    view.setUint16(offset + 6, readLoadoutProfileId(entry.weaponProfileId, true), true);
+    view.setUint16(offset + 8, readUint16(entry.slotIndex, "slotIndex"), true);
+    view.setUint16(offset + 10, 0, true);
+    offset += 12;
+  }
+
+  return payload;
+}
+
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
 }
@@ -1083,6 +1138,38 @@ function decodeMatchStatsEntries(payload: DataView, payloadLength: number): read
       sessionId: payload.getUint32(offset, true),
       kills: payload.getUint32(offset + 4, true),
       deaths: payload.getUint32(offset + 8, true)
+    });
+    offset += 12;
+  }
+  return entries;
+}
+
+function requireServerMatchRosterPayloadLength(payloadLength: number): void {
+  if (payloadLength < 4) {
+    throw new Error(`server.match.roster payload length must be at least 4 bytes, got ${payloadLength}.`);
+  }
+
+  const entryPayloadLength = payloadLength - 4;
+  if (entryPayloadLength % 12 !== 0) {
+    throw new Error("server.match.roster entry payload length must be a multiple of 12 bytes.");
+  }
+}
+
+function decodeMatchRosterEntries(payload: DataView, payloadLength: number): readonly MatchRosterEntry[] {
+  const entryCount = payload.getUint16(0, true);
+  const recordCount = (payloadLength - 4) / 12;
+  if (entryCount !== recordCount) {
+    throw new Error(`server.match.roster entry count ${entryCount} does not match ${recordCount} entry records.`);
+  }
+
+  const entries: MatchRosterEntry[] = [];
+  let offset = 4;
+  for (let index = 0; index < entryCount; index += 1) {
+    entries.push({
+      sessionId: payload.getUint32(offset, true),
+      handleId: payload.getUint16(offset + 4, true),
+      weaponProfileId: readLoadoutProfileId(payload.getUint16(offset + 6, true), true),
+      slotIndex: payload.getUint16(offset + 8, true)
     });
     offset += 12;
   }

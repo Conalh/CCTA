@@ -111,6 +111,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "server.combat.state",
       "server.weapon.state",
       "match.update",
+      "server.match.roster",
       "pong",
       "input.ack",
       "server.tick",
@@ -297,14 +298,17 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.combat.state",
     "server.weapon.state",
     "match.update",
-    "match.update"
+    "server.match.roster",
+    "match.update",
+    "server.match.roster"
   ]);
   assert.deepEqual(second.sent.map((message) => message.kind), [
     "protocol.accept",
     "match.assigned",
     "server.combat.state",
     "server.weapon.state",
-    "match.update"
+    "match.update",
+    "server.match.roster"
   ]);
   assert.deepEqual(third.sent, [
     {
@@ -809,6 +813,77 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   assert.deepEqual(firstStats[0], expectedStats);
   assert.deepEqual(secondStats[0], expectedStats);
   assert.deepEqual(runtime.getMatchStats(6), expectedStats);
+});
+
+test("server runtime broadcasts an authoritative roster on join, loadout, leave, and round reset", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 2,
+    matchCapacity: 2,
+    round: {
+      setupDurationTicks: 1,
+      activeDurationTicks: 2,
+      resetDurationTicks: 1
+    },
+    weapon: TEST_WEAPON_CONFIG,
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("roster-a");
+  const second = createFakeTransportSession("roster-b");
+
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({
+      kind: "protocol.hello",
+      protocolVersion: PROTOCOL_VERSION,
+      clientName: transport.session.id
+    });
+  }
+
+  // Both assigned sessions appear, sorted by slot index, each with a distinct handle and the
+  // default weapon. Callsigns never cross the wire — only numeric handle ids do.
+  assert.deepEqual(runtime.getMatchRoster(0), {
+    kind: "server.match.roster",
+    serverTick: 0,
+    entryCount: 2,
+    entries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+    ]
+  });
+
+  // An accepted loadout selection rebroadcasts the roster with the new server-owned weapon.
+  first.receive({
+    kind: "client.loadout.select",
+    sequence: 1,
+    profileId: LOADOUT_PROFILE_ID.cinder
+  });
+  assert.deepEqual(first.sent.filter((message) => message.kind === "server.match.roster").at(-1).entries, [
+    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.cinder, slotIndex: 0 },
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+  ]);
+
+  // A round reset returns every player to the default weapon and rebroadcasts to all sessions.
+  const rosterCountBeforeReset = first.sent.filter((message) => message.kind === "server.match.roster").length;
+  runtime.step(1, 1000); // setup -> active
+  runtime.step(3, 1100); // active -> ended (timeout)
+  runtime.step(4, 1200); // ended -> reset
+  assert.equal(runtime.getRoundState(4).phase, ROUND_PHASE.reset);
+  const afterReset = first.sent.filter((message) => message.kind === "server.match.roster");
+  assert.ok(afterReset.length > rosterCountBeforeReset);
+  assert.deepEqual(afterReset.at(-1).entries, [
+    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+  ]);
+
+  // Disconnecting frees the slot and rebroadcasts the shrunken roster to the survivor.
+  first.session.close();
+  assert.deepEqual(second.sent.filter((message) => message.kind === "server.match.roster").at(-1).entries, [
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+  ]);
+  assert.deepEqual(runtime.getMatchRoster(4).entries, [
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+  ]);
 });
 
 test("server runtime ignores a duplicate hello and keeps authoritative combat and input state", () => {

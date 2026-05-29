@@ -47,7 +47,9 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 ## Gameplay Milestones
 
 37. Server-authoritative kill/death stats feed (first gameplay-meaning slice).
-38. **Current: Read-only in-renderer kill/death scoreboard.**
+38. Read-only in-renderer kill/death scoreboard.
+39. Server-authoritative weapons (original catalog, ammo/reload/damage truth).
+40. **Current: Server-authoritative player roster (stable identity, broadcast roster).**
 
 ## Phase 8 Status
 
@@ -465,19 +467,32 @@ Phase 39 is current when validation passes because:
 
 Phase 2 keeps WebTransport as the intended browser transport, but validates the runtime loop through a WebSocket fallback. The blocker is local WebTransport server support: this stack does not yet provide an HTTP/3 plus TLS server endpoint for browser WebTransport.
 
+## Phase 40 Status
+
+Phase 40 is current when validation passes because:
+
+- Players now exist as a server-authoritative match roster. A shared player-handle pool supplies eight original neutral callsigns (`Vesper`, `Quill`, `Tundra`, `Marlow`, `Ember`, `Cairn`, `Drift`, `Sable`) keyed by a compact numeric handle id, each validated as a positive uint16 handle with a non-empty original callsign.
+- The server owns a player registry keyed by session id. Each accepted session is assigned the lowest free handle on join, carries its server-owned equipped weapon profile and fixed match slot, and frees its handle on leave; the registry never trusts client-reported identity.
+- An authoritative `server.match.roster` message reports the current participants (numeric session id, handle id, weapon profile id, slot index) and is broadcast on join, leave, accepted loadout change, and round reset. It reuses the proven variable-length control-message layout (uint16 count plus reserved pad plus fixed 12-byte records) with the same malformed-packet guards.
+- Callsigns never cross the wire: the protocol carries only the numeric handle id, which resolves to a callsign at the client diagnostics/presentation layer. The client mirrors the roster as diagnostics-only view state that clears on reconnect.
+- A round reset returns every session to the default weapon and rebroadcasts the roster, keeping the mirrored client diagnostics consistent with server truth.
+- Existing round flow, loadout, weapon authority, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **make players exist as first-class server-owned participants with a stable identity and a server-broadcast roster, without granting the client any authority**.
+The next milestone is **present the existing server-owned roster as a read-only in-renderer participant list, without granting the client any authority**.
 
-The direction is deliberate. Phase 39 gave each session a server-authoritative weapon; the matching half is a server-owned player record so a participant is more than an anonymous session slot. The server assigns each accepted session an original neutral callsign and tracks its equipped weapon profile and fixed slot, then broadcasts an authoritative roster the client mirrors as diagnostics-only state. The client continues to only display server truth.
+The direction mirrors the stats slice: Phase 37 produced the server-owned kill/death feed and Phase 38 presented it read-only; Phase 40 produced the server-owned roster, so the matching half is a read-only renderer presentation. The `/playtest.html` view would project the diagnostics-only `server.match.roster` into a compact participant panel (callsign resolved from handle id, equipped weapon, slot, local-session highlight), driven entirely by the broadcast and cleared on reconnect.
 
 Expected proof:
 
-- The server owns a player registry keyed by session id, holding an original neutral callsign, the server-owned equipped weapon profile, and the fixed match slot, assigned on join and freed on leave.
-- An authoritative `server.match.roster` message reports the current participants and is broadcast on join, leave, and loadout change; the client mirrors it as diagnostics-only state that clears on reconnect.
-- Callsigns are drawn from an original neutral pool with no copied names or franchise references, and the registry never trusts client-reported identity.
-- Existing round flow, loadout, weapon authority, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
+- `/playtest.html` presents the authoritative `server.match.roster` feed as a read-only participant panel built by a pure presentation projection.
+- The panel mirrors the broadcast exactly: callsign, weapon, and slot come straight from the roster (callsign resolved from the numeric handle id), and the client never invents participants or identity.
+- Rows are ordered for readability (by slot index) and the local session is highlighted, but the panel declares no authority and clears on reconnect with the rest of the per-connection diagnostics.
+- Malformed or partial roster entries are dropped without poisoning the panel, consistent with the prototype's hostile-client posture.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and scoreboard, the roster feed, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 
-This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, player avatars/skins, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.
+This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, player avatars/skins, nameplates, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.

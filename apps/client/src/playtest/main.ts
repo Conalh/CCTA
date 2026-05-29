@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   createClientFireIntent,
   createClientLoadoutSelect,
+  getPlayerCallsign,
   type MessageTransport
 } from "@breachline/shared";
 
@@ -114,6 +115,9 @@ declare global {
       remoteTargetCenterCount: number;
       renderSample: ScenePixelSampleSummary;
       renderSampleHealthy: boolean;
+      rosterEntryCount: number;
+      rosterLastServerTick: number | undefined;
+      rosterLocalCallsign: string | undefined;
       remoteCombatCue: string;
       remoteCombatCueActive: boolean;
       remoteCombatTargetEntityId: number | undefined;
@@ -990,6 +994,7 @@ function updateReadout(
     lastServerTick: state.lastMatchStatsServerTick,
     localSessionId: presentation.localSessionId
   });
+  const rosterLocalEntry = state.matchRoster.find((entry) => entry.sessionId === presentation.localSessionId);
 
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
@@ -1104,6 +1109,10 @@ function updateReadout(
     scoreboardSummary: scoreboard.summaryLabel,
     serverPosition: presentation.serverPosition,
     sessionId: presentation.localSessionId,
+    rosterEntryCount: state.matchRoster.length,
+    rosterLastServerTick: state.lastMatchRosterServerTick,
+    rosterLocalCallsign:
+      rosterLocalEntry === undefined ? undefined : getPlayerCallsign(rosterLocalEntry.handleId),
     weaponAmmoInMagazine: state.weaponAmmoInMagazine,
     weaponMagazineSize: state.weaponMagazineSize,
     weaponProfileId: state.weaponProfileId,

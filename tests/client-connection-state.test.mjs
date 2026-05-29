@@ -1047,6 +1047,53 @@ test("connection state reducer resets match stats on reconnect", () => {
   assert.equal(state.lastMatchStatsServerTick, undefined);
 });
 
+test("connection state reducer tracks diagnostics-only match roster", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.deepEqual(state.matchRoster, []);
+  assert.equal(state.lastMatchRosterServerTick, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.match.roster",
+      serverTick: 42,
+      entryCount: 2,
+      entries: [
+        { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+        { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.cinder, slotIndex: 1 }
+      ]
+    }
+  });
+
+  assert.deepEqual(state.matchRoster, [
+    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.cinder, slotIndex: 1 }
+  ]);
+  assert.equal(state.lastMatchRosterServerTick, 42);
+});
+
+test("connection state reducer resets match roster on reconnect", () => {
+  let state = createInitialConnectionViewState(0);
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.match.roster",
+      serverTick: 42,
+      entryCount: 1,
+      entries: [{ sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 }]
+    }
+  });
+  state = reduceConnectionViewState(state, {
+    type: "connecting",
+    nowMs: 30
+  });
+
+  assert.deepEqual(state.matchRoster, []);
+  assert.equal(state.lastMatchRosterServerTick, undefined);
+});
+
 test("connection state reducer resets round diagnostics on reconnect", () => {
   let state = createInitialConnectionViewState(0);
   state = reduceConnectionViewState(state, {

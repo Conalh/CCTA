@@ -12,6 +12,7 @@ import {
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
+  getPlayerCallsign,
   getWeaponDefinition,
   PROTOCOL_VERSION,
   type MessageTransport
@@ -112,6 +113,7 @@ const remoteInterpolationTimeEl = requireElement("remote-interpolation-time");
 const remoteEntityIdEl = requireElement("remote-entity-id");
 const remoteEntityPositionEl = requireElement("remote-entity-position");
 const remoteEntityYawEl = requireElement("remote-entity-yaw");
+const rosterEl = requireElement("match-roster");
 const countsEl = requireElement("message-counts");
 const errorEl = requireElement("error");
 const urlInput = requireInput("server-url");
@@ -447,6 +449,7 @@ function render(nextState: ConnectionViewState): void {
   disconnectButton.disabled = transport === undefined;
   connectButton.disabled = nextState.status === "connecting";
   renderDeveloperTelemetry(nextState);
+  renderMatchRoster(nextState);
   renderMessageCounts(nextState);
 }
 
@@ -463,6 +466,25 @@ function renderDeveloperTelemetry(nextState: ConnectionViewState): void {
     element.dataset.status = item.status;
     element.textContent = `${item.label}: ${formatTelemetryStatus(item.status)} - ${item.summary}`;
     telemetrySummaryEl.append(element);
+  }
+}
+
+function renderMatchRoster(nextState: ConnectionViewState): void {
+  rosterEl.innerHTML = "";
+
+  if (nextState.matchRoster.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "No players yet";
+    rosterEl.append(item);
+    return;
+  }
+
+  for (const entry of nextState.matchRoster) {
+    const item = document.createElement("li");
+    const callsign = getPlayerCallsign(entry.handleId) ?? `handle ${entry.handleId}`;
+    const local = entry.sessionId === nextState.sessionId ? " (you)" : "";
+    item.textContent = `Slot ${entry.slotIndex}: ${callsign}${local} - session ${entry.sessionId}, weapon ${formatLoadoutProfile(entry.weaponProfileId)}`;
+    rosterEl.append(item);
   }
 }
 

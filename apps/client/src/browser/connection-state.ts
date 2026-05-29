@@ -8,6 +8,7 @@ import {
   type LoadoutProfileId,
   type LoadoutRejectReason,
   type LoadoutStatus,
+  type MatchRosterEntry,
   type MatchStatsEntry,
   type ProtocolMessage,
   type RoundEventKind,
@@ -136,6 +137,8 @@ export type ConnectionViewState = Readonly<{
   lastRoundServerTick: number | undefined;
   matchStats: readonly MatchStatsEntry[];
   lastMatchStatsServerTick: number | undefined;
+  matchRoster: readonly MatchRosterEntry[];
+  lastMatchRosterServerTick: number | undefined;
   observedTickRateHz: number | undefined;
   observedSnapshotRateHz: number | undefined;
   lastMessageTimeMs: number | undefined;
@@ -286,6 +289,8 @@ export function createInitialConnectionViewState(
     lastRoundServerTick: undefined,
     matchStats: [],
     lastMatchStatsServerTick: undefined,
+    matchRoster: [],
+    lastMatchRosterServerTick: undefined,
     observedTickRateHz: undefined,
     observedSnapshotRateHz: undefined,
     lastMessageTimeMs: undefined,
@@ -528,6 +533,12 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         matchStats: message.entries,
         lastMatchStatsServerTick: message.serverTick
       };
+    case "server.match.roster":
+      return {
+        ...baseState,
+        matchRoster: message.entries,
+        lastMatchRosterServerTick: message.serverTick
+      };
     default:
       return baseState;
   }
@@ -697,6 +708,8 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     lastRoundServerTick: undefined,
     matchStats: [],
     lastMatchStatsServerTick: undefined,
+    matchRoster: [],
+    lastMatchRosterServerTick: undefined,
     observedTickRateHz: undefined,
     observedSnapshotRateHz: undefined,
     lastMessageTimeMs: undefined,

@@ -65,6 +65,16 @@ Phase 38 may present that existing `server.match.stats` feed in `/playtest.html`
 
 Phase 39 makes weapons exist as server-authoritative state. The server keeps a per-session weapon record (identity, per-hit damage, fire cadence, magazine ammo, and reload state) sourced from an original weapon catalog of three originally-named hitscan profiles. Accepted fire is gated by that record (weapon cooldown, empty magazine, mid-reload), damage flows from the equipped weapon, reload progresses on server ticks, and the loadout selection that already existed now picks which catalog weapon a session carries. Each change is mirrored by a reliable `server.weapon.state` message that the client stores as diagnostics-only state and clears on reconnect. It must not add client-owned weapon identity, client-owned ammo/reload/damage, an ammo HUD or any gameplay HUD, weapon art/models/sounds, economy, buy flow, teams, objectives, persistence, matchmaking, ranked systems, server snapshots, round authority, movement/collision authority, or copied weapon names and identities.
 
+Phase 40 makes players exist as a server-authoritative match roster. The server keeps a per-session player record (a neutral original callsign drawn from a fixed handle pool, the fixed match slot already assigned at hello, and the equipped weapon profile already owned by the weapon registry) and broadcasts a reliable `server.match.roster` message whenever the roster changes: on join, on leave, on an accepted loadout change, and on round reset. The client mirrors it as diagnostics-only state that clears on reconnect. Callsigns never cross the wire — the protocol carries a compact numeric handle id that resolves to a callsign only at the presentation/diagnostics layer. It must not add client-owned identity, avatars, skins, nameplates, persistent profiles, accounts, teams, parties, economy, objectives, a gameplay HUD, persistence, matchmaking, ranked systems, server snapshots, combat/round/movement authority, or copied callsigns and franchise identities.
+
+## Players
+
+Players exist server-side as a per-session roster entry keyed by the authoritative session id. Each entry pairs a neutral original callsign (resolved from a fixed handle pool) with the session's fixed match slot and its server-owned equipped weapon profile. Identity is never client-owned: the server assigns the handle on join, frees it on leave, and is the only source of the roster.
+
+The roster crosses the wire as `server.match.roster`, carrying numeric session id, handle id, weapon profile id, and slot index only. Callsigns, avatars, skins, and nameplates are not protocol data; the handle id resolves to a callsign at the diagnostics layer. The client mirrors the roster for local inspection and clears it on reconnect.
+
+Callsigns and any future player identity must stay original. Avoid real-world names and names associated with existing shooter franchises.
+
 ## Weapons
 
 The initial combat model is planned around hitscan weapons. Weapon identities, names, sounds, models, and roles must be original.

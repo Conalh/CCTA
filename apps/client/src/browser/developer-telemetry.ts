@@ -1,3 +1,5 @@
+import { getPlayerCallsign } from "@breachline/shared";
+
 import type { ConnectionStatus, ConnectionViewState } from "./connection-state.js";
 
 export type DeveloperTelemetryStatus = "ok" | "warn" | "error" | "waiting";
@@ -33,6 +35,7 @@ export function createDeveloperTelemetrySummary(state: ConnectionViewState): Dev
     summarizeFire(state),
     summarizeCombat(state),
     summarizeRound(state),
+    summarizeRoster(state),
     summarizeErrors(state)
   ];
   const overallStatus = items.reduce<DeveloperTelemetryStatus>(
@@ -186,6 +189,22 @@ function summarizeRound(state: ConnectionViewState): DeveloperTelemetryItem {
     "Round",
     "ok",
     `Round ${state.roundId}, phase ${state.roundPhase}, outcome ${formatNumber(state.roundOutcome)}.`
+  );
+}
+
+function summarizeRoster(state: ConnectionViewState): DeveloperTelemetryItem {
+  if (state.matchRoster.length === 0) {
+    return createItem("roster", "Roster", "waiting", "Waiting for server match roster.");
+  }
+
+  const localEntry = state.matchRoster.find((entry) => entry.sessionId === state.sessionId);
+  const callsign = localEntry === undefined ? undefined : getPlayerCallsign(localEntry.handleId);
+  const localLabel = callsign === undefined ? "" : ` Local callsign ${callsign}.`;
+  return createItem(
+    "roster",
+    "Roster",
+    "ok",
+    `${state.matchRoster.length} player${state.matchRoster.length === 1 ? "" : "s"} in match.${localLabel}`
   );
 }
 
