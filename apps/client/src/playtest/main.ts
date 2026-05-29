@@ -18,8 +18,8 @@ import {
   createNetworkSimulatedTransport,
   readNetworkSimulationProfileFromSearch
 } from "../browser/transport/network-simulation.js";
-import { EBB_TERMINAL_ARENA } from "../maps/ebb-terminal.js";
-import { createGreyboxLayout, type GreyboxPrimitive } from "../sandbox/greybox-layout.js";
+import { DRYDOCK_SPAN_ARENA } from "../maps/drydock-span.js";
+import { createGreyboxLayoutFromMap, type GreyboxPrimitive } from "../sandbox/greybox-layout.js";
 import {
   isRenderablePixelSampleHealthy,
   summarizeScenePixelSamples,
@@ -219,7 +219,7 @@ const pointerStateEl = requireElement("playtest-pointer-state");
 
 const keys = new Set<string>();
 const remoteMeshes = new Map<number, THREE.Group>();
-const greyboxLayout = createGreyboxLayout();
+const greyboxLayout = createGreyboxLayoutFromMap(DRYDOCK_SPAN_ARENA);
 const networkSimulationProfile = readNetworkSimulationProfileFromSearch(globalThis.location.search);
 
 let state = createInitialConnectionViewState(Date.now());
@@ -627,7 +627,7 @@ function readNetworkedPlaytestPresentation(): NetworkedPlaytestPresentation {
   return createNetworkedPlaytestPresentation({
     lookPitchRadians: pitchRadians,
     lookYawRadians: yawRadians,
-    map: EBB_TERMINAL_ARENA,
+    map: DRYDOCK_SPAN_ARENA,
     state
   });
 }

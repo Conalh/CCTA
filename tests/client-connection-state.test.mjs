@@ -471,7 +471,7 @@ test("connection state reducer predicts local presentation and reconciles to ser
           active: true,
           x: 0,
           y: 0,
-          z: 0,
+          z: -5,
           yaw: 0
         }
       ]

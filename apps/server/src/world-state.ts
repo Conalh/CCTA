@@ -1,5 +1,5 @@
 import {
-  EBB_TERMINAL_ARENA,
+  DRYDOCK_SPAN_ARENA,
   deriveArenaCollisionGeometry,
   type ArenaCollisionGeometry,
   type ClientInputMessage,
@@ -54,15 +54,19 @@ type MutableWorldEntity = {
   latestInput: ClientInputMessage | undefined;
 };
 
+// Slot starts sit on Drydock Span's eight neutral spawns: a north cluster (slots
+// 0-3, facing -z) and a south cluster (slots 4-7, facing +z) across the contested
+// midline. Each position is collision-clear by construction (it is an arena spawn
+// marker), and the harness pair (slots 0/1) shares the north end for a clear line.
 const DEFAULT_SLOT_STARTS = [
-  { x: 0, y: 0, z: 0, yaw: 0 },
-  { x: 2.75, y: 0, z: 0, yaw: 0 },
-  { x: 0, y: 0, z: -8.5, yaw: 0 },
-  { x: 0, y: 0, z: 8.5, yaw: 0 },
-  { x: -9, y: 0, z: -7, yaw: 0 },
-  { x: 9, y: 0, z: -7, yaw: 0 },
-  { x: -9, y: 0, z: 7, yaw: 0 },
-  { x: 9, y: 0, z: 7, yaw: 0 }
+  { x: -4.5, y: 0, z: -16.5, yaw: 0 },
+  { x: 4.5, y: 0, z: -16.5, yaw: 0 },
+  { x: -12, y: 0, z: -16.5, yaw: 0 },
+  { x: 12, y: 0, z: -16.5, yaw: 0 },
+  { x: -4.5, y: 0, z: 16.5, yaw: Math.PI },
+  { x: 4.5, y: 0, z: 16.5, yaw: Math.PI },
+  { x: -12, y: 0, z: 16.5, yaw: Math.PI },
+  { x: 12, y: 0, z: 16.5, yaw: Math.PI }
 ] as const;
 
 export function createWorldState(config: WorldStateConfig = {}): WorldState {
@@ -70,7 +74,7 @@ export function createWorldState(config: WorldStateConfig = {}): WorldState {
   const collisionGeometry =
     config.collisionGeometry === false
       ? undefined
-      : config.collisionGeometry ?? deriveArenaCollisionGeometry(EBB_TERMINAL_ARENA);
+      : config.collisionGeometry ?? deriveArenaCollisionGeometry(DRYDOCK_SPAN_ARENA);
   let nextEntityId = readPositiveUint32(
     config.firstEntityId ?? DEFAULT_FIRST_WORLD_ENTITY_ID,
     "firstEntityId"

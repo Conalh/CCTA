@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  EBB_TERMINAL_ARENA,
+  DRYDOCK_SPAN_ARENA,
   CLIENT_INPUT_BUTTONS,
   deriveArenaCollisionGeometry,
   resolveArenaCollisionMotion
@@ -31,9 +31,9 @@ test("world state creates deterministic placeholder entities for assigned sessio
     sessionId: 10,
     slotIndex: 0,
     active: true,
-    x: 0,
+    x: -4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
   assert.deepEqual(second, {
@@ -41,9 +41,9 @@ test("world state creates deterministic placeholder entities for assigned sessio
     sessionId: 11,
     slotIndex: 1,
     active: true,
-    x: 2.75,
+    x: 4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
   assert.deepEqual(world.createSnapshot(9), {
@@ -81,9 +81,9 @@ test("world state removes disconnected session entities and does not reuse entit
     sessionId: 20,
     slotIndex: 0,
     active: false,
-    x: 0,
+    x: -4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
   assert.deepEqual(replacement, {
@@ -91,9 +91,9 @@ test("world state removes disconnected session entities and does not reuse entit
     sessionId: 22,
     slotIndex: 0,
     active: true,
-    x: 0,
+    x: -4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
   assert.deepEqual(world.createSnapshot(12), {
@@ -106,9 +106,9 @@ test("world state removes disconnected session entities and does not reuse entit
         sessionId: 21,
         slotIndex: 1,
         active: true,
-        x: 2.75,
+        x: 4.5,
         y: 0,
-        z: 0,
+        z: -16.5,
         yaw: 0
       },
       replacement
@@ -139,8 +139,9 @@ test("world state advances accepted movement inputs and ignores disconnected ent
   world.advanceMovement(0.5);
 
   const snapshot = world.createSnapshot(15);
-  assert.equal(snapshot.entities[0].z < -0.01, true);
-  assert.equal(snapshot.entities[0].x, 0);
+  // Slot 0 spawns at (-4.5, -16.5); forward input moves it further along -z.
+  assert.equal(snapshot.entities[0].z < -16.5, true);
+  assert.equal(snapshot.entities[0].x, -4.5);
   assert.equal(snapshot.entities[0].yaw, 0);
 
   world.removeSessionEntity(30);
@@ -172,12 +173,14 @@ test("world state uses the default arena collision geometry for authoritative mo
   }
 
   const entity = world.createSnapshot(20).entities[0];
-  assert.equal(entity.x, 0);
-  assert.equal(Math.abs(entity.z + 0.25) < 0.000001, true);
+  // Slot 0 spawns at the north cluster (-4.5, -16.5) facing -z; forward movement is
+  // blocked by the north retaining wall, stopping the player radius short of it.
+  assert.equal(entity.x, -4.5);
+  assert.equal(Math.abs(entity.z + 19.15) < 0.000001, true);
 });
 
-test("world state default slot starts are clear of the original arena blockers", () => {
-  const geometry = deriveArenaCollisionGeometry(EBB_TERMINAL_ARENA);
+test("world state default slot starts are clear of the active arena blockers", () => {
+  const geometry = deriveArenaCollisionGeometry(DRYDOCK_SPAN_ARENA);
   const world = server.createWorldState({
     worldId: 8,
     firstEntityId: 600
@@ -218,8 +221,8 @@ test("world state default slot starts keep two-player targets readable while pre
     slotIndex: 1
   });
 
-  assert.deepEqual([first.x, first.y, first.z], [0, 0, 0]);
+  assert.deepEqual([first.x, first.y, first.z], [-4.5, 0, -16.5]);
   assert.equal(Math.hypot(second.x - first.x, second.z - first.z) >= 2.5, true);
   assert.equal(second.y, 0);
-  assert.equal(second.z, 0);
+  assert.equal(second.z, -16.5);
 });

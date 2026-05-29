@@ -146,9 +146,9 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
         sessionId: 1,
         slotIndex: 0,
         active: true,
-        x: 0,
+        x: -4.5,
         y: 0,
-        z: 0,
+        z: -16.5,
         yaw: 0
       }
     ]
@@ -339,9 +339,9 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
           sessionId: 1,
           slotIndex: 0,
           active: true,
-          x: 0,
+          x: -4.5,
           y: 0,
-          z: 0,
+          z: -16.5,
           yaw: 0
         },
         {
@@ -349,9 +349,9 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
           sessionId: 2,
           slotIndex: 1,
           active: true,
-          x: 2.75,
+          x: 4.5,
           y: 0,
-          z: 0,
+          z: -16.5,
           yaw: 0
         }
       ]
@@ -375,9 +375,9 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
         sessionId: 2,
         slotIndex: 1,
         active: true,
-        x: 2.75,
+        x: 4.5,
         y: 0,
-        z: 0,
+        z: -16.5,
         yaw: 0
       }
     ]
@@ -464,15 +464,15 @@ test("server runtime moves only from accepted input on authoritative ticks", () 
     sessionId: 1,
     slotIndex: 0,
     active: true,
-    x: 0,
+    x: -4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
   assert.deepEqual(afterStale, stationary);
   assert.deepEqual(afterInvalid, stationary);
   assert.equal(afterValid.z < stationary.z, true);
-  assert.equal(afterValid.x, 0);
+  assert.equal(afterValid.x, -4.5);
   assert.equal(afterValid.y, 0);
   assert.equal(afterValid.yaw, 0);
 });
@@ -510,8 +510,10 @@ test("server runtime publishes authoritative movement stopped by arena blockers"
   }
 
   const entity = transport.sent.filter((message) => message.kind === "server.snapshot").at(-1).entities[0];
-  assert.equal(entity.x, 0);
-  assert.equal(Math.abs(entity.z + 0.25) < 0.000001, true);
+  // Slot 0 spawns at (-4.5, -16.5) facing -z; forward movement is stopped by the
+  // north retaining wall at the player radius.
+  assert.equal(entity.x, -4.5);
+  assert.equal(Math.abs(entity.z + 19.15) < 0.000001, true);
   assert.equal(entity.yaw, 0);
 });
 
@@ -661,7 +663,7 @@ test("server runtime produces server-owned hitscan results from authoritative wo
     hit: true,
     targetEntityId: 2,
     targetSessionId: 2,
-    distance: 2.75,
+    distance: 9,
     rejectReason: FIRE_REJECT_REASON.none
   });
   assert.equal(second.sent.some((message) => message.kind === "server.fire.result"), false);
@@ -1313,7 +1315,7 @@ test("server runtime owns round outcomes and rejects client activity outside act
     pitch: 0
   });
   runtime.step(1, 1000);
-  assert.equal(runtime.getWorldSnapshot(1).entities.find((entity) => entity.sessionId === 1).z, 0);
+  assert.equal(runtime.getWorldSnapshot(1).entities.find((entity) => entity.sessionId === 1).z, -16.5);
 
   first.receive(
     createClientFireIntent({
@@ -1390,9 +1392,9 @@ test("server runtime owns round outcomes and rejects client activity outside act
     sessionId: 1,
     slotIndex: 0,
     active: true,
-    x: 0,
+    x: -4.5,
     y: 0,
-    z: 0,
+    z: -16.5,
     yaw: 0
   });
 });

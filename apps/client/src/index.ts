@@ -4,4 +4,5 @@ export * from "./transport/webtransport.js";
 export * from "./prediction.js";
 export * from "./interpolation.js";
 export * from "./maps/ebb-terminal.js";
+export * from "./maps/drydock-span.js";
 export * from "./sandbox/player-camera.js";

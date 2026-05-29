@@ -1,5 +1,5 @@
 import {
-  EBB_TERMINAL_ARENA,
+  DRYDOCK_SPAN_ARENA,
   deriveArenaCollisionGeometry,
   type ClientFireIntentMessage,
   type ClientInputMessage,
@@ -35,7 +35,7 @@ import {
 
 export type ConnectionStatus = "disconnected" | "connecting" | "accepted" | "rejected" | "closed" | "error";
 
-const DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY = deriveArenaCollisionGeometry(EBB_TERMINAL_ARENA);
+const DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY = deriveArenaCollisionGeometry(DRYDOCK_SPAN_ARENA);
 
 export type RttStats = Readonly<{
   currentMs: number | undefined;

@@ -59,7 +59,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 47. Local two-client harness asserts the round-winner callsign end to end.
 48. Read-only server-owned match occupancy readout in the playtest view.
 49. Local two-client harness asserts the server-owned match occupancy end to end.
-50. **Current: New original eight-player arena (Drydock Span) authored as validated data.**
+50. New original eight-player arena (Drydock Span) authored as validated data.
+51. **Current: Drydock Span wired as the default arena end to end (server collision, slot starts, renderer, camera).**
 
 ## Phase 8 Status
 
@@ -599,20 +600,34 @@ Phase 50 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout and its harness assertion, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
-## Next Proof Milestone
+## Phase 51 Status
 
-The next milestone is **make Drydock Span the default arena for the server collision world and the client renderer/camera, and reposition the eight slot starts onto its mirrored spawns, so the eight-player arena is actually live end to end**.
+Phase 51 is current when validation passes because:
 
-Drydock Span exists and is validated (Phase 50) but nothing uses it yet. The matching step swaps the default consumers from Ebb Terminal to Drydock Span: the server world-state collision geometry, the `DEFAULT_SLOT_STARTS` positions (moved onto the eight mirrored spawns, all collision-clear and well separated), the client renderer greybox default, and the player-camera/map-metadata default. Ebb Terminal stays as the small test arena referenced by its own tests.
+- Drydock Span is now the default arena end to end. The server world-state derives its authoritative collision geometry from Drydock Span, and the eight fixed slot starts sit on its mirrored spawns (north cluster slots 0-3 facing -z, south cluster slots 4-7 facing +z), each collision-clear by construction.
+- The client mirrors the same arena: the client-prediction collision geometry, the playtest renderer greybox, and the playtest player camera all use Drydock Span, so client prediction stays in parity with the server and the playtest renders the new map.
+- Ebb Terminal remains a valid, tested arena: the renderer sandbox still loads it and the collision/movement/camera/prediction helper tests still exercise it explicitly.
+- The spawn-dependent server and world-state tests were updated for the new slot starts, and the two-client harness runs green end to end on the new default arena (movement contact, accepted miss/hit, elimination, winner, scoreboard, occupancy, zero console errors).
+- Server authority is unchanged: hitscan still has no arena occlusion, slot starts remain fixed (no client-owned or dynamic spawn selection), and no protocol shape, matchmaking, teams, or persistence was added.
+- WebTransport status remains honest.
 
-Expected proof:
+## Roadmap: First Playable Match
 
-- The server derives collision from Drydock Span, and all eight `DEFAULT_SLOT_STARTS` resolve to collision-clear, well-separated positions on the arena's mirrored spawns (proven by the existing world-state slot-start collision test, updated for the new layout).
-- The client renderer and player camera default to Drydock Span, so client-prediction collision matches the server arena and the playtest/sandbox render the new map; the map-id/revision diagnostics reflect Drydock Span.
-- Client prediction and server movement continue to agree under the shared collision helper on the new arena.
-- Ebb Terminal remains valid and tested as the small test arena, and the two-client harness still runs green end to end on the new default arena.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout, the browser-page smoke, diagnostics page, renderer sandbox, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
-- Transport adapters still hide WebSocket/WebTransport details.
-- WebTransport setup is retried only when HTTP/3/TLS support is available.
+Goal: **two humans on different machines connect to one Breachline server and actually shoot each other through a complete, readable round loop** — the first time the proven server-authoritative mechanics become a game someone can sit down and play, not just a harness can drive.
 
-This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection beyond the existing fixed slot starts, player avatars/skins, nameplates, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.
+What already exists (proven): server-authoritative connect, movement+collision on the eight-player Drydock Span arena, validated hitscan, damage/health/death, round setup/active/ended/reset, weapons with ammo/reload, kill/death stats, player roster/callsigns, and read-only diagnostics for all of it. The two-client harness already drives one client to kill another and observes the elimination. The gap to a *playable* match is human I/O, reachability, and readable feedback — not new core authority.
+
+Milestones (each stays server-authoritative, original, and validated; HUD milestones are the deliberate, scoped place where the long-standing "no gameplay HUD" guard is relaxed for exactly the read-only feedback a player needs):
+
+52. **Human aim and fire controls.** Confirm/finish pointer-lock mouse-look aim, click-to-fire, and a reload key in `/playtest.html` driving the existing `client.fire`/reload intents (no new authority; the server still validates every shot). Prove a human-style input path in a focused test/harness hook.
+53. **Crosshair + hit feedback.** A minimal centered crosshair and a brief, read-only hitmarker driven only by server `server.fire.result` (hit/miss) — the shooter can tell when the server confirmed a hit. No client-decided hits.
+54. **Readable player HUD (deliberate HUD relaxation).** Read-only health, alive/dead state, and respawn countdown sourced straight from server combat/round state. This is where the contract's "no gameplay HUD" guard is intentionally narrowed to "read-only server-owned HUD only."
+55. **Weapon/ammo readout.** Read-only current weapon, magazine ammo, and reload progress from the existing `server.weapon.state` (the Phase 39 "no ammo HUD" guard is intentionally lifted to read-only display only).
+56. **Always-visible match scoreboard + roster panel polish.** Promote the existing read-only scoreboard (callsign-labelled) and roster into a clean in-match overlay with a hold-to-show or toggle, plus the round-winner banner.
+57. **Server-owned match win condition.** A simple authoritative match target (e.g., first session to N round wins, or N kills) that ends the match and declares a winner from state the server already owns — no client-owned win/loss. Mirror it as a read-only "match over" state.
+58. **LAN reachability + host/join flow.** Bind the local dev/playtest server to a LAN-reachable address and provide a one-command "host a match" plus a shareable join URL, so a second human on the same network can connect. Local-only: no accounts, no hosted SaaS, no analytics, no persistence.
+59. **Two-human local match validation.** Extend the harness/playtest review so a real two-person match (connect → aim → shoot → die → respawn → match end) is exercised and documented as the first playable-match proof, with honest caveats.
+
+Out of scope for this roadmap (still deferred, would need their own decisions): public/internet hosting, matchmaking queues, teams, economy/buy, ranked systems, persistence/accounts, anti-cheat beyond the existing server authority, art/audio pass, and player avatars/skins. The first match is intentionally a small original 1v1-to-8 free-for-all on Drydock Span.
+
+Each milestone keeps the invariants: the server owns hits, damage, health, death, spawns, round and match outcomes; the client only sends intents and renders server-owned truth; transports stay abstracted; originality holds; and `npm run validate` plus the local harness stay green before each commit.
