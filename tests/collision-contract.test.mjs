@@ -15,8 +15,8 @@ test("shared collision geometry derives static blockers from the original arena 
   assert.equal(geometry.revision, EBB_TERMINAL_ARENA.revision);
   assert.equal(geometry.playerRadiusMeters, DEFAULT_ARENA_COLLISION_RADIUS_METERS);
   assert.deepEqual(geometry.worldBounds, {
-    min: [-9.5, -7.5],
-    max: [9.5, 7.5]
+    min: [-14, -11],
+    max: [14, 11]
   });
   assert.equal(geometry.blockers.length, 8);
   assert.equal(geometry.blockers.some((blocker) => blocker.sourcePrimitiveId === "floor-plate"), false);

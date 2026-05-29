@@ -57,12 +57,12 @@ type MutableWorldEntity = {
 const DEFAULT_SLOT_STARTS = [
   { x: 0, y: 0, z: 0, yaw: 0 },
   { x: 2.75, y: 0, z: 0, yaw: 0 },
-  { x: -2.75, y: 0, z: 0, yaw: 0 },
-  { x: 0, y: 0, z: 2.75, yaw: 0 },
-  { x: -6.5, y: 0, z: -5, yaw: 0 },
-  { x: 6.5, y: 0, z: -5, yaw: 0 },
-  { x: -6.5, y: 0, z: 5, yaw: 0 },
-  { x: 6.5, y: 0, z: 5, yaw: 0 }
+  { x: 0, y: 0, z: -8.5, yaw: 0 },
+  { x: 0, y: 0, z: 8.5, yaw: 0 },
+  { x: -9, y: 0, z: -7, yaw: 0 },
+  { x: 9, y: 0, z: -7, yaw: 0 },
+  { x: -9, y: 0, z: 7, yaw: 0 },
+  { x: 9, y: 0, z: 7, yaw: 0 }
 ] as const;
 
 export function createWorldState(config: WorldStateConfig = {}): WorldState {

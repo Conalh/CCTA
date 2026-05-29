@@ -3,10 +3,10 @@ import type { ArenaMapMetadata } from "./map-metadata.js";
 export const EBB_TERMINAL_ARENA: ArenaMapMetadata = {
   id: "arena-ebb-terminal",
   displayName: "Ebb Terminal",
-  revision: 1,
+  revision: 2,
   worldBounds: {
-    min: [-9.5, -0.25, -7.5],
-    max: [9.5, 4, 7.5]
+    min: [-14, -0.25, -11],
+    max: [14, 4, 11]
   },
   primitives: [
     {
@@ -14,35 +14,35 @@ export const EBB_TERMINAL_ARENA: ArenaMapMetadata = {
       kind: "floor",
       label: "Floor plate",
       position: [0, -0.1, 0],
-      size: [18, 0.2, 14]
+      size: [27, 0.2, 21]
     },
     {
       id: "north-retaining-wall",
       kind: "wall",
       label: "North retaining wall",
-      position: [0, 1.5, -7.15],
-      size: [18, 3, 0.3]
+      position: [0, 1.5, -10.65],
+      size: [27, 3, 0.3]
     },
     {
       id: "south-retaining-wall",
       kind: "wall",
       label: "South retaining wall",
-      position: [0, 1.5, 7.15],
-      size: [18, 3, 0.3]
+      position: [0, 1.5, 10.65],
+      size: [27, 3, 0.3]
     },
     {
       id: "west-service-wall",
       kind: "wall",
       label: "West service wall",
-      position: [-9.15, 1.5, 0],
-      size: [0.3, 3, 14]
+      position: [-13.65, 1.5, 0],
+      size: [0.3, 3, 21]
     },
     {
       id: "east-service-wall",
       kind: "wall",
       label: "East service wall",
-      position: [9.15, 1.5, 0],
-      size: [0.3, 3, 14]
+      position: [13.65, 1.5, 0],
+      size: [0.3, 3, 21]
     },
     {
       id: "central-sill",

@@ -65,7 +65,7 @@ test("player camera clamps presentation pose to map bounds without collision gam
     eyeHeightMeters: 1.62
   });
 
-  assert.deepEqual(pose.position, [9.5, 4, -7.5]);
+  assert.deepEqual(pose.position, [14, 4, -11]);
   assert.equal(pose.yawRadians, 0);
   assert.equal(pose.pitchRadians, 0);
   assert.equal(pose.clampedToBounds, true);

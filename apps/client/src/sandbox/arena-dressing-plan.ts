@@ -63,7 +63,7 @@ export const EBB_TERMINAL_SANDBOX_DRESSING_PLAN: SandboxArenaDressingPlan = {
   id: "arena-ebb-terminal-dressing",
   label: "Ebb Terminal Dressing",
   mapId: "arena-ebb-terminal",
-  mapRevision: 1,
+  mapRevision: 2,
   placements: [
     {
       assetId: "prototype-fps-hands",
