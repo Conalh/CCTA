@@ -219,6 +219,41 @@ test("round combat presentation resolves the server-owned round winner to a rost
   assert.equal(forbiddenHudPattern.test(Object.values(resolved).join(" ")), false);
 });
 
+test("round combat presentation surfaces a server-owned respawn countdown only while down", () => {
+  const alive = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    localAlive: true,
+    localHealth: 100,
+    localMaxHealth: 100,
+    roundPhase: ROUND_PHASE.active,
+    roundOutcome: ROUND_OUTCOME.none
+  });
+  assert.equal(alive.respawnCueLabel, "-");
+
+  const counting = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    localAlive: false,
+    localHealth: 0,
+    localMaxHealth: 100,
+    lastRoundServerTick: 40,
+    respawnEligibleTick: 46,
+    roundPhase: ROUND_PHASE.active,
+    roundOutcome: ROUND_OUTCOME.none
+  });
+  assert.equal(counting.respawnCueLabel, "respawn in 6 ticks");
+
+  const down = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    localAlive: false,
+    localHealth: 0,
+    localMaxHealth: 100,
+    roundPhase: ROUND_PHASE.active,
+    roundOutcome: ROUND_OUTCOME.none
+  });
+  assert.equal(down.respawnCueLabel, "down");
+  assert.equal(forbiddenHudPattern.test(Object.values(counting).join(" ")), false);
+});
+
 test("round combat presentation ignores malformed values without poisoning readouts", () => {
   const presentation = updateRoundCombatPresentationState(
     createInitialRoundCombatPresentationState(),

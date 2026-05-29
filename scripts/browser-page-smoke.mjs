@@ -202,6 +202,9 @@ try {
   assert.match(playtestHtml, /id="playtest-round-reset-cue"/);
   assert.match(playtestHtml, /id="playtest-local-health"/);
   assert.match(playtestHtml, /id="playtest-local-life"/);
+  assert.match(playtestHtml, /id="playtest-hud-health"/);
+  assert.match(playtestHtml, /id="playtest-hud-life"/);
+  assert.match(playtestHtml, /id="playtest-hud-respawn"/);
   assert.match(playtestHtml, /id="playtest-combat-event"/);
   assert.match(playtestHtml, /id="playtest-combat-cue"/);
   assert.match(playtestHtml, /id="playtest-remote-combat"/);

@@ -38,6 +38,17 @@
         <canvas id="playtest-canvas"></canvas>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>
         <div id="playtest-hitmarker" class="playtest-hitmarker" data-active="false" aria-hidden="true"></div>
+        <div class="playtest-hud" aria-label="Player status">
+          <span class="playtest-hud-block">
+            <span class="playtest-hud-label">Health</span>
+            <strong id="playtest-hud-health" class="playtest-hud-health">-</strong>
+          </span>
+          <span class="playtest-hud-block">
+            <span class="playtest-hud-label">State</span>
+            <strong id="playtest-hud-life" class="playtest-hud-life" data-life="unknown">-</strong>
+          </span>
+          <strong id="playtest-hud-respawn" class="playtest-hud-respawn"></strong>
+        </div>
         <div class="playtest-readout" aria-label="Networked playtest diagnostics">
           <span>Pointer <strong id="playtest-pointer-state">free</strong></span>
           <span>Frames <strong id="playtest-frame-count">0</strong></span>

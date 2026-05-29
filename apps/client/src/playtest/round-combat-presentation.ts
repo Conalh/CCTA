@@ -68,6 +68,7 @@ export type RoundCombatPresentationState = Readonly<{
   remoteCombatTargetEntityId: number | undefined;
   remoteCombatTargetSessionId: number | undefined;
   resetCueLabel: string;
+  respawnCueLabel: string;
   roundOutcomeLabel: string;
   roundPhaseLabel: string;
   roundTransitionActive: boolean;
@@ -97,6 +98,7 @@ export function createInitialRoundCombatPresentationState(): RoundCombatPresenta
     remoteCombatTargetEntityId: undefined,
     remoteCombatTargetSessionId: undefined,
     resetCueLabel: NO_LABEL,
+    respawnCueLabel: NO_LABEL,
     roundOutcomeLabel: NO_LABEL,
     roundPhaseLabel: NO_LABEL,
     roundTransitionActive: false,
@@ -139,6 +141,7 @@ export function updateRoundCombatPresentationState(
     remoteCombatTargetEntityId: remoteCombatCue.targetEntityId,
     remoteCombatTargetSessionId: remoteCombatCue.targetSessionId,
     resetCueLabel: formatResetCue(input),
+    respawnCueLabel: formatRespawnCue(input),
     roundOutcomeLabel: formatRoundOutcome(input.roundOutcome),
     roundPhaseLabel: formatRoundPhase(input.roundPhase),
     roundTransitionActive: transition.active,
@@ -415,6 +418,22 @@ function formatResetCue(input: RoundCombatPresentationInput): string {
     return "reset";
   }
   return NO_LABEL;
+}
+
+function formatRespawnCue(input: RoundCombatPresentationInput): string {
+  // Respawn timing is server-owned (combat respawn-eligible tick vs the latest server
+  // tick). The client only formats it while the local player is down and never decides
+  // when a respawn happens.
+  if (input.localAlive !== false) {
+    return NO_LABEL;
+  }
+
+  const eligibleTick = readPositiveInteger(input.respawnEligibleTick);
+  const serverTick = readNonNegativeInteger(input.lastRoundServerTick);
+  if (eligibleTick !== undefined && serverTick !== undefined && eligibleTick > serverTick) {
+    return `respawn in ${eligibleTick - serverTick} ticks`;
+  }
+  return "down";
 }
 
 function formatRoundPhase(value: number | undefined): string {

@@ -493,6 +493,58 @@ li {
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
+.playtest-hud {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border: 1px solid #3c4746;
+  border-radius: 8px;
+  color: #eef2f1;
+  background: rgb(17 23 25 / 90%);
+  z-index: 3;
+}
+
+.playtest-hud-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.playtest-hud-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b9794;
+}
+
+.playtest-hud-health {
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.playtest-hud-life[data-life="alive"] {
+  color: #9ee2af;
+}
+
+.playtest-hud-life[data-life="dead"] {
+  color: #ffb4a8;
+}
+
+.playtest-hud-respawn {
+  color: #efd080;
+  min-width: 0;
+}
+
+.playtest-hud-respawn:empty {
+  display: none;
+}
+
 .playtest-scoreboard {
   position: absolute;
   top: 12px;

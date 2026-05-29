@@ -97,6 +97,7 @@ declare global {
       localCombatEvent: string;
       localHealth: string;
       localLife: string;
+      localRespawnCue: string;
       localLookPitchRadians: number;
       localLookYawRadians: number;
       localEntityId: number | undefined;
@@ -206,6 +207,9 @@ const roundTransitionEl = requireElement("playtest-round-transition");
 const roundResetCueEl = requireElement("playtest-round-reset-cue");
 const localHealthEl = requireElement("playtest-local-health");
 const localLifeEl = requireElement("playtest-local-life");
+const hudHealthEl = requireElement("playtest-hud-health");
+const hudLifeEl = requireElement("playtest-hud-life");
+const hudRespawnEl = requireElement("playtest-hud-respawn");
 const localCombatEventEl = requireElement("playtest-combat-event");
 const localCombatCueEl = requireElement("playtest-combat-cue");
 const remoteCombatCueEl = requireElement("playtest-remote-combat");
@@ -1083,6 +1087,18 @@ function updateReadout(
   roundResetCueEl.textContent = roundCombatPresentationState.resetCueLabel;
   localHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   localLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
+  hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
+  hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
+  hudLifeEl.dataset.life =
+    roundCombatPresentationState.localLifeLabel === "alive"
+      ? "alive"
+      : roundCombatPresentationState.localLifeLabel === "dead"
+        ? "dead"
+        : "unknown";
+  hudRespawnEl.textContent =
+    roundCombatPresentationState.respawnCueLabel === "-"
+      ? ""
+      : roundCombatPresentationState.respawnCueLabel;
   localCombatEventEl.textContent = roundCombatPresentationState.localCombatEventLabel;
   localCombatCueEl.textContent = roundCombatPresentationState.localCombatCueLabel;
   localCombatCueEl.dataset.active = roundCombatPresentationState.localCombatCueActive ? "true" : "false";
@@ -1120,6 +1136,7 @@ function updateReadout(
     localCombatEvent: roundCombatPresentationState.localCombatEventLabel,
     localHealth: roundCombatPresentationState.localHealthLabel,
     localLife: roundCombatPresentationState.localLifeLabel,
+    localRespawnCue: roundCombatPresentationState.respawnCueLabel,
     localLookPitchRadians: presentation.localCameraPose.pitchRadians,
     localLookYawRadians: presentation.localCameraPose.yawRadians,
     localEntityId: presentation.localEntityId,
