@@ -78,6 +78,17 @@ import {
   createScoreboardPresentation,
   type ScoreboardPresentation
 } from "./scoreboard-presentation.js";
+import {
+  SERVER_BROWSER_BUILD_ID,
+  addRecentServer,
+  createServerBrowserView,
+  fetchRegistryMatches,
+  parseManualJoinTarget,
+  readRecentServers,
+  type RecentServerEntry,
+  type RegistryMatchListing,
+  type ServerBrowserRow
+} from "./server-browser.js";
 
 declare global {
   interface Window {
@@ -191,6 +202,13 @@ const statusEl = requireElement("playtest-status");
 const urlInput = requireInput("playtest-server-url");
 const connectButton = requireButton("playtest-connect");
 const disconnectButton = requireButton("playtest-disconnect");
+const menuEl = requireElement("playtest-menu");
+const registryUrlInput = requireInput("playtest-registry-url");
+const registryRefreshButton = requireButton("playtest-registry-refresh");
+const serverListEl = requireElement("playtest-server-list");
+const menuStatusEl = requireElement("playtest-menu-status");
+const manualJoinInput = requireInput("playtest-manual-join");
+const menuConnectButton = requireButton("playtest-menu-connect");
 const localEntityEl = requireElement("playtest-local-entity");
 const serverPositionEl = requireElement("playtest-server-position");
 const predictedPositionEl = requireElement("playtest-predicted-position");
@@ -288,7 +306,15 @@ let remotePresentationSourceTick: number | undefined;
 let remotePresentationFacingMarkerCount = 0;
 let remotePresentationTargetCenterCount = 0;
 
+const RECENT_SERVERS_STORAGE_KEY = "breachline.recentServers";
+const REGISTRY_URL_STORAGE_KEY = "breachline.registryUrl";
+let recentServers: readonly RecentServerEntry[] = loadRecentServers();
+let registryMatches: readonly RegistryMatchListing[] = [];
+let pendingConnect: { joinUrl: string; name: string } | undefined;
+
 urlInput.value = `ws://${globalThis.location.host}`;
+manualJoinInput.value = `ws://${globalThis.location.host}`;
+registryUrlInput.value = loadRegistryUrl();
 
 connectButton.addEventListener("click", () => {
   void connect();
@@ -296,6 +322,24 @@ connectButton.addEventListener("click", () => {
 disconnectButton.addEventListener("click", () => {
   disconnect("client disconnect");
 });
+registryRefreshButton.addEventListener("click", () => {
+  void refreshServerBrowser();
+});
+menuConnectButton.addEventListener("click", () => {
+  connectFromManualEntry();
+});
+manualJoinInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    connectFromManualEntry();
+  }
+});
+registryUrlInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    void refreshServerBrowser();
+  }
+});
+renderServerBrowser();
+void refreshServerBrowser();
 diagnosticsToggleEl.addEventListener("click", () => {
   toggleDiagnostics();
 });
@@ -440,6 +484,7 @@ async function connect(): Promise<void> {
 
       if (message.kind === "protocol.accept") {
         startNetworkTimers();
+        recordConnectedServer();
       }
       if (message.kind === "match.assigned") {
         sendLoadoutSelection();
@@ -457,6 +502,7 @@ async function connect(): Promise<void> {
         nowMs: Date.now(),
         reason: "transport closed"
       });
+      setMenuStatus("Connection closed.");
       updateReadout(readNetworkedPlaytestPresentation());
     });
     nextTransport.send({
@@ -465,11 +511,13 @@ async function connect(): Promise<void> {
       clientName: "browser-networked-playtest"
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     state = reduceConnectionViewState(state, {
       type: "error",
       nowMs: Date.now(),
-      error: error instanceof Error ? error.message : String(error)
+      error: message
     });
+    setMenuStatus(`Connection failed: ${message}`);
     updateReadout(readNetworkedPlaytestPresentation());
   }
 }
@@ -487,6 +535,148 @@ function disconnect(reason: string): void {
     reason
   });
   updateReadout(readNetworkedPlaytestPresentation());
+}
+
+function connectToServer(joinUrl: string, name: string): Promise<void> {
+  pendingConnect = { joinUrl, name };
+  urlInput.value = joinUrl;
+  setMenuStatus(`Connecting to ${name}…`);
+  return connect();
+}
+
+function connectFromManualEntry(): void {
+  const parsed = parseManualJoinTarget(manualJoinInput.value);
+  if (!parsed.ok) {
+    setMenuStatus(parsed.reason);
+    return;
+  }
+  void connectToServer(parsed.joinUrl, parsed.joinUrl);
+}
+
+async function refreshServerBrowser(): Promise<void> {
+  const registryUrl = registryUrlInput.value.trim();
+  persistRegistryUrl(registryUrl);
+  if (registryUrl.length === 0) {
+    registryMatches = [];
+    setMenuStatus("Showing recent servers. Set a registry address to browse public matches.");
+    renderServerBrowser();
+    return;
+  }
+
+  setMenuStatus("Refreshing matches…");
+  const result = await fetchRegistryMatches({ registryUrl, buildId: SERVER_BROWSER_BUILD_ID });
+  if (!result.ok) {
+    registryMatches = [];
+    setMenuStatus(result.error);
+    renderServerBrowser();
+    return;
+  }
+
+  registryMatches = result.matches;
+  setMenuStatus(
+    result.matches.length === 0 ? "No public matches right now." : `${result.matches.length} match(es) available.`
+  );
+  renderServerBrowser();
+}
+
+function renderServerBrowser(): void {
+  const view = createServerBrowserView({ registryMatches, recentServers });
+  if (view.isEmpty) {
+    const empty = document.createElement("li");
+    empty.className = "playtest-server-empty";
+    empty.textContent =
+      registryUrlInput.value.trim().length === 0
+        ? "No recent matches. Set a registry address or paste a join link below."
+        : "No matches found. Refresh, or paste a join link below.";
+    serverListEl.replaceChildren(empty);
+    return;
+  }
+  serverListEl.replaceChildren(...view.rows.map((row) => createServerRow(row)));
+}
+
+function createServerRow(row: ServerBrowserRow): HTMLLIElement {
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "playtest-server-row";
+  button.dataset.source = row.source;
+  button.disabled = row.full;
+
+  const name = document.createElement("span");
+  name.className = "playtest-server-name";
+  name.textContent = row.name;
+
+  const detail = document.createElement("span");
+  detail.className = "playtest-server-detail";
+  detail.textContent = row.full ? `${row.detail} · full` : row.detail;
+
+  button.append(name, detail);
+  button.addEventListener("click", () => {
+    void connectToServer(row.joinUrl, row.name);
+  });
+  item.append(button);
+  return item;
+}
+
+function recordConnectedServer(): void {
+  const target = pendingConnect ?? { joinUrl: urlInput.value.trim(), name: urlInput.value.trim() };
+  pendingConnect = undefined;
+  if (target.joinUrl.length === 0) {
+    return;
+  }
+  recentServers = addRecentServer(recentServers, {
+    joinUrl: target.joinUrl,
+    name: target.name,
+    lastJoinedMs: Date.now()
+  });
+  persistRecentServers();
+  renderServerBrowser();
+}
+
+function updateMenuVisibility(connectionStatus: string): void {
+  const inGame = connectionStatus === "accepted" || connectionStatus === "connecting";
+  menuEl.dataset.visible = inGame ? "false" : "true";
+}
+
+function setMenuStatus(text: string): void {
+  menuStatusEl.textContent = text;
+}
+
+function loadRecentServers(): readonly RecentServerEntry[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(RECENT_SERVERS_STORAGE_KEY);
+    return raw === null || raw === undefined ? [] : readRecentServers(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentServers(): void {
+  try {
+    globalThis.localStorage?.setItem(RECENT_SERVERS_STORAGE_KEY, JSON.stringify(recentServers));
+  } catch {
+    // Storage may be unavailable (private mode); recent servers are best-effort.
+  }
+}
+
+function loadRegistryUrl(): string {
+  try {
+    const fromQuery = new URLSearchParams(globalThis.location.search).get("registry");
+    if (fromQuery !== null && fromQuery.trim().length > 0) {
+      return fromQuery.trim();
+    }
+    return globalThis.localStorage?.getItem(REGISTRY_URL_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function persistRegistryUrl(value: string): void {
+  try {
+    globalThis.localStorage?.setItem(REGISTRY_URL_STORAGE_KEY, value);
+  } catch {
+    // Best-effort persistence only.
+  }
 }
 
 function startNetworkTimers(): void {
@@ -1104,6 +1294,7 @@ function updateReadout(
 
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
+  updateMenuVisibility(presentation.connectionStatus);
   localEntityEl.textContent = formatNumber(presentation.localEntityId);
   serverPositionEl.textContent = formatVector(presentation.serverPosition);
   predictedPositionEl.textContent = formatVector(presentation.predictedPosition);

@@ -782,3 +782,168 @@ li {
     max-height: 40%;
   }
 }
+
+.playtest-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(120% 120% at 50% 0%, rgb(13 18 20 / 96%), rgb(8 11 12 / 98%));
+}
+
+.playtest-menu[data-visible="false"] {
+  display: none;
+}
+
+.playtest-menu-panel {
+  width: 420px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid #3c4746;
+  border-radius: 12px;
+  background: rgb(17 23 25 / 96%);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 45%);
+}
+
+.playtest-menu-title {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #eef2f1;
+}
+
+.playtest-menu-subtitle {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8ed0bd;
+}
+
+.playtest-menu-registry,
+.playtest-menu-manual {
+  display: flex;
+  gap: 8px;
+}
+
+.playtest-menu-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid #3c4746;
+  border-radius: 7px;
+  background: #0f1416;
+  color: #e4ebe9;
+  font: inherit;
+}
+
+.playtest-menu-input:focus {
+  outline: none;
+  border-color: #8ed0bd;
+}
+
+.playtest-menu-button {
+  padding: 9px 16px;
+  border: 1px solid #3c4746;
+  border-radius: 7px;
+  background: #1c2528;
+  color: #d6dedc;
+  font: inherit;
+  cursor: pointer;
+}
+
+.playtest-menu-button:hover {
+  border-color: #8ed0bd;
+}
+
+.playtest-menu-button-primary {
+  background: #2a6f5f;
+  border-color: #2a6f5f;
+  color: #f1fbf7;
+}
+
+.playtest-server-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.playtest-server-empty {
+  padding: 14px;
+  border: 1px dashed #3c4746;
+  border-radius: 8px;
+  color: #97a3a0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.playtest-server-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #34403e;
+  border-radius: 8px;
+  background: #131a1c;
+  color: #e4ebe9;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playtest-server-row:hover:not(:disabled) {
+  border-color: #8ed0bd;
+  background: #18211f;
+}
+
+.playtest-server-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.playtest-server-row[data-source="recent"] {
+  border-style: dashed;
+}
+
+.playtest-server-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playtest-server-detail {
+  flex: 0 0 auto;
+  color: #9fb0ac;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.playtest-menu-status {
+  margin: 0;
+  min-height: 16px;
+  font-size: 13px;
+  color: #c9b27e;
+}
+
+.playtest-menu-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #8a9794;
+}

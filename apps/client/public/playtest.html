@@ -37,6 +37,23 @@
 
       <section class="playtest-stage" aria-label="Networked renderer playtest view">
         <canvas id="playtest-canvas"></canvas>
+        <section id="playtest-menu" class="playtest-menu" data-visible="true" aria-label="Main menu">
+          <div class="playtest-menu-panel">
+            <h2 class="playtest-menu-title">Breachline</h2>
+            <p class="playtest-menu-subtitle">Server Browser</p>
+            <div class="playtest-menu-registry">
+              <input id="playtest-registry-url" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="Registry address (http://host:8788)" />
+              <button id="playtest-registry-refresh" class="playtest-menu-button" type="button">Refresh</button>
+            </div>
+            <ul id="playtest-server-list" class="playtest-server-list" aria-label="Available matches"></ul>
+            <p id="playtest-menu-status" class="playtest-menu-status" role="status"></p>
+            <div class="playtest-menu-manual">
+              <input id="playtest-manual-join" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="ws://host:8787 or paste a join link" />
+              <button id="playtest-menu-connect" class="playtest-menu-button playtest-menu-button-primary" type="button">Connect</button>
+            </div>
+            <p class="playtest-menu-hint">WASD move · mouse aim · click fire · R reload · Space jump · Ctrl/C crouch</p>
+          </div>
+        </section>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>
         <div id="playtest-hitmarker" class="playtest-hitmarker" data-active="false" aria-hidden="true"></div>
         <div id="playtest-round-banner" class="playtest-round-banner" data-active="false" role="status"></div>
