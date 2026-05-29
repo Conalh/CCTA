@@ -6,19 +6,16 @@ import {
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS
 } from "../packages/shared/dist/index.js";
-import {
-  DEFAULT_LOADOUT_COMBAT_DAMAGE_PER_HIT,
-  createLoadoutState
-} from "../apps/server/dist/index.js";
+import { createLoadoutState } from "../apps/server/dist/index.js";
 
-test("loadout state accepts one server-known placeholder profile for an assigned session", () => {
+test("loadout state accepts one server-known weapon profile for an assigned session", () => {
   const loadouts = createLoadoutState();
   loadouts.assignSession(3);
 
   const result = loadouts.selectLoadout({
     sessionId: 3,
     sequence: 1,
-    profileId: LOADOUT_PROFILE_ID.baseline,
+    profileId: LOADOUT_PROFILE_ID.halcyon,
     serverTick: 12
   });
 
@@ -27,11 +24,11 @@ test("loadout state accepts one server-known placeholder profile for an assigned
     serverTick: 12,
     sequence: 1,
     sessionId: 3,
-    profileId: LOADOUT_PROFILE_ID.baseline,
+    profileId: LOADOUT_PROFILE_ID.halcyon,
     status: LOADOUT_STATUS.accepted,
     rejectReason: LOADOUT_REJECT_REASON.none
   });
-  assert.equal(loadouts.getCombatDamagePerHit(3), DEFAULT_LOADOUT_COMBAT_DAMAGE_PER_HIT);
+  assert.equal(loadouts.getSelectedProfileId(3), LOADOUT_PROFILE_ID.halcyon);
 });
 
 test("loadout state rejects unknown sessions, invalid profiles, stale duplicates, and reselection", () => {
@@ -41,7 +38,7 @@ test("loadout state rejects unknown sessions, invalid profiles, stale duplicates
     loadouts.selectLoadout({
       sessionId: 99,
       sequence: 1,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       serverTick: 20
     }),
     {
@@ -78,7 +75,7 @@ test("loadout state rejects unknown sessions, invalid profiles, stale duplicates
     loadouts.selectLoadout({
       sessionId: 4,
       sequence: 1,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       serverTick: 22
     }),
     {
@@ -96,7 +93,7 @@ test("loadout state rejects unknown sessions, invalid profiles, stale duplicates
     loadouts.selectLoadout({
       sessionId: 4,
       sequence: 2,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       serverTick: 23
     }).status,
     LOADOUT_STATUS.accepted
@@ -105,7 +102,7 @@ test("loadout state rejects unknown sessions, invalid profiles, stale duplicates
     loadouts.selectLoadout({
       sessionId: 4,
       sequence: 3,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.cinder,
       serverTick: 24
     }),
     {
@@ -113,25 +110,25 @@ test("loadout state rejects unknown sessions, invalid profiles, stale duplicates
       serverTick: 24,
       sequence: 3,
       sessionId: 4,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       status: LOADOUT_STATUS.rejected,
       rejectReason: LOADOUT_REJECT_REASON.alreadySelected
     }
   );
 });
 
-test("loadout state removes disconnected sessions and clears server-owned defaults", () => {
+test("loadout state removes disconnected sessions and clears server-owned selection", () => {
   const loadouts = createLoadoutState();
   loadouts.assignSession(5);
   loadouts.selectLoadout({
     sessionId: 5,
     sequence: 1,
-    profileId: LOADOUT_PROFILE_ID.baseline,
+    profileId: LOADOUT_PROFILE_ID.ridgeline,
     serverTick: 30
   });
 
-  assert.equal(loadouts.getCombatDamagePerHit(5), DEFAULT_LOADOUT_COMBAT_DAMAGE_PER_HIT);
+  assert.equal(loadouts.getSelectedProfileId(5), LOADOUT_PROFILE_ID.ridgeline);
   assert.notEqual(loadouts.removeSession(5), undefined);
   assert.equal(loadouts.getStateMessage(5, 31), undefined);
-  assert.equal(loadouts.getCombatDamagePerHit(5), undefined);
+  assert.equal(loadouts.getSelectedProfileId(5), undefined);
 });

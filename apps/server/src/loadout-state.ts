@@ -1,20 +1,13 @@
 import {
-  LOADOUT_PROFILE_ID,
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS,
+  isKnownWeaponProfileId,
   type ClientLoadoutSelectMessage,
   type LoadoutProfileId,
   type LoadoutRejectReason,
   type LoadoutStatus,
   type ServerLoadoutStateMessage
 } from "@breachline/shared";
-
-export const DEFAULT_LOADOUT_COMBAT_DAMAGE_PER_HIT = 25 as const;
-
-export type ServerLoadoutProfile = Readonly<{
-  profileId: LoadoutProfileId;
-  combatDamagePerHit: number;
-}>;
 
 export type LoadoutSelectionInput = Readonly<{
   sessionId: number;
@@ -29,7 +22,7 @@ export type LoadoutState = Readonly<{
   selectLoadout(input: LoadoutSelectionInput): ServerLoadoutStateMessage;
   resetAll(serverTick: number): readonly ServerLoadoutStateMessage[];
   getStateMessage(sessionId: number, serverTick: number): ServerLoadoutStateMessage | undefined;
-  getCombatDamagePerHit(sessionId: number): number | undefined;
+  getSelectedProfileId(sessionId: number): LoadoutProfileId | undefined;
 }>;
 
 type MutableLoadoutSessionState = {
@@ -40,22 +33,7 @@ type MutableLoadoutSessionState = {
   rejectReason: LoadoutRejectReason;
 };
 
-export function createLoadoutState(
-  profiles: readonly ServerLoadoutProfile[] = [
-    {
-      profileId: LOADOUT_PROFILE_ID.baseline,
-      combatDamagePerHit: DEFAULT_LOADOUT_COMBAT_DAMAGE_PER_HIT
-    }
-  ]
-): LoadoutState {
-  const profileMap = new Map<LoadoutProfileId, ServerLoadoutProfile>();
-  for (const profile of profiles) {
-    profileMap.set(readKnownProfileId(profile.profileId), {
-      profileId: profile.profileId,
-      combatDamagePerHit: readPositiveUint16(profile.combatDamagePerHit, "combatDamagePerHit")
-    });
-  }
-
+export function createLoadoutState(): LoadoutState {
   const sessions = new Map<number, MutableLoadoutSessionState>();
 
   function assignSession(sessionIdValue: number): ServerLoadoutStateMessage {
@@ -103,13 +81,12 @@ export function createLoadoutState(
       return rejectForSession(state, sequence, serverTick, LOADOUT_REJECT_REASON.alreadySelected);
     }
 
-    const profile = profileMap.get(input.profileId as LoadoutProfileId);
-    if (profile === undefined) {
+    if (!isKnownWeaponProfileId(input.profileId)) {
       state.lastSelectionSequence = sequence;
       return rejectForSession(state, sequence, serverTick, LOADOUT_REJECT_REASON.invalidProfile);
     }
 
-    state.selectedProfileId = profile.profileId;
+    state.selectedProfileId = input.profileId;
     state.lastSelectionSequence = sequence;
     state.status = LOADOUT_STATUS.accepted;
     state.rejectReason = LOADOUT_REJECT_REASON.none;
@@ -135,13 +112,13 @@ export function createLoadoutState(
     return state === undefined ? undefined : toStateMessage(state, readUint32(serverTick, "serverTick"));
   }
 
-  function getCombatDamagePerHit(sessionIdValue: number): number | undefined {
+  function getSelectedProfileId(sessionIdValue: number): LoadoutProfileId | undefined {
     const sessionId = readPositiveUint32(sessionIdValue, "sessionId");
     const selectedProfileId = sessions.get(sessionId)?.selectedProfileId;
     if (selectedProfileId === undefined || selectedProfileId === 0) {
       return undefined;
     }
-    return profileMap.get(selectedProfileId)?.combatDamagePerHit;
+    return selectedProfileId;
   }
 
   return {
@@ -150,7 +127,7 @@ export function createLoadoutState(
     selectLoadout,
     resetAll,
     getStateMessage,
-    getCombatDamagePerHit
+    getSelectedProfileId
   };
 }
 
@@ -212,13 +189,6 @@ function toStateMessage(
   };
 }
 
-function readKnownProfileId(value: number): LoadoutProfileId {
-  if (value !== LOADOUT_PROFILE_ID.baseline) {
-    throw new Error(`loadout profile id must be known, got ${value}.`);
-  }
-  return value;
-}
-
 function readUint32(value: number, field: string): number {
   if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
     throw new Error(`${field} must be an unsigned 32-bit integer, got ${value}.`);
@@ -229,13 +199,6 @@ function readUint32(value: number, field: string): number {
 function readPositiveUint32(value: number, field: string): number {
   if (!Number.isInteger(value) || value < 1 || value > 0xffffffff) {
     throw new Error(`${field} must be a positive unsigned 32-bit integer, got ${value}.`);
-  }
-  return value;
-}
-
-function readPositiveUint16(value: number, field: string): number {
-  if (!Number.isInteger(value) || value < 1 || value > 0xffff) {
-    throw new Error(`${field} must be a positive unsigned 16-bit integer, got ${value}.`);
   }
   return value;
 }

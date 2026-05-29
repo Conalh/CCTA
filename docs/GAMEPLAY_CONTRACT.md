@@ -63,6 +63,8 @@ Phase 37 opens a deliberate gameplay-meaning milestone with a server-authoritati
 
 Phase 38 may present that existing `server.match.stats` feed in `/playtest.html` as a read-only kill/death scoreboard. It may order rows for readability and highlight the local session, but every kill and death value comes straight from the broadcast and the board clears on reconnect. It must not compute kills, deaths, scores, standings, or a winner on the client, and it must not add client-owned authority, teams, economy, buy flow, objectives, weapon identity, ammo, reloads, persistence, matchmaking, ranked systems, protocol data, server snapshots, combat authority, round authority, movement/collision authority, or fire validation.
 
+Phase 39 makes weapons exist as server-authoritative state. The server keeps a per-session weapon record (identity, per-hit damage, fire cadence, magazine ammo, and reload state) sourced from an original weapon catalog of three originally-named hitscan profiles. Accepted fire is gated by that record (weapon cooldown, empty magazine, mid-reload), damage flows from the equipped weapon, reload progresses on server ticks, and the loadout selection that already existed now picks which catalog weapon a session carries. Each change is mirrored by a reliable `server.weapon.state` message that the client stores as diagnostics-only state and clears on reconnect. It must not add client-owned weapon identity, client-owned ammo/reload/damage, an ammo HUD or any gameplay HUD, weapon art/models/sounds, economy, buy flow, teams, objectives, persistence, matchmaking, ranked systems, server snapshots, round authority, movement/collision authority, or copied weapon names and identities.
+
 ## Weapons
 
 The initial combat model is planned around hitscan weapons. Weapon identities, names, sounds, models, and roles must be original.
@@ -76,6 +78,8 @@ Future weapon work must keep server authority over:
 - Reload state.
 
 Phase 15 introduces only a placeholder server-owned hitscan validation path. It proves that clients send intent while the server owns hit/no-hit results. It does not introduce weapon identities, damage, health, death, ammo, reloads, teams, scoring, lag compensation, map collision, or weapon presentation.
+
+Phase 39 makes the above server authority concrete: an original three-weapon catalog gives each session a server-owned weapon with identity, per-hit damage, fire cadence, magazine ammo, and reload state. Fire is gated by that state and damage is sourced from it; the client only mirrors `server.weapon.state` for diagnostics. Weapon names, roles, and any future presentation stay original. No client-owned weapon truth, ammo HUD, weapon art, or economy is introduced.
 
 ## Round Flow
 
@@ -110,6 +114,8 @@ Loadouts should be simple and server validated. Use placeholders until an origin
 Phase 17 introduces only one generic placeholder profile id, `baseline`, plus server validation for accepted match sessions. The server owns accepted loadout state and may use it only as a placeholder combat default. Clients do not send damage, fire rate, ammo, reload state, health, score, target rules, combat outcomes, weapon identity, inventory contents, or round truth.
 
 Phase 17 does not introduce weapon identities, ammo, reloads, economy, buy/loadout UI flow, inventory, teams, scoring, persistence, art, sounds, gameplay HUD, or renderer weapon presentation.
+
+Phase 39 retires the single `baseline` placeholder: the selectable profile ids are now the three originally-named weapons in the server weapon catalog, and an accepted selection sets which catalog weapon the session carries. Loadout selection stays server-validated and phase-gated; it still carries no client-owned damage, ammo, reload, or weapon truth.
 
 ## Explicit Deferrals
 

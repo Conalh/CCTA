@@ -926,14 +926,14 @@ test("connection state reducer tracks diagnostics-only loadout state", () => {
       serverTick: 20,
       sequence: 3,
       sessionId: 10,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       status: LOADOUT_STATUS.accepted,
       rejectReason: LOADOUT_REJECT_REASON.none
     }
   });
 
   assert.equal(state.sessionId, 10);
-  assert.equal(state.loadoutProfileId, LOADOUT_PROFILE_ID.baseline);
+  assert.equal(state.loadoutProfileId, LOADOUT_PROFILE_ID.halcyon);
   assert.equal(state.loadoutStatus, LOADOUT_STATUS.accepted);
   assert.equal(state.loadoutRejectReason, LOADOUT_REJECT_REASON.none);
   assert.equal(state.lastLoadoutSequence, 3);
@@ -950,7 +950,7 @@ test("connection state reducer resets loadout diagnostics on reconnect", () => {
       serverTick: 20,
       sequence: 3,
       sessionId: 10,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       status: LOADOUT_STATUS.accepted,
       rejectReason: LOADOUT_REJECT_REASON.none
     }

@@ -45,9 +45,13 @@ test("developer telemetry summarizes a private playtest-ready diagnostics connec
       y: 0,
       z: -3
     },
-    loadoutProfileId: LOADOUT_PROFILE_ID.baseline,
+    loadoutProfileId: LOADOUT_PROFILE_ID.halcyon,
     loadoutStatus: LOADOUT_STATUS.accepted,
     loadoutRejectReason: LOADOUT_REJECT_REASON.none,
+    weaponProfileId: LOADOUT_PROFILE_ID.halcyon,
+    weaponAmmoInMagazine: 24,
+    weaponMagazineSize: 24,
+    weaponReloading: false,
     lastFireResultSequence: 3,
     lastFireAccepted: true,
     lastFireHit: false,
@@ -71,6 +75,7 @@ test("developer telemetry summarizes a private playtest-ready diagnostics connec
   assert.equal(itemById(summary, "prediction").status, "ok");
   assert.equal(itemById(summary, "remote-interpolation").status, "ok");
   assert.equal(itemById(summary, "loadout").status, "ok");
+  assert.equal(itemById(summary, "weapon").status, "ok");
   assert.equal(itemById(summary, "fire").status, "ok");
   assert.equal(itemById(summary, "combat").status, "ok");
   assert.equal(itemById(summary, "round").status, "ok");

@@ -6,6 +6,7 @@ export * from "./world-state.js";
 export * from "./hitscan.js";
 export * from "./combat-state.js";
 export * from "./loadout-state.js";
+export * from "./weapon-state.js";
 export * from "./round-state.js";
 export * from "./match-stats.js";
 export * from "./static-client.js";

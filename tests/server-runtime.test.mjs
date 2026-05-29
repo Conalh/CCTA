@@ -11,9 +11,34 @@ import {
   PROTOCOL_VERSION,
   ROUND_OUTCOME,
   ROUND_PHASE,
+  WEAPON_EVENT_KIND,
   createClientFireIntent
 } from "../packages/shared/dist/index.js";
 import { createServerRuntime } from "../apps/server/dist/index.js";
+
+// A deterministic weapon set for combat tests: a flat 50 damage so two hits drop a
+// full-health target, a one-tick fire interval so consecutive ticks can re-fire, and a
+// roomy magazine so ammo never runs dry mid-test. Same-tick double-fire stays impossible.
+const TEST_WEAPON_DAMAGE = 50;
+const TEST_WEAPON_MAGAZINE = 12;
+const TEST_WEAPON_RELOAD_TICKS = 2;
+const TEST_WEAPONS = [
+  LOADOUT_PROFILE_ID.ridgeline,
+  LOADOUT_PROFILE_ID.halcyon,
+  LOADOUT_PROFILE_ID.cinder
+].map((profileId) => ({
+  profileId,
+  name: `Testbed ${profileId}`,
+  role: "test",
+  damagePerHit: TEST_WEAPON_DAMAGE,
+  fireIntervalTicks: 1,
+  magazineSize: TEST_WEAPON_MAGAZINE,
+  reloadTicks: TEST_WEAPON_RELOAD_TICKS
+}));
+const TEST_WEAPON_CONFIG = {
+  definitions: TEST_WEAPONS,
+  defaultProfileId: LOADOUT_PROFILE_ID.halcyon
+};
 
 function createFakeTransportSession(id = "session-1") {
   const sent = [];
@@ -84,6 +109,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "protocol.accept",
       "match.assigned",
       "server.combat.state",
+      "server.weapon.state",
       "match.update",
       "pong",
       "input.ack",
@@ -269,6 +295,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "protocol.accept",
     "match.assigned",
     "server.combat.state",
+    "server.weapon.state",
     "match.update",
     "match.update"
   ]);
@@ -276,6 +303,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "protocol.accept",
     "match.assigned",
     "server.combat.state",
+    "server.weapon.state",
     "match.update"
   ]);
   assert.deepEqual(third.sent, [
@@ -620,7 +648,7 @@ test("server runtime produces server-owned hitscan results from authoritative wo
     })
   );
 
-  assert.deepEqual(first.sent.at(-1), {
+  assert.deepEqual(first.sent.filter((message) => message.kind === "server.fire.result").at(-1), {
     kind: "server.fire.result",
     sequence: 1,
     sessionId: 1,
@@ -639,6 +667,7 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   const runtime = createServerRuntime({
     tickRateHz: 20,
     matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
   const first = createFakeTransportSession("combat-a");
@@ -655,6 +684,7 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   }
   runtime.step(5, 1016);
 
+  // An invalid-aim intent is rejected before the weapon fires, so it deals no damage.
   first.receive(
     createClientFireIntent({
       sequence: 1,
@@ -666,6 +696,8 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   );
   assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).health, 100);
 
+  // First accepted hit wounds the target; the lethal hit lands on the next tick because the
+  // weapon's fire cadence forbids a second shot on the same tick.
   first.receive(
     createClientFireIntent({
       sequence: 2,
@@ -675,11 +707,14 @@ test("server runtime applies combat damage only from accepted server-owned fire 
       pitch: 0
     })
   );
+  assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).health, 50);
+
+  runtime.step(6, 1020);
   first.receive(
     createClientFireIntent({
       sequence: 3,
       clientTimeMs: 1050,
-      clientTick: 5,
+      clientTick: 6,
       yaw: -Math.PI / 2,
       pitch: 0
     })
@@ -688,16 +723,16 @@ test("server runtime applies combat damage only from accepted server-owned fire 
   const targetStates = second.sent.filter((message) => message.kind === "server.combat.state");
   assert.deepEqual(targetStates.at(-1), {
     kind: "server.combat.state",
-    serverTick: 5,
+    serverTick: 6,
     sessionId: 2,
     entityId: 2,
     health: 0,
     maxHealth: 100,
     alive: false,
-    deathTick: 5,
-    respawnEligibleTick: 8,
+    deathTick: 6,
+    respawnEligibleTick: 9,
     lastEventKind: COMBAT_EVENT_KIND.death,
-    lastEventTick: 5,
+    lastEventTick: 6,
     lastEventSequence: 3,
     sourceSessionId: 1,
     targetSessionId: 2,
@@ -709,6 +744,7 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   const runtime = createServerRuntime({
     tickRateHz: 20,
     matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
   const first = createFakeTransportSession("stats-a");
@@ -729,24 +765,35 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   assert.equal(first.sent.some((message) => message.kind === "server.match.stats"), false);
   assert.equal(second.sent.some((message) => message.kind === "server.match.stats"), false);
 
-  // Two accepted hits from full health drop the target; only the lethal shot publishes stats.
-  for (const sequence of [1, 2]) {
-    first.receive(
-      createClientFireIntent({
-        sequence,
-        clientTimeMs: 1040 + sequence,
-        clientTick: 5,
-        yaw: -Math.PI / 2,
-        pitch: 0
-      })
-    );
-  }
+  // First hit only wounds; the lethal hit lands the next tick (fire cadence blocks same-tick
+  // re-fire). Only the lethal shot publishes stats.
+  first.receive(
+    createClientFireIntent({
+      sequence: 1,
+      clientTimeMs: 1041,
+      clientTick: 5,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
+  assert.equal(first.sent.some((message) => message.kind === "server.match.stats"), false);
+
+  runtime.step(6, 1020);
+  first.receive(
+    createClientFireIntent({
+      sequence: 2,
+      clientTimeMs: 1042,
+      clientTick: 6,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
 
   assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).alive, false);
 
   const expectedStats = {
     kind: "server.match.stats",
-    serverTick: 5,
+    serverTick: 6,
     entryCount: 2,
     entries: [
       { sessionId: 1, kills: 1, deaths: 0 },
@@ -761,13 +808,14 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   assert.equal(secondStats.length, 1);
   assert.deepEqual(firstStats[0], expectedStats);
   assert.deepEqual(secondStats[0], expectedStats);
-  assert.deepEqual(runtime.getMatchStats(5), expectedStats);
+  assert.deepEqual(runtime.getMatchStats(6), expectedStats);
 });
 
 test("server runtime ignores a duplicate hello and keeps authoritative combat and input state", () => {
   const runtime = createServerRuntime({
     tickRateHz: 20,
     matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
   const first = createFakeTransportSession("rehello-a");
@@ -792,21 +840,30 @@ test("server runtime ignores a duplicate hello and keeps authoritative combat an
     yaw: 0,
     pitch: 0
   });
-  for (const sequence of [1, 2]) {
-    first.receive(
-      createClientFireIntent({
-        sequence,
-        clientTimeMs: 1040 + sequence,
-        clientTick: 5,
-        yaw: -Math.PI / 2,
-        pitch: 0
-      })
-    );
-  }
+  // Two hits across consecutive ticks drop the target; same-tick re-fire is impossible.
+  first.receive(
+    createClientFireIntent({
+      sequence: 1,
+      clientTimeMs: 1041,
+      clientTick: 5,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
+  runtime.step(6, 1024);
+  first.receive(
+    createClientFireIntent({
+      sequence: 2,
+      clientTimeMs: 1042,
+      clientTick: 6,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
 
-  assert.equal(runtime.getCombatState(2, 5).alive, false);
-  assert.equal(runtime.getCombatState(2, 5).health, 0);
-  assert.equal(runtime.getCombatState(2, 5).respawnEligibleTick, 8);
+  assert.equal(runtime.getCombatState(2, 6).alive, false);
+  assert.equal(runtime.getCombatState(2, 6).health, 0);
+  assert.equal(runtime.getCombatState(2, 6).respawnEligibleTick, 9);
   const inputStateBefore = runtime.getSessionInputState("rehello-a");
   assert.equal(inputStateBefore.lastAcceptedInputSequence, 7);
 
@@ -820,9 +877,9 @@ test("server runtime ignores a duplicate hello and keeps authoritative combat an
   }
 
   // The dead player stays dead with its respawn timer intact (no free revive/heal).
-  assert.equal(runtime.getCombatState(2, 5).alive, false);
-  assert.equal(runtime.getCombatState(2, 5).health, 0);
-  assert.equal(runtime.getCombatState(2, 5).respawnEligibleTick, 8);
+  assert.equal(runtime.getCombatState(2, 6).alive, false);
+  assert.equal(runtime.getCombatState(2, 6).health, 0);
+  assert.equal(runtime.getCombatState(2, 6).respawnEligibleTick, 9);
   // Input sequencing is not reset, so old input sequences cannot be replayed.
   assert.deepEqual(runtime.getSessionInputState("rehello-a"), inputStateBefore);
   // The duplicate hello emits no second accept / match assignment.
@@ -839,6 +896,7 @@ test("server runtime gates dead movement, fire, and targeting until server respa
       activeDurationTicks: 20,
       resetDurationTicks: 2
     },
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
   const first = createFakeTransportSession("gate-a");
@@ -856,20 +914,30 @@ test("server runtime gates dead movement, fire, and targeting until server respa
   runtime.step(1, 1000);
   runtime.step(5, 1016);
 
-  for (const sequence of [1, 2]) {
-    first.receive(
-      createClientFireIntent({
-        sequence,
-        clientTimeMs: 1030 + sequence,
-        clientTick: 5,
-        yaw: -Math.PI / 2,
-        pitch: 0
-      })
-    );
-  }
+  // Two hits across consecutive active ticks drop the target; the round is still active when
+  // the lethal shot lands, so elimination is only detected by the next server tick.
+  first.receive(
+    createClientFireIntent({
+      sequence: 1,
+      clientTimeMs: 1031,
+      clientTick: 5,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
+  runtime.step(6, 1020);
+  first.receive(
+    createClientFireIntent({
+      sequence: 2,
+      clientTimeMs: 1032,
+      clientTick: 6,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
   assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).alive, false);
 
-  const deadSnapshot = runtime.getWorldSnapshot(6).entities.find((entity) => entity.sessionId === 2);
+  const deadSnapshot = runtime.getWorldSnapshot(7).entities.find((entity) => entity.sessionId === 2);
   second.receive({
     kind: "client.input",
     sequence: 9,
@@ -878,15 +946,15 @@ test("server runtime gates dead movement, fire, and targeting until server respa
     yaw: 0,
     pitch: 0
   });
-  runtime.step(6, 1100);
-  const afterDeadMove = runtime.getWorldSnapshot(6).entities.find((entity) => entity.sessionId === 2);
+  runtime.step(7, 1100);
+  const afterDeadMove = runtime.getWorldSnapshot(7).entities.find((entity) => entity.sessionId === 2);
   assert.deepEqual(afterDeadMove, deadSnapshot);
 
   second.receive(
     createClientFireIntent({
       sequence: 1,
       clientTimeMs: 1110,
-      clientTick: 6,
+      clientTick: 7,
       yaw: Math.PI / 2,
       pitch: 0
     })
@@ -897,7 +965,7 @@ test("server runtime gates dead movement, fire, and targeting until server respa
     createClientFireIntent({
       sequence: 3,
       clientTimeMs: 1120,
-      clientTick: 6,
+      clientTick: 7,
       yaw: -Math.PI / 2,
       pitch: 0
     })
@@ -906,7 +974,7 @@ test("server runtime gates dead movement, fire, and targeting until server respa
     kind: "server.fire.result",
     sequence: 3,
     sessionId: 1,
-    serverTick: 6,
+    serverTick: 7,
     accepted: false,
     hit: false,
     targetEntityId: 0,
@@ -915,16 +983,16 @@ test("server runtime gates dead movement, fire, and targeting until server respa
     rejectReason: FIRE_REJECT_REASON.roundInactive
   });
 
-  runtime.step(8, 1200);
+  runtime.step(9, 1200);
   assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).alive, true);
-  assert.equal(runtime.getRoundState(8).phase, ROUND_PHASE.reset);
-  runtime.step(9, 1210);
-  runtime.step(10, 1220);
+  assert.equal(runtime.getRoundState(9).phase, ROUND_PHASE.reset);
+  runtime.step(10, 1210);
+  runtime.step(11, 1220);
   first.receive(
     createClientFireIntent({
       sequence: 4,
       clientTimeMs: 1230,
-      clientTick: 10,
+      clientTick: 11,
       yaw: -Math.PI / 2,
       pitch: 0
     })
@@ -944,7 +1012,7 @@ test("server runtime validates loadout selection only for accepted assigned sess
   transport.receive({
     kind: "client.loadout.select",
     sequence: 1,
-    profileId: LOADOUT_PROFILE_ID.baseline
+    profileId: LOADOUT_PROFILE_ID.halcyon
   });
   assert.deepEqual(transport.sent.at(-1), {
     kind: "server.loadout.state",
@@ -969,12 +1037,12 @@ test("server runtime validates loadout selection only for accepted assigned sess
   transport.receive({
     kind: "client.loadout.select",
     sequence: 2,
-    profileId: LOADOUT_PROFILE_ID.baseline
+    profileId: LOADOUT_PROFILE_ID.halcyon
   });
   transport.receive({
     kind: "client.loadout.select",
     sequence: 3,
-    profileId: LOADOUT_PROFILE_ID.baseline
+    profileId: LOADOUT_PROFILE_ID.halcyon
   });
 
   assert.deepEqual(
@@ -1012,7 +1080,7 @@ test("server runtime validates loadout selection only for accepted assigned sess
         serverTick: 0,
         sequence: 3,
         sessionId: 1,
-        profileId: LOADOUT_PROFILE_ID.baseline,
+        profileId: LOADOUT_PROFILE_ID.halcyon,
         status: LOADOUT_STATUS.accepted,
         rejectReason: LOADOUT_REJECT_REASON.none
       }
@@ -1039,7 +1107,7 @@ test("server runtime keeps empty rounds in setup so the first accepted session c
   transport.receive({
     kind: "client.loadout.select",
     sequence: 1,
-    profileId: LOADOUT_PROFILE_ID.baseline
+    profileId: LOADOUT_PROFILE_ID.halcyon
   });
 
   assert.equal(
@@ -1048,14 +1116,15 @@ test("server runtime keeps empty rounds in setup so the first accepted session c
   );
 });
 
-test("server runtime applies loadout-owned combat defaults only after accepted selection", () => {
+test("server runtime serves authoritative weapon state across switch, fire, and reload", () => {
   const runtime = createServerRuntime({
     tickRateHz: 20,
     matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
-  const first = createFakeTransportSession("loadout-combat-a");
-  const second = createFakeTransportSession("loadout-combat-b");
+  const first = createFakeTransportSession("weapon-a");
+  const second = createFakeTransportSession("weapon-b");
 
   runtime.attachSession(first.session);
   runtime.attachSession(second.session);
@@ -1067,13 +1136,34 @@ test("server runtime applies loadout-owned combat defaults only after accepted s
     });
   }
 
+  // Every assigned session starts with the default weapon at a full magazine.
+  assert.deepEqual(first.sent.filter((message) => message.kind === "server.weapon.state").at(-1), {
+    kind: "server.weapon.state",
+    serverTick: 0,
+    sessionId: 1,
+    weaponProfileId: LOADOUT_PROFILE_ID.halcyon,
+    ammoInMagazine: TEST_WEAPON_MAGAZINE,
+    magazineSize: TEST_WEAPON_MAGAZINE,
+    reloading: false,
+    reloadCompleteTick: 0,
+    lastEventKind: WEAPON_EVENT_KIND.assigned,
+    lastEventSequence: 0
+  });
+
+  // Selecting a loadout during the setup phase swaps the server-owned weapon and refills it.
   first.receive({
     kind: "client.loadout.select",
     sequence: 1,
-    profileId: LOADOUT_PROFILE_ID.baseline
+    profileId: LOADOUT_PROFILE_ID.cinder
   });
-  assert.equal(first.sent.filter((message) => message.kind === "server.loadout.state").at(-1).status, LOADOUT_STATUS.accepted);
+  const switched = first.sent.filter((message) => message.kind === "server.weapon.state").at(-1);
+  assert.equal(switched.weaponProfileId, LOADOUT_PROFILE_ID.cinder);
+  assert.equal(switched.ammoInMagazine, TEST_WEAPON_MAGAZINE);
+  assert.equal(switched.lastEventKind, WEAPON_EVENT_KIND.switched);
+
   runtime.step(5, 1016);
+
+  // An accepted fire consumes one round and reports the new authoritative magazine count.
   first.receive(
     createClientFireIntent({
       sequence: 1,
@@ -1083,24 +1173,35 @@ test("server runtime applies loadout-owned combat defaults only after accepted s
       pitch: 0
     })
   );
-  assert.equal(second.sent.filter((message) => message.kind === "server.combat.state").at(-1).health, 75);
+  const fired = first.sent.filter((message) => message.kind === "server.weapon.state").at(-1);
+  assert.equal(fired.ammoInMagazine, TEST_WEAPON_MAGAZINE - 1);
+  assert.equal(fired.lastEventKind, WEAPON_EVENT_KIND.fired);
+  assert.equal(fired.lastEventSequence, 1);
 
-  second.receive({
+  // Loadout selection is locked once the round is active.
+  first.receive({
     kind: "client.loadout.select",
-    sequence: 1,
-    profileId: 999
+    sequence: 2,
+    profileId: LOADOUT_PROFILE_ID.halcyon
   });
-  assert.equal(second.sent.filter((message) => message.kind === "server.loadout.state").at(-1).rejectReason, LOADOUT_REJECT_REASON.roundLocked);
-  second.receive(
-    createClientFireIntent({
-      sequence: 1,
-      clientTimeMs: 1040,
-      clientTick: 5,
-      yaw: Math.PI / 2,
-      pitch: 0
-    })
+  assert.equal(
+    first.sent.filter((message) => message.kind === "server.loadout.state").at(-1).rejectReason,
+    LOADOUT_REJECT_REASON.roundLocked
   );
-  assert.equal(first.sent.filter((message) => message.kind === "server.combat.state").at(-1).health, 50);
+
+  // A reload request flips the weapon into the reloading state with a server-owned completion tick.
+  first.receive({ kind: "client.weapon.reload", sequence: 3 });
+  const reloading = first.sent.filter((message) => message.kind === "server.weapon.state").at(-1);
+  assert.equal(reloading.reloading, true);
+  assert.equal(reloading.lastEventKind, WEAPON_EVENT_KIND.reloadStart);
+  assert.equal(reloading.reloadCompleteTick, 5 + TEST_WEAPON_RELOAD_TICKS);
+
+  // Advancing past the completion tick refills the magazine on the authoritative tick.
+  runtime.step(5 + TEST_WEAPON_RELOAD_TICKS, 1020);
+  const reloaded = first.sent.filter((message) => message.kind === "server.weapon.state").at(-1);
+  assert.equal(reloaded.ammoInMagazine, TEST_WEAPON_MAGAZINE);
+  assert.equal(reloaded.reloading, false);
+  assert.equal(reloaded.lastEventKind, WEAPON_EVENT_KIND.reloadComplete);
 });
 
 test("server runtime owns round outcomes and rejects client activity outside active phase", () => {
@@ -1112,6 +1213,7 @@ test("server runtime owns round outcomes and rejects client activity outside act
       activeDurationTicks: 20,
       resetDurationTicks: 2
     },
+    weapon: TEST_WEAPON_CONFIG,
     now: () => 1000
   });
   const first = createFakeTransportSession("round-a");
@@ -1179,26 +1281,36 @@ test("server runtime owns round outcomes and rejects client activity outside act
   runtime.step(4, 1040);
   assert.equal(runtime.getWorldSnapshot(4).entities.find((entity) => entity.sessionId === 1).z < 0, true);
 
-  for (const sequence of [2, 3]) {
-    first.receive(
-      createClientFireIntent({
-        sequence,
-        clientTimeMs: 1050 + sequence,
-        clientTick: 4,
-        yaw: -Math.PI / 2,
-        pitch: 0
-      })
-    );
-  }
+  // Drop session 2 with two hits across consecutive active ticks (same-tick re-fire is
+  // impossible); the elimination is detected on the following server tick.
+  first.receive(
+    createClientFireIntent({
+      sequence: 2,
+      clientTimeMs: 1052,
+      clientTick: 4,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
   runtime.step(5, 1050);
-  assert.equal(runtime.getRoundState(5).phase, ROUND_PHASE.ended);
-  assert.equal(runtime.getRoundState(5).outcome, ROUND_OUTCOME.elimination);
-  assert.equal(runtime.getRoundState(5).winnerSessionId, 1);
+  first.receive(
+    createClientFireIntent({
+      sequence: 3,
+      clientTimeMs: 1053,
+      clientTick: 5,
+      yaw: -Math.PI / 2,
+      pitch: 0
+    })
+  );
+  runtime.step(6, 1060);
+  assert.equal(runtime.getRoundState(6).phase, ROUND_PHASE.ended);
+  assert.equal(runtime.getRoundState(6).outcome, ROUND_OUTCOME.elimination);
+  assert.equal(runtime.getRoundState(6).winnerSessionId, 1);
 
-  runtime.step(7, 1070);
-  assert.equal(runtime.getRoundState(7).phase, ROUND_PHASE.reset);
-  assert.equal(runtime.getCombatState(2, 7).alive, true);
-  assert.deepEqual(runtime.getWorldSnapshot(7).entities.find((entity) => entity.sessionId === 1), {
+  runtime.step(8, 1080);
+  assert.equal(runtime.getRoundState(8).phase, ROUND_PHASE.reset);
+  assert.equal(runtime.getCombatState(2, 8).alive, true);
+  assert.deepEqual(runtime.getWorldSnapshot(8).entities.find((entity) => entity.sessionId === 1), {
     entityId: 1,
     sessionId: 1,
     slotIndex: 0,

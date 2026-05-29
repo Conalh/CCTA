@@ -1,16 +1,18 @@
 import {
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
+  DEFAULT_WEAPON_PROFILE_ID,
   FIRE_REJECT_REASON,
-  LOADOUT_PROFILE_ID,
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS,
   ROUND_EVENT_KIND,
   ROUND_OUTCOME,
   ROUND_PHASE,
+  WEAPON_EVENT_KIND,
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
+  getWeaponDefinition,
   PROTOCOL_VERSION,
   type MessageTransport
 } from "@breachline/shared";
@@ -72,6 +74,13 @@ const loadoutProfileEl = requireElement("loadout-profile");
 const loadoutStatusEl = requireElement("loadout-status");
 const loadoutRejectReasonEl = requireElement("loadout-reject-reason");
 const loadoutSequenceEl = requireElement("loadout-sequence");
+const weaponProfileEl = requireElement("weapon-profile");
+const weaponAmmoEl = requireElement("weapon-ammo");
+const weaponReloadingEl = requireElement("weapon-reloading");
+const weaponReloadCompleteEl = requireElement("weapon-reload-complete");
+const weaponEventEl = requireElement("weapon-event");
+const weaponEventSequenceEl = requireElement("weapon-event-sequence");
+const weaponServerTickEl = requireElement("weapon-server-tick");
 const roundIdEl = requireElement("round-id");
 const roundPhaseEl = requireElement("round-phase");
 const roundOutcomeEl = requireElement("round-outcome");
@@ -296,7 +305,7 @@ function sendLoadoutSelection(): void {
   transport.send(
     createClientLoadoutSelect({
       sequence: loadoutSequence,
-      profileId: LOADOUT_PROFILE_ID.baseline
+      profileId: DEFAULT_WEAPON_PROFILE_ID
     })
   );
 }
@@ -380,6 +389,13 @@ function render(nextState: ConnectionViewState): void {
   loadoutStatusEl.textContent = formatLoadoutStatus(nextState.loadoutStatus);
   loadoutRejectReasonEl.textContent = formatLoadoutRejectReason(nextState.loadoutRejectReason);
   loadoutSequenceEl.textContent = formatNumber(nextState.lastLoadoutSequence);
+  weaponProfileEl.textContent = formatLoadoutProfile(nextState.weaponProfileId);
+  weaponAmmoEl.textContent = formatWeaponAmmo(nextState.weaponAmmoInMagazine, nextState.weaponMagazineSize);
+  weaponReloadingEl.textContent = formatBoolean(nextState.weaponReloading);
+  weaponReloadCompleteEl.textContent = formatNumber(nextState.weaponReloadCompleteTick);
+  weaponEventEl.textContent = formatWeaponEvent(nextState.lastWeaponEventKind);
+  weaponEventSequenceEl.textContent = formatNumber(nextState.lastWeaponEventSequence);
+  weaponServerTickEl.textContent = formatNumber(nextState.lastWeaponServerTick);
   roundIdEl.textContent = formatNumber(nextState.roundId);
   roundPhaseEl.textContent = formatRoundPhase(nextState.roundPhase);
   roundOutcomeEl.textContent = formatRoundOutcome(nextState.roundOutcome);
@@ -547,15 +563,10 @@ function formatCombatEvent(value: number | undefined): string {
 }
 
 function formatLoadoutProfile(value: number | undefined): string {
-  switch (value) {
-    case undefined:
-    case 0:
-      return "-";
-    case LOADOUT_PROFILE_ID.baseline:
-      return "baseline";
-    default:
-      return `unknown ${value}`;
+  if (value === undefined || value === 0) {
+    return "-";
   }
+  return getWeaponDefinition(value)?.name ?? `unknown ${value}`;
 }
 
 function formatLoadoutStatus(value: number | undefined): string {
@@ -591,6 +602,36 @@ function formatLoadoutRejectReason(value: number | undefined): string {
       return "already selected";
     case LOADOUT_REJECT_REASON.roundLocked:
       return "round locked";
+    default:
+      return `unknown ${value}`;
+  }
+}
+
+function formatWeaponAmmo(ammo: number | undefined, magazineSize: number | undefined): string {
+  if (ammo === undefined || magazineSize === undefined) {
+    return "-";
+  }
+  return `${ammo}/${magazineSize}`;
+}
+
+function formatWeaponEvent(value: number | undefined): string {
+  switch (value) {
+    case undefined:
+      return "-";
+    case WEAPON_EVENT_KIND.none:
+      return "none";
+    case WEAPON_EVENT_KIND.assigned:
+      return "assigned";
+    case WEAPON_EVENT_KIND.fired:
+      return "fired";
+    case WEAPON_EVENT_KIND.reloadStart:
+      return "reload start";
+    case WEAPON_EVENT_KIND.reloadComplete:
+      return "reload complete";
+    case WEAPON_EVENT_KIND.switched:
+      return "switched";
+    case WEAPON_EVENT_KIND.reset:
+      return "reset";
     default:
       return `unknown ${value}`;
   }

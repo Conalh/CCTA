@@ -30,7 +30,9 @@ export const PACKET_KIND = {
   clientLoadoutSelect: 15,
   serverLoadoutState: 16,
   serverRoundState: 17,
-  serverMatchStats: 18
+  serverMatchStats: 18,
+  clientWeaponReload: 19,
+  serverWeaponState: 20
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -41,7 +43,20 @@ export const FIRE_REJECT_REASON = {
   staleSequence: 4,
   invalidAim: 5,
   sourceDead: 6,
-  roundInactive: 7
+  roundInactive: 7,
+  outOfAmmo: 8,
+  reloading: 9,
+  weaponCooldown: 10
+} as const;
+
+export const WEAPON_EVENT_KIND = {
+  none: 0,
+  assigned: 1,
+  fired: 2,
+  reloadStart: 3,
+  reloadComplete: 4,
+  switched: 5,
+  reset: 6
 } as const;
 
 export const COMBAT_EVENT_KIND = {
@@ -53,7 +68,9 @@ export const COMBAT_EVENT_KIND = {
 } as const;
 
 export const LOADOUT_PROFILE_ID = {
-  baseline: 1
+  ridgeline: 1,
+  halcyon: 2,
+  cinder: 3
 } as const;
 
 export const LOADOUT_STATUS = {
@@ -102,9 +119,14 @@ const COMBAT_STATE_FLAGS = {
   alive: 1 << 0
 } as const;
 
+const WEAPON_STATE_FLAGS = {
+  reloading: 1 << 0
+} as const;
+
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
 export type ServerTickRateHz = number;
 export type FireRejectReason = (typeof FIRE_REJECT_REASON)[keyof typeof FIRE_REJECT_REASON];
+export type WeaponEventKind = (typeof WEAPON_EVENT_KIND)[keyof typeof WEAPON_EVENT_KIND];
 export type CombatEventKind = (typeof COMBAT_EVENT_KIND)[keyof typeof COMBAT_EVENT_KIND];
 export type LoadoutProfileId = (typeof LOADOUT_PROFILE_ID)[keyof typeof LOADOUT_PROFILE_ID];
 export type LoadoutStatus = (typeof LOADOUT_STATUS)[keyof typeof LOADOUT_STATUS];
@@ -118,7 +140,8 @@ export type ClientProtocolMessage =
   | PingMessage
   | ClientInputMessage
   | ClientFireIntentMessage
-  | ClientLoadoutSelectMessage;
+  | ClientLoadoutSelectMessage
+  | ClientWeaponReloadMessage;
 
 export type ServerProtocolMessage =
   | ProtocolAcceptMessage
@@ -132,6 +155,7 @@ export type ServerProtocolMessage =
   | ServerFireResultMessage
   | ServerCombatStateMessage
   | ServerLoadoutStateMessage
+  | ServerWeaponStateMessage
   | ServerRoundStateMessage
   | ServerMatchStatsMessage;
 
@@ -203,6 +227,11 @@ export type ClientLoadoutSelectMessage = Readonly<{
   profileId: LoadoutProfileId;
 }>;
 
+export type ClientWeaponReloadMessage = Readonly<{
+  kind: "client.weapon.reload";
+  sequence: number;
+}>;
+
 export type ServerFireResultMessage = Readonly<{
   kind: "server.fire.result";
   sequence: number;
@@ -242,6 +271,19 @@ export type ServerLoadoutStateMessage = Readonly<{
   profileId: LoadoutProfileId | 0;
   status: LoadoutStatus;
   rejectReason: LoadoutRejectReason;
+}>;
+
+export type ServerWeaponStateMessage = Readonly<{
+  kind: "server.weapon.state";
+  serverTick: number;
+  sessionId: number;
+  weaponProfileId: LoadoutProfileId | 0;
+  ammoInMagazine: number;
+  magazineSize: number;
+  reloading: boolean;
+  reloadCompleteTick: number;
+  lastEventKind: WeaponEventKind;
+  lastEventSequence: number;
 }>;
 
 export type ServerRoundStateMessage = Readonly<{
@@ -361,6 +403,13 @@ export function createClientLoadoutSelect(input: Omit<ClientLoadoutSelectMessage
   };
 }
 
+export function createClientWeaponReload(input: Omit<ClientWeaponReloadMessage, "kind">): ClientWeaponReloadMessage {
+  return {
+    kind: "client.weapon.reload",
+    sequence: readUint32(input.sequence, "sequence")
+  };
+}
+
 export function createServerSnapshotPlaceholder(
   tick: number,
   serverTimeMs: number,
@@ -417,6 +466,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         readUint32(message.sequence, "sequence"),
         encodeClientLoadoutSelectPayload(message)
       );
+    case "client.weapon.reload":
+      return writePacket(
+        PACKET_KIND.clientWeaponReload,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        new Uint8Array(0)
+      );
     case "server.tick":
       return writePacket(
         PACKET_KIND.serverTick,
@@ -457,6 +513,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerLoadoutStatePayload(message)
+      );
+    case "server.weapon.state":
+      return writePacket(
+        PACKET_KIND.serverWeaponState,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerWeaponStatePayload(message)
       );
     case "server.round.state":
       return writePacket(
@@ -568,6 +631,12 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         sequence: sequenceOrTick,
         profileId: readRequiredLoadoutProfileId(payload.getUint16(0, true))
       };
+    case PACKET_KIND.clientWeaponReload:
+      requirePayloadLength(payloadLength, 0, "client.weapon.reload");
+      return {
+        kind: "client.weapon.reload",
+        sequence: sequenceOrTick
+      };
     case PACKET_KIND.serverTick:
       requirePayloadLength(payloadLength, 8, "server.tick");
       return {
@@ -655,6 +724,20 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         profileId: readLoadoutProfileId(payload.getUint16(8, true), true),
         status: readLoadoutStatus(payload.getUint16(10, true)),
         rejectReason: readLoadoutRejectReason(payload.getUint16(12, true))
+      };
+    case PACKET_KIND.serverWeaponState:
+      requirePayloadLength(payloadLength, 24, "server.weapon.state");
+      return {
+        kind: "server.weapon.state",
+        serverTick: sequenceOrTick,
+        sessionId: payload.getUint32(0, true),
+        weaponProfileId: readLoadoutProfileId(payload.getUint16(4, true), true),
+        ammoInMagazine: payload.getUint16(6, true),
+        magazineSize: payload.getUint16(8, true),
+        reloading: (payload.getUint16(10, true) & WEAPON_STATE_FLAGS.reloading) !== 0,
+        lastEventKind: readWeaponEventKind(payload.getUint16(12, true)),
+        reloadCompleteTick: payload.getUint32(16, true),
+        lastEventSequence: payload.getUint32(20, true)
       };
     case PACKET_KIND.serverRoundState:
       requirePayloadLength(payloadLength, 36, "server.round.state");
@@ -858,6 +941,21 @@ function encodeServerLoadoutStatePayload(message: ServerLoadoutStateMessage): Ui
   return payload;
 }
 
+function encodeServerWeaponStatePayload(message: ServerWeaponStateMessage): Uint8Array {
+  const payload = new Uint8Array(24);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, readUint32(message.sessionId, "sessionId"), true);
+  view.setUint16(4, readLoadoutProfileId(message.weaponProfileId, true), true);
+  view.setUint16(6, readUint16(message.ammoInMagazine, "ammoInMagazine"), true);
+  view.setUint16(8, readUint16(message.magazineSize, "magazineSize"), true);
+  view.setUint16(10, message.reloading ? WEAPON_STATE_FLAGS.reloading : 0, true);
+  view.setUint16(12, readWeaponEventKind(message.lastEventKind), true);
+  view.setUint16(14, 0, true);
+  view.setUint32(16, readUint32(message.reloadCompleteTick, "reloadCompleteTick"), true);
+  view.setUint32(20, readUint32(message.lastEventSequence, "lastEventSequence"), true);
+  return payload;
+}
+
 function encodeServerRoundStatePayload(message: ServerRoundStateMessage): Uint8Array {
   const payload = new Uint8Array(36);
   const view = new DataView(payload.buffer);
@@ -1033,6 +1131,14 @@ function readCombatEventKind(value: number): CombatEventKind {
     throw new Error(`combat event kind must be known, got ${value}.`);
   }
   return value as CombatEventKind;
+}
+
+function readWeaponEventKind(value: number): WeaponEventKind {
+  const values = Object.values(WEAPON_EVENT_KIND) as number[];
+  if (!Number.isInteger(value) || !values.includes(value)) {
+    throw new Error(`weapon event kind must be known, got ${value}.`);
+  }
+  return value as WeaponEventKind;
 }
 
 function readLoadoutProfileId(value: number, allowUnselected = false): LoadoutProfileId | 0 {

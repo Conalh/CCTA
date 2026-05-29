@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 import {
-  LOADOUT_PROFILE_ID,
+  DEFAULT_WEAPON_PROFILE_ID,
   PROTOCOL_VERSION,
   createClientFireIntent,
   createClientLoadoutSelect,
@@ -136,6 +136,10 @@ declare global {
       scoreboardSummary: string;
       serverPosition: readonly [number, number, number] | undefined;
       sessionId: number | undefined;
+      weaponAmmoInMagazine: number | undefined;
+      weaponMagazineSize: number | undefined;
+      weaponProfileId: number | undefined;
+      weaponReloading: boolean | undefined;
     }>;
     __BREACHLINE_PLAYTEST_DIAGNOSTICS__?: Readonly<{
       aimAtRemote(targetEntityId?: number): NetworkedPlaytestRemoteAim | undefined;
@@ -508,7 +512,7 @@ function sendLoadoutSelection(): void {
   transport.send(
     createClientLoadoutSelect({
       sequence: loadoutSequence,
-      profileId: LOADOUT_PROFILE_ID.baseline
+      profileId: DEFAULT_WEAPON_PROFILE_ID
     })
   );
 }
@@ -1099,7 +1103,11 @@ function updateReadout(
     })),
     scoreboardSummary: scoreboard.summaryLabel,
     serverPosition: presentation.serverPosition,
-    sessionId: presentation.localSessionId
+    sessionId: presentation.localSessionId,
+    weaponAmmoInMagazine: state.weaponAmmoInMagazine,
+    weaponMagazineSize: state.weaponMagazineSize,
+    weaponProfileId: state.weaponProfileId,
+    weaponReloading: state.weaponReloading
   };
 }
 

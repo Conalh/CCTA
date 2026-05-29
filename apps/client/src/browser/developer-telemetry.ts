@@ -29,6 +29,7 @@ export function createDeveloperTelemetrySummary(state: ConnectionViewState): Dev
     summarizePrediction(state),
     summarizeRemoteInterpolation(state),
     summarizeLoadout(state),
+    summarizeWeapon(state),
     summarizeFire(state),
     summarizeCombat(state),
     summarizeRound(state),
@@ -131,6 +132,19 @@ function summarizeLoadout(state: ConnectionViewState): DeveloperTelemetryItem {
   }
 
   return createItem("loadout", "Loadout", "ok", `Profile ${formatNumber(state.loadoutProfileId)} accepted.`);
+}
+
+function summarizeWeapon(state: ConnectionViewState): DeveloperTelemetryItem {
+  if (state.weaponProfileId === undefined || state.weaponMagazineSize === undefined) {
+    return createItem("weapon", "Weapon", "waiting", "Waiting for server weapon state.");
+  }
+
+  const ammo = `ammo ${formatNumber(state.weaponAmmoInMagazine)}/${formatNumber(state.weaponMagazineSize)}`;
+  if (state.weaponReloading === true) {
+    return createItem("weapon", "Weapon", "ok", `Profile ${formatNumber(state.weaponProfileId)} reloading; ${ammo}.`);
+  }
+
+  return createItem("weapon", "Weapon", "ok", `Profile ${formatNumber(state.weaponProfileId)} ready; ${ammo}.`);
 }
 
 function summarizeFire(state: ConnectionViewState): DeveloperTelemetryItem {

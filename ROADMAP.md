@@ -449,23 +449,35 @@ Phase 38 is current when validation passes because:
 - Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, loadouts, round authority, and the match-stats feed remain intact.
 - WebTransport status remains honest.
 
+## Phase 39 Status
+
+Phase 39 is current when validation passes because:
+
+- Weapons now exist as server-authoritative per-session state. An original three-weapon catalog (originally-named hitscan profiles) gives each session a weapon record carrying identity, per-hit damage, fire-interval cadence in ticks, magazine ammo, and reload duration, all validated as bounded positive integers with non-empty original names.
+- The server weapon-state module owns assign, switch, fire, reload, and reset. Accepted fire is gated by weapon cooldown, empty magazine, and mid-reload, and combat damage is sourced from the equipped weapon instead of a fixed placeholder constant.
+- The existing loadout selection now chooses which catalog weapon a session carries; the single `baseline` placeholder is retired in favor of the named profiles, and selection stays server-validated and phase-gated.
+- Reload is server-owned: a client may request a reload, but the server decides whether it starts, advances it on its own ticks, and refills the magazine only through server-owned reload, switch, or round reset. The client never sets ammo, reload state, or damage.
+- A reliable `server.weapon.state` message reports each change. The client mirrors it as diagnostics-only view state that clears on reconnect and adds no ammo HUD, no client-owned weapon truth, and no client-owned damage/ammo/reload.
+- Existing protocol shape, transport selection, server runtime, snapshots, movement/collision authority, fire validation, combat/damage authority, round authority, loadout authority, and the match-stats feed and scoreboard remain intact.
+- WebTransport status remains honest.
+
 ## Transport Decision
 
 Phase 2 keeps WebTransport as the intended browser transport, but validates the runtime loop through a WebSocket fallback. The blocker is local WebTransport server support: this stack does not yet provide an HTTP/3 plus TLS server endpoint for browser WebTransport.
 
 ## Next Proof Milestone
 
-The next milestone is **let the server-authoritative kill/death tallies drive a server-owned round end condition (a frag target) without granting the client any authority**.
+The next milestone is **make players exist as first-class server-owned participants with a stable identity and a server-broadcast roster, without granting the client any authority**.
 
-The gameplay pivot is deliberate. The kill/death stats feed (Phase 37) and its read-only scoreboard (Phase 38) gave the match readable meaning while keeping every tally server-owned. The next step turns that meaning into a server-owned outcome: when a session reaches a configured kill target, the existing round authority ends the round and reports the outcome. The client continues to only display server truth.
+The direction is deliberate. Phase 39 gave each session a server-authoritative weapon; the matching half is a server-owned player record so a participant is more than an anonymous session slot. The server assigns each accepted session an original neutral callsign and tracks its equipped weapon profile and fixed slot, then broadcasts an authoritative roster the client mirrors as diagnostics-only state. The client continues to only display server truth.
 
 Expected proof:
 
-- The server ends the active round through its existing round authority when a tracked session reaches a server-configured frag target, derived from the stats it already owns.
-- The round outcome and reset flow remain entirely server-owned; the client neither computes the threshold, declares a winner, nor ends the round locally.
-- The scoreboard and round/combat readouts continue to mirror the broadcast and clear on reconnect.
-- Existing round flow, loadout, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
+- The server owns a player registry keyed by session id, holding an original neutral callsign, the server-owned equipped weapon profile, and the fixed match slot, assigned on join and freed on leave.
+- An authoritative `server.match.roster` message reports the current participants and is broadcast on join, leave, and loadout change; the client mirrors it as diagnostics-only state that clears on reconnect.
+- Callsigns are drawn from an original neutral pool with no copied names or franchise references, and the registry never trusts client-reported identity.
+- Existing round flow, loadout, weapon authority, combat, fire validation, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, input acknowledgements, server movement, prediction diagnostics, remote interpolation diagnostics, match-stats authority, the read-only scoreboard, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 
-The gameplay pivot does not relax server authority. Do not add client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, ammo/reload simulation, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, or ranked systems during this milestone. All match meaning continues to originate from events the server already owns.
+This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, player avatars/skins, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.

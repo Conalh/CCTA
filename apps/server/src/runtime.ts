@@ -9,6 +9,7 @@ import {
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type ClientLoadoutSelectMessage,
+  type ClientWeaponReloadMessage,
   type InputAckMessage,
   type MatchAssignedMessage,
   type MatchUpdateMessage,
@@ -24,7 +25,8 @@ import {
   type ServerMatchStatsMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
-  type ServerTickMessage
+  type ServerTickMessage,
+  type ServerWeaponStateMessage
 } from "@breachline/shared";
 
 import {
@@ -55,6 +57,7 @@ import {
   createLoadoutState,
   createRejectedLoadoutState
 } from "./loadout-state.js";
+import { createWeaponState, type WeaponStateConfig } from "./weapon-state.js";
 import {
   createRoundState,
   type RoundState,
@@ -72,6 +75,7 @@ export type ServerRuntimeConfig = Readonly<{
   worldId?: number;
   firstWorldEntityId?: number;
   round?: RoundStateConfig;
+  weapon?: WeaponStateConfig;
   now?: ServerClock;
 }>;
 
@@ -100,6 +104,7 @@ export type ServerRuntime = Readonly<{
   getWorldSnapshot(tick: number): WorldStateSnapshot;
   getCombatState(sessionId: number, serverTick?: number): ServerCombatStateMessage | undefined;
   getLoadoutState(sessionId: number, serverTick?: number): ServerLoadoutStateMessage | undefined;
+  getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   step(tick: number, serverTimeMs?: number): void;
@@ -123,8 +128,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     firstEntityId: config.firstWorldEntityId ?? DEFAULT_FIRST_WORLD_ENTITY_ID
   });
   const loadoutState = createLoadoutState();
+  const weaponState = createWeaponState(config.weapon);
   const combatState = createCombatState({
-    getDamagePerHit: (sessionId) => loadoutState.getCombatDamagePerHit(sessionId)
+    getDamagePerHit: (sessionId) => weaponState.getCurrentDamage(sessionId)
   });
   const roundState = createRoundState(config.round);
   const matchStats = createMatchStats();
@@ -148,6 +154,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       const hadMatchSlot = runtimeSession.matchAssignment !== undefined;
       if (hadMatchSlot) {
         loadoutState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
+        weaponState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         combatState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
@@ -186,6 +193,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         break;
       case "client.loadout.select":
         recordClientLoadout(session, message);
+        break;
+      case "client.weapon.reload":
+        recordClientWeaponReload(session, message);
         break;
       default:
         break;
@@ -227,6 +237,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       slotIndex: assignment.slotIndex
     });
     loadoutState.assignSession(assignment.sessionId);
+    weaponState.assignSession(assignment.sessionId);
     combatState.assignEntity({
       sessionId: assignment.sessionId,
       entityId: worldEntity.entityId
@@ -235,6 +246,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     session.transport.send(response);
     session.transport.send(createMatchAssignedMessage(assignment));
     sendCombatStateToSession(assignment.sessionId);
+    sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     broadcastMatchUpdate();
   }
 
@@ -249,9 +261,11 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     });
     const resetCombatStates = roundAdvance.resetRound ? combatState.resetAll(tick) : [];
     const resetLoadoutStates = roundAdvance.resetRound ? loadoutState.resetAll(tick) : [];
+    const resetWeaponStates = roundAdvance.resetRound ? weaponState.resetAll(tick) : [];
     if (roundAdvance.resetRound) {
       worldState.resetMovement();
     }
+    const completedReloads = roundAdvance.resetRound ? [] : weaponState.advanceReloads(tick);
     const respawned = roundState.allowsRespawn() ? combatState.advanceRespawns(tick) : [];
     worldState.advanceMovement(1 / config.tickRateHz, {
       canMoveSession: (sessionId) => roundState.allowsMovement() && combatState.isAlive(sessionId)
@@ -275,6 +289,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
     for (const state of resetLoadoutStates) {
       sendLoadoutStateToSession(state);
+    }
+    for (const state of [...resetWeaponStates, ...completedReloads]) {
+      sendWeaponStateToSession(state);
     }
     for (const state of [...resetCombatStates, ...respawned]) {
       sendCombatStateToSession(state.sessionId);
@@ -307,6 +324,10 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
   function getLoadoutState(sessionId: number, serverTick = lastServerTick): ServerLoadoutStateMessage | undefined {
     return loadoutState.getStateMessage(sessionId, serverTick);
+  }
+
+  function getWeaponState(sessionId: number, serverTick = lastServerTick): ServerWeaponStateMessage | undefined {
+    return weaponState.createStateMessage(sessionId, serverTick);
   }
 
   function getRoundState(serverTick = lastServerTick): ServerRoundStateMessage {
@@ -404,7 +425,29 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       worldSnapshot: combatState.createCombatEligibleWorldSnapshot(worldState.createSnapshot(lastServerTick))
     });
     session.lastAcceptedFireSequence = validation.nextLastAcceptedFireSequence;
+    if (!validation.result.accepted) {
+      session.transport.send(validation.result);
+      return;
+    }
+
+    const weaponFire = weaponState.tryFire({
+      sessionId: session.matchAssignment.sessionId,
+      serverTick: lastServerTick,
+      sequence: message.sequence
+    });
+    if (!weaponFire.ok) {
+      session.transport.send(
+        createRejectedFireResult(message, {
+          sessionId: session.matchAssignment.sessionId,
+          serverTick: lastServerTick,
+          rejectReason: weaponFire.rejectReason ?? FIRE_REJECT_REASON.notAccepted
+        })
+      );
+      return;
+    }
+
     session.transport.send(validation.result);
+    sendWeaponStateToSession(weaponState.createStateMessage(session.matchAssignment.sessionId, lastServerTick));
     const combatResult = combatState.applyFireResult(validation.result);
     if (combatResult.applied && combatResult.state !== undefined) {
       sendCombatStateToSession(combatResult.state.targetSessionId);
@@ -446,13 +489,36 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       return;
     }
 
-    session.transport.send(
-      loadoutState.selectLoadout(
-        createLoadoutSelectionFromMessage(message, {
-          sessionId: session.matchAssignment.sessionId,
-          serverTick: lastServerTick
-        })
-      )
+    const loadoutResult = loadoutState.selectLoadout(
+      createLoadoutSelectionFromMessage(message, {
+        sessionId: session.matchAssignment.sessionId,
+        serverTick: lastServerTick
+      })
+    );
+    session.transport.send(loadoutResult);
+    if (loadoutResult.status === LOADOUT_STATUS.accepted && loadoutResult.profileId !== 0) {
+      sendWeaponStateToSession(weaponState.setWeapon(loadoutResult.sessionId, loadoutResult.profileId));
+    }
+  }
+
+  function recordClientWeaponReload(
+    session: MutableServerRuntimeSession,
+    message: ClientWeaponReloadMessage
+  ): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+
+    if (!roundState.allowsFire() || !combatState.isAlive(session.matchAssignment.sessionId)) {
+      return;
+    }
+
+    sendWeaponStateToSession(
+      weaponState.requestReload({
+        sessionId: session.matchAssignment.sessionId,
+        serverTick: lastServerTick,
+        sequence: message.sequence
+      })
     );
   }
 
@@ -471,6 +537,18 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   }
 
   function sendLoadoutStateToSession(message: ServerLoadoutStateMessage): void {
+    for (const runtimeSession of sessions.values()) {
+      if (runtimeSession.accepted && runtimeSession.matchAssignment?.sessionId === message.sessionId) {
+        runtimeSession.transport.send(message);
+        return;
+      }
+    }
+  }
+
+  function sendWeaponStateToSession(message: ServerWeaponStateMessage | undefined): void {
+    if (message === undefined) {
+      return;
+    }
     for (const runtimeSession of sessions.values()) {
       if (runtimeSession.accepted && runtimeSession.matchAssignment?.sessionId === message.sessionId) {
         runtimeSession.transport.send(message);
@@ -498,6 +576,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getWorldSnapshot,
     getCombatState,
     getLoadoutState,
+    getWeaponState,
     getRoundState,
     getMatchStats,
     step,

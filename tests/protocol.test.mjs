@@ -363,14 +363,14 @@ test("protocol helpers round-trip Phase 17 loadout selection and server state me
   const messages = [
     createClientLoadoutSelect({
       sequence: 4,
-      profileId: LOADOUT_PROFILE_ID.baseline
+      profileId: LOADOUT_PROFILE_ID.halcyon
     }),
     {
       kind: "server.loadout.state",
       serverTick: 10,
       sequence: 4,
       sessionId: 7,
-      profileId: LOADOUT_PROFILE_ID.baseline,
+      profileId: LOADOUT_PROFILE_ID.halcyon,
       status: LOADOUT_STATUS.accepted,
       rejectReason: LOADOUT_REJECT_REASON.none
     },
@@ -394,7 +394,7 @@ test("decodeProtocolMessage rejects malformed Phase 17 loadout packets", () => {
   const select = encodeProtocolMessage(
     createClientLoadoutSelect({
       sequence: 4,
-      profileId: LOADOUT_PROFILE_ID.baseline
+      profileId: LOADOUT_PROFILE_ID.halcyon
     })
   );
   const badClientProfile = patchPacket(select, (packet) => {
@@ -408,7 +408,7 @@ test("decodeProtocolMessage rejects malformed Phase 17 loadout packets", () => {
     serverTick: 10,
     sequence: 4,
     sessionId: 7,
-    profileId: LOADOUT_PROFILE_ID.baseline,
+    profileId: LOADOUT_PROFILE_ID.halcyon,
     status: LOADOUT_STATUS.accepted,
     rejectReason: LOADOUT_REJECT_REASON.none
   });

@@ -12,7 +12,8 @@ import {
   type ProtocolMessage,
   type RoundEventKind,
   type RoundOutcome,
-  type RoundPhase
+  type RoundPhase,
+  type WeaponEventKind
 } from "@breachline/shared";
 
 import {
@@ -114,6 +115,14 @@ export type ConnectionViewState = Readonly<{
   loadoutRejectReason: LoadoutRejectReason | undefined;
   lastLoadoutSequence: number | undefined;
   lastLoadoutServerTick: number | undefined;
+  weaponProfileId: LoadoutProfileId | 0 | undefined;
+  weaponAmmoInMagazine: number | undefined;
+  weaponMagazineSize: number | undefined;
+  weaponReloading: boolean | undefined;
+  weaponReloadCompleteTick: number | undefined;
+  lastWeaponEventKind: WeaponEventKind | undefined;
+  lastWeaponEventSequence: number | undefined;
+  lastWeaponServerTick: number | undefined;
   roundId: number | undefined;
   roundPhase: RoundPhase | undefined;
   roundOutcome: RoundOutcome | undefined;
@@ -256,6 +265,14 @@ export function createInitialConnectionViewState(
     loadoutRejectReason: undefined,
     lastLoadoutSequence: undefined,
     lastLoadoutServerTick: undefined,
+    weaponProfileId: undefined,
+    weaponAmmoInMagazine: undefined,
+    weaponMagazineSize: undefined,
+    weaponReloading: undefined,
+    weaponReloadCompleteTick: undefined,
+    lastWeaponEventKind: undefined,
+    lastWeaponEventSequence: undefined,
+    lastWeaponServerTick: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,
@@ -477,6 +494,19 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         lastLoadoutSequence: message.sequence,
         lastLoadoutServerTick: message.serverTick
       };
+    case "server.weapon.state":
+      return {
+        ...baseState,
+        sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
+        weaponProfileId: message.weaponProfileId,
+        weaponAmmoInMagazine: message.ammoInMagazine,
+        weaponMagazineSize: message.magazineSize,
+        weaponReloading: message.reloading,
+        weaponReloadCompleteTick: message.reloadCompleteTick === 0 ? undefined : message.reloadCompleteTick,
+        lastWeaponEventKind: message.lastEventKind,
+        lastWeaponEventSequence: message.lastEventSequence === 0 ? undefined : message.lastEventSequence,
+        lastWeaponServerTick: message.serverTick
+      };
     case "server.round.state":
       return {
         ...baseState,
@@ -646,6 +676,14 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     loadoutRejectReason: undefined,
     lastLoadoutSequence: undefined,
     lastLoadoutServerTick: undefined,
+    weaponProfileId: undefined,
+    weaponAmmoInMagazine: undefined,
+    weaponMagazineSize: undefined,
+    weaponReloading: undefined,
+    weaponReloadCompleteTick: undefined,
+    lastWeaponEventKind: undefined,
+    lastWeaponEventSequence: undefined,
+    lastWeaponServerTick: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,
