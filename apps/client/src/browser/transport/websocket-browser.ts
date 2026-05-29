@@ -8,6 +8,8 @@ import {
   type TransportUnsubscribe
 } from "@breachline/shared";
 
+import { createRandomId } from "../safe-id.js";
+
 export async function connectBrowserWebSocketFallback(url: string): Promise<MessageTransport> {
   const socket = new WebSocket(url);
   socket.binaryType = "arraybuffer";
@@ -29,7 +31,7 @@ export async function connectBrowserWebSocketFallback(url: string): Promise<Mess
     );
   });
 
-  return createBrowserWebSocketTransport(`browser-${crypto.randomUUID()}`, socket);
+  return createBrowserWebSocketTransport(`browser-${createRandomId()}`, socket);
 }
 
 export function createBrowserWebSocketTransport(id: string, socket: WebSocket): MessageTransport {

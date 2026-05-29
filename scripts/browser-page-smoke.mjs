@@ -105,6 +105,16 @@ try {
   const sharedModule = await fetch(`${server.clientUrl}/packages/shared/dist/index.js`);
   assert.equal(sharedModule.status, 200);
 
+  // The browser transport must not call crypto.randomUUID: it is unavailable in a
+  // non-secure context (a LAN peer on plain http), so the id is built safely instead.
+  const browserTransportModule = await fetch(
+    `${server.clientUrl}/apps/client/dist/browser/transport/websocket-browser.js`
+  );
+  const browserTransportSource = await browserTransportModule.text();
+  assert.equal(browserTransportModule.status, 200);
+  assert.match(browserTransportSource, /createRandomId/);
+  assert.doesNotMatch(browserTransportSource, /crypto\.randomUUID/);
+
   const sandboxPage = await fetch(`${server.clientUrl}/sandbox.html`);
   const sandboxHtml = await sandboxPage.text();
   assert.equal(sandboxPage.status, 200);
