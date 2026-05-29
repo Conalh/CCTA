@@ -12,7 +12,11 @@ import {
   formatPingCell,
   formatPlayersCell,
   isFavoriteServer,
+  measureWebSocketOpenPing,
   parseManualJoinTarget,
+  pingBarCount,
+  pingQuality,
+  probeServerPings,
   readFavoriteServers,
   readRecentServers,
   resolveMenuPanel,
@@ -167,6 +171,71 @@ test("cell formatters render players, ping, and unknown values", () => {
     recentServers: [{ joinUrl: "ws://10.0.0.9:8787", name: "R", lastJoinedMs: 1 }]
   });
   assert.equal(formatPlayersCell(recentOnly), "—");
+});
+
+test("pingQuality and pingBarCount bucket latency into a four-bar meter", () => {
+  assert.equal(pingQuality(undefined), "unknown");
+  assert.equal(pingQuality(30), "good");
+  assert.equal(pingQuality(150), "fair");
+  assert.equal(pingQuality(400), "poor");
+
+  assert.equal(pingBarCount(undefined), 0);
+  assert.equal(pingBarCount(30), 4);
+  assert.equal(pingBarCount(90), 3);
+  assert.equal(pingBarCount(150), 2);
+  assert.equal(pingBarCount(400), 1);
+});
+
+test("measureWebSocketOpenPing times the socket open and reports undefined on error", async () => {
+  class FakeOpenSocket {
+    constructor() {
+      this.onopen = null;
+      this.onerror = null;
+      this.closed = false;
+      setTimeout(() => this.onopen?.(), 0);
+    }
+    close() {
+      this.closed = true;
+    }
+  }
+  const times = [1000, 1012];
+  const ping = await measureWebSocketOpenPing("ws://10.0.0.1:8787", {
+    WebSocketImpl: FakeOpenSocket,
+    now: () => times.shift() ?? 9999,
+    timeoutMs: 1000
+  });
+  assert.equal(ping, 12);
+
+  class FakeErrorSocket {
+    constructor() {
+      this.onopen = null;
+      this.onerror = null;
+      setTimeout(() => this.onerror?.(), 0);
+    }
+    close() {}
+  }
+  const failed = await measureWebSocketOpenPing("ws://10.0.0.2:8787", {
+    WebSocketImpl: FakeErrorSocket,
+    now: () => 0,
+    timeoutMs: 1000
+  });
+  assert.equal(failed, undefined);
+});
+
+test("probeServerPings runs bounded probes, streams results, and keys successes by normalized url", async () => {
+  const seen = [];
+  const result = await probeServerPings({
+    urls: ["ws://10.0.0.1:8787", "ws://10.0.0.2:8787/", "ws://10.0.0.3:8787"],
+    concurrency: 2,
+    probe: async (url) => (url.includes("10.0.0.2") ? undefined : 25),
+    onResult: (url, ping) => seen.push([url, ping])
+  });
+
+  assert.equal(result["ws://10.0.0.1:8787"], 25);
+  assert.equal(result["ws://10.0.0.3:8787"], 25);
+  // A failed probe (undefined) is reported but not stored.
+  assert.equal("ws://10.0.0.2:8787" in result, false);
+  assert.equal(seen.length, 3);
 });
 
 function stubFetch(handler) {

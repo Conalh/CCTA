@@ -287,6 +287,8 @@ try {
   assert.match(serverBrowserSource, /sortServerBrowserEntries/);
   assert.match(serverBrowserSource, /parseManualJoinTarget/);
   assert.match(serverBrowserSource, /fetchRegistryMatches/);
+  assert.match(serverBrowserSource, /measureWebSocketOpenPing/);
+  assert.match(serverBrowserSource, /probeServerPings/);
 
   const playtestStateModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/playtest-state.js`);
   const playtestStateSource = await playtestStateModule.text();

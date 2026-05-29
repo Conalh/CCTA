@@ -387,6 +387,131 @@ export async function fetchRegistryMatches(
   return { ok: true, matches: readRegistryMatches(body) };
 }
 
+export type PingQuality = "good" | "fair" | "poor" | "unknown";
+
+export function pingQuality(ping: number | undefined): PingQuality {
+  if (typeof ping !== "number" || !Number.isFinite(ping)) {
+    return "unknown";
+  }
+  if (ping < 120) {
+    return "good";
+  }
+  if (ping < 220) {
+    return "fair";
+  }
+  return "poor";
+}
+
+// Classic four-bar latency meter: more bars = lower ping. Unknown reads as zero bars.
+export function pingBarCount(ping: number | undefined): number {
+  if (typeof ping !== "number" || !Number.isFinite(ping)) {
+    return 0;
+  }
+  if (ping < 60) {
+    return 4;
+  }
+  if (ping < 120) {
+    return 3;
+  }
+  if (ping < 220) {
+    return 2;
+  }
+  return 1;
+}
+
+// Minimal structural WebSocket so the probe can be unit-tested with a fake socket.
+export type PingWebSocketLike = {
+  close(): void;
+  onopen: ((event: unknown) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+};
+export type PingWebSocketCtor = new (url: string) => PingWebSocketLike;
+
+export type MeasureWebSocketPingOptions = Readonly<{
+  WebSocketImpl?: PingWebSocketCtor;
+  now?: () => number;
+  timeoutMs?: number;
+}>;
+
+// Measure a server's reachability latency as the time to open a WebSocket to it.
+// The socket is closed immediately; never sending a hello means the probe takes no
+// match slot. Resolves undefined on error or timeout rather than rejecting.
+export function measureWebSocketOpenPing(url: string, options: MeasureWebSocketPingOptions = {}): Promise<number | undefined> {
+  const WebSocketImpl = options.WebSocketImpl ?? (globalThis.WebSocket as unknown as PingWebSocketCtor | undefined);
+  const now = options.now ?? (() => Date.now());
+  const timeoutMs = options.timeoutMs ?? 5000;
+
+  return new Promise<number | undefined>((resolve) => {
+    if (typeof WebSocketImpl !== "function") {
+      resolve(undefined);
+      return;
+    }
+
+    let settled = false;
+    let socket: PingWebSocketLike | undefined;
+    const start = now();
+    const finish = (value: number | undefined): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      try {
+        socket?.close();
+      } catch {
+        // The socket may already be closing; ignore.
+      }
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => finish(undefined), timeoutMs);
+    try {
+      socket = new WebSocketImpl(url);
+    } catch {
+      finish(undefined);
+      return;
+    }
+    socket.onopen = () => finish(Math.max(0, Math.round(now() - start)));
+    socket.onerror = () => finish(undefined);
+  });
+}
+
+export type ProbeServerPingsInput = Readonly<{
+  urls: readonly string[];
+  probe: (url: string) => Promise<number | undefined>;
+  concurrency?: number;
+  onResult?: (url: string, ping: number | undefined) => void;
+}>;
+
+// Run ping probes with bounded concurrency so the browser never opens dozens of
+// sockets at once. Results stream through onResult; the returned map keys successful
+// pings by normalized join URL for merging back into the table.
+export async function probeServerPings(input: ProbeServerPingsInput): Promise<Record<string, number>> {
+  const urls = Array.isArray(input.urls) ? input.urls : [];
+  const concurrency = readPositiveInteger(input.concurrency, 4);
+  const results: Record<string, number> = {};
+  let cursor = 0;
+
+  const worker = async (): Promise<void> => {
+    while (cursor < urls.length) {
+      const url = urls[cursor];
+      cursor += 1;
+      if (url === undefined) {
+        continue;
+      }
+      const ping = await input.probe(url);
+      if (typeof ping === "number" && Number.isFinite(ping)) {
+        results[normalizeJoinUrl(url)] = ping;
+      }
+      input.onResult?.(url, ping);
+    }
+  };
+
+  const workerCount = Math.min(concurrency, urls.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
 export function formatMapLabel(mapId: string): string {
   switch (mapId) {
     case DRYDOCK_SPAN_ARENA.id:

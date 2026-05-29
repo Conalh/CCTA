@@ -1050,6 +1050,59 @@ li {
   color: #c9b27e;
 }
 
+.playtest-server-row .bcol-ping {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.playtest-ping-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 13px;
+}
+
+.playtest-ping-bar {
+  width: 3px;
+  background: #2c3633;
+  border-radius: 1px;
+}
+
+.playtest-ping-bar:nth-child(1) {
+  height: 4px;
+}
+
+.playtest-ping-bar:nth-child(2) {
+  height: 7px;
+}
+
+.playtest-ping-bar:nth-child(3) {
+  height: 10px;
+}
+
+.playtest-ping-bar:nth-child(4) {
+  height: 13px;
+}
+
+.playtest-ping-bars[data-quality="good"] .playtest-ping-bar[data-on="true"] {
+  background: #7fd6a6;
+}
+
+.playtest-ping-bars[data-quality="fair"] .playtest-ping-bar[data-on="true"] {
+  background: #d8c27a;
+}
+
+.playtest-ping-bars[data-quality="poor"] .playtest-ping-bar[data-on="true"] {
+  background: #cf8d7f;
+}
+
+.playtest-ping-value {
+  min-width: 24px;
+  text-align: right;
+}
+
 .playtest-server-empty {
   padding: 18px 12px;
   color: #8a9794;

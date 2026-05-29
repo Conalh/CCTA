@@ -89,7 +89,12 @@ import {
   formatMapCell,
   formatPingCell,
   formatPlayersCell,
+  measureWebSocketOpenPing,
+  normalizeJoinUrl,
   parseManualJoinTarget,
+  pingBarCount,
+  pingQuality,
+  probeServerPings,
   readFavoriteServers,
   readRecentServers,
   resolveMenuPanel,
@@ -340,6 +345,8 @@ const DEFAULT_FIELD_OF_VIEW = 74;
 let recentServers: readonly RecentServerEntry[] = loadRecentServers();
 let favoriteServers: readonly FavoriteServerEntry[] = loadFavoriteServers();
 let registryMatches: readonly RegistryMatchListing[] = [];
+let serverPings: Record<string, number> = {};
+let pingProbeGeneration = 0;
 let pendingConnect: { joinUrl: string; name: string } | undefined;
 let activeMenuPanel: MenuPanel = "servers";
 let activeServerTab: ServerBrowserTab = "internet";
@@ -655,6 +662,7 @@ async function refreshServerBrowser(): Promise<void> {
     registryMatches = [];
     setMenuStatus("Set a registry address to browse public matches, or use Recent / Favorites.");
     renderServerBrowser();
+    startPingProbes();
     return;
   }
 
@@ -664,6 +672,7 @@ async function refreshServerBrowser(): Promise<void> {
     registryMatches = [];
     setMenuStatus(result.error);
     renderServerBrowser();
+    startPingProbes();
     return;
   }
 
@@ -672,10 +681,35 @@ async function refreshServerBrowser(): Promise<void> {
     result.matches.length === 0 ? "No public matches right now." : `${result.matches.length} match(es) on the registry.`
   );
   renderServerBrowser();
+  startPingProbes();
 }
 
 function currentServerEntries(): readonly ServerBrowserEntry[] {
-  return buildServerBrowserEntries({ registryMatches, recentServers, favorites: favoriteServers });
+  return buildServerBrowserEntries({ registryMatches, recentServers, favorites: favoriteServers, pings: serverPings });
+}
+
+// Probe every listed server's connect latency with bounded concurrency, streaming
+// each result into the table as it lands. A generation guard drops results from a
+// superseded refresh so stale pings never overwrite a newer list.
+function startPingProbes(): void {
+  const generation = pingProbeGeneration + 1;
+  pingProbeGeneration = generation;
+  const urls = [...new Set(currentServerEntries().map((entry) => entry.joinUrl))];
+  if (urls.length === 0) {
+    return;
+  }
+  void probeServerPings({
+    urls,
+    concurrency: 4,
+    probe: (url) => measureWebSocketOpenPing(url, { timeoutMs: 4000 }),
+    onResult: (url, ping) => {
+      if (generation !== pingProbeGeneration || typeof ping !== "number") {
+        return;
+      }
+      serverPings[normalizeJoinUrl(url)] = ping;
+      renderServerBrowser();
+    }
+  });
 }
 
 function renderServerBrowser(): void {
@@ -720,7 +754,7 @@ function createServerRow(entry: ServerBrowserEntry): HTMLLIElement {
   name.title = entry.joinUrl;
   const players = cell("bcol bcol-players", formatPlayersCell(entry));
   const map = cell("bcol bcol-map", formatMapCell(entry));
-  const ping = cell("bcol bcol-ping", formatPingCell(entry.ping));
+  const ping = createPingCell(entry);
 
   const favWrap = document.createElement("span");
   favWrap.className = "bcol bcol-fav";
@@ -755,6 +789,29 @@ function cell(className: string, text: string): HTMLSpanElement {
   const span = document.createElement("span");
   span.className = className;
   span.textContent = text;
+  return span;
+}
+
+function createPingCell(entry: ServerBrowserEntry): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.className = "bcol bcol-ping";
+
+  const bars = document.createElement("span");
+  bars.className = "playtest-ping-bars";
+  bars.dataset.quality = pingQuality(entry.ping);
+  const filled = pingBarCount(entry.ping);
+  for (let index = 0; index < 4; index += 1) {
+    const bar = document.createElement("span");
+    bar.className = "playtest-ping-bar";
+    bar.dataset.on = index < filled ? "true" : "false";
+    bars.append(bar);
+  }
+
+  const value = document.createElement("span");
+  value.className = "playtest-ping-value";
+  value.textContent = formatPingCell(entry.ping);
+
+  span.append(bars, value);
   return span;
 }
 
