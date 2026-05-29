@@ -302,6 +302,23 @@ export function formatPlaytestRoundPhase(value: RoundPhase | number | undefined)
   }
 }
 
+export function formatPlaytestMatchOccupancy(
+  connectedSlots: number | undefined,
+  capacity: number | undefined
+): string {
+  // Occupancy and capacity are server-owned (server match-update); the client only
+  // formats the already-mirrored values and computes no occupancy of its own.
+  const safeCapacity = readPositiveInteger(capacity);
+  const safeConnected =
+    typeof connectedSlots === "number" && Number.isInteger(connectedSlots) && connectedSlots >= 0
+      ? connectedSlots
+      : undefined;
+  if (safeCapacity === undefined || safeConnected === undefined) {
+    return "-";
+  }
+  return `${safeConnected} / ${safeCapacity}`;
+}
+
 export function createInitialNetworkedPlaytestReviewStats(): NetworkedPlaytestReviewStats {
   return {
     acceptedConnectionCount: 0,

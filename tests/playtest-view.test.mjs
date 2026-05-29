@@ -15,6 +15,7 @@ import {
   createNetworkedPlaytestInputMessage,
   createNetworkedPlaytestPresentation,
   formatPlaytestRoundPhase,
+  formatPlaytestMatchOccupancy,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   NETWORKED_PLAYTEST_INPUT_RATE_HZ,
   classifyNetworkedPlaytestMotionContact,
@@ -303,6 +304,18 @@ test("networked playtest round phase formatting stays compact and diagnostic-onl
   assert.equal(formatPlaytestRoundPhase(ROUND_PHASE.ended), "ended");
   assert.equal(formatPlaytestRoundPhase(ROUND_PHASE.reset), "reset");
   assert.equal(formatPlaytestRoundPhase(999), "unknown 999");
+});
+
+test("networked playtest match occupancy formats server-owned slots without client math", () => {
+  assert.equal(formatPlaytestMatchOccupancy(2, 8), "2 / 8");
+  assert.equal(formatPlaytestMatchOccupancy(0, 8), "0 / 8");
+  // Pre-match and malformed values fall back cleanly rather than fabricating occupancy.
+  assert.equal(formatPlaytestMatchOccupancy(undefined, undefined), "-");
+  assert.equal(formatPlaytestMatchOccupancy(2, undefined), "-");
+  assert.equal(formatPlaytestMatchOccupancy(undefined, 8), "-");
+  assert.equal(formatPlaytestMatchOccupancy(1.5, 8), "-");
+  assert.equal(formatPlaytestMatchOccupancy(-1, 8), "-");
+  assert.equal(formatPlaytestMatchOccupancy(2, 0), "-");
 });
 
 test("networked playtest review stats track max correction, reconnect count, and last error", () => {

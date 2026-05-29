@@ -204,6 +204,7 @@ try {
   assert.match(playtestHtml, /id="playtest-combat-cue"/);
   assert.match(playtestHtml, /id="playtest-remote-combat"/);
   assert.match(playtestHtml, /id="playtest-render-health"/);
+  assert.match(playtestHtml, /id="playtest-match-occupancy"/);
   assert.match(playtestHtml, /id="playtest-look"/);
   assert.match(playtestHtml, /id="playtest-scoreboard-summary"/);
   assert.match(playtestHtml, /id="playtest-scoreboard-rows"/);
@@ -242,6 +243,7 @@ try {
   assert.match(playtestStateSource, /derivePlayerCameraPose/);
   assert.match(playtestStateSource, /CLIENT_INPUT_BUTTONS/);
   assert.match(playtestStateSource, /formatPlaytestRoundPhase/);
+  assert.match(playtestStateSource, /formatPlaytestMatchOccupancy/);
   assert.match(playtestStateSource, /createInitialNetworkedPlaytestReviewStats/);
   assert.match(playtestStateSource, /classifyNetworkedPlaytestMotionContact/);
 

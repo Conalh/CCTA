@@ -43,6 +43,7 @@ import {
   createNetworkedPlaytestInputMessage,
   createNetworkedPlaytestPresentation,
   classifyNetworkedPlaytestMotionContact,
+  formatPlaytestMatchOccupancy,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   smoothNetworkedPlaytestCameraPosition,
   updateNetworkedPlaytestReviewStats,
@@ -99,6 +100,7 @@ declare global {
       localEntityId: number | undefined;
       mapId: string;
       mapRevision: number;
+      matchOccupancy: string;
       motionContact: NetworkedPlaytestMotionContact;
       networkSimulationBaseLatencyMs: number;
       networkSimulationDropRate: number;
@@ -209,6 +211,7 @@ const rosterSummaryEl = requireElement("playtest-roster-summary");
 const rosterRowsEl = requireElement("playtest-roster-rows");
 const renderHealthEl = requireElement("playtest-render-health");
 const frameCountEl = requireElement("playtest-frame-count");
+const matchOccupancyEl = requireElement("playtest-match-occupancy");
 const cameraSourceEl = requireElement("playtest-camera-source");
 const lookEl = requireElement("playtest-look");
 const errorEl = requireElement("playtest-error");
@@ -1061,6 +1064,7 @@ function updateReadout(
   renderRoster(roster);
   renderHealthEl.textContent = renderSampleHealthy ? "nonblank" : "pending";
   frameCountEl.textContent = frameCount.toString();
+  matchOccupancyEl.textContent = formatPlaytestMatchOccupancy(state.connectedSlots, state.matchCapacity);
   cameraSourceEl.textContent = presentation.localCameraSource;
   lookEl.textContent = `${presentation.localCameraPose.yawRadians.toFixed(2)}, ${presentation.localCameraPose.pitchRadians.toFixed(2)}`;
   errorEl.textContent = presentation.error ?? "";
@@ -1092,6 +1096,7 @@ function updateReadout(
     localEntityId: presentation.localEntityId,
     mapId: presentation.mapId,
     mapRevision: presentation.mapRevision,
+    matchOccupancy: formatPlaytestMatchOccupancy(state.connectedSlots, state.matchCapacity),
     motionContact,
     networkSimulationBaseLatencyMs: networkSimulationProfile.baseLatencyMs,
     networkSimulationDropRate: networkSimulationProfile.dropRate,
