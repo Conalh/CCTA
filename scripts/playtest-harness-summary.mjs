@@ -14,6 +14,7 @@ export function createPlaytestHarnessSummary(evidence) {
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
     `- accepted hit: ${formatHitStatus(evidence.fire?.acceptedHit)}`,
     `- combat/round: ${formatCombatRoundStatus(evidence.combatRound)}`,
+    `- scoreboard callsigns: ${formatScoreboardCallsignStatus(evidence.scoreboard)}`,
     ...formatNetworkDiagnosticsLines(evidence.network),
     `- reconnect cleanup: ${formatReconnectStatus(evidence.reconnect)}`,
     `- baseline pages: ${formatBaselineStatus(evidence.baselinePages)}`,
@@ -102,6 +103,29 @@ function formatCombatRoundStatus(combatRound) {
   }
 
   return "caveat (death/round transition not observed)";
+}
+
+function formatScoreboardCallsignStatus(scoreboard) {
+  const rows = Array.isArray(scoreboard?.rows) ? scoreboard.rows : [];
+  const detail = rows
+    .map((row) => `${readText(row.callsign, `session ${row.sessionId}`)} ${readNumber(row.kills)}/${readNumber(row.deaths)}`)
+    .join(", ");
+  const localCallsign = readText(scoreboard?.localCallsign, "");
+
+  if (
+    scoreboard?.observed === true &&
+    rows.length > 0 &&
+    scoreboard.allRowsResolved === true &&
+    localCallsign.length > 0
+  ) {
+    return `ok (${detail}; local ${localCallsign})`;
+  }
+
+  if (scoreboard?.observed === true && rows.length > 0) {
+    return `caveat (${detail}; some rows unresolved)`;
+  }
+
+  return "caveat (no scored rows observed)";
 }
 
 function formatNetworkProfileLines(network) {

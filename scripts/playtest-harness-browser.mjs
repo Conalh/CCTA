@@ -233,6 +233,21 @@ async (page) => {
     roundTransitionObserved = false;
   }
 
+  // The match-stats scoreboard only populates once the server confirms a kill, so this
+  // is observed only on the death path. Rows are labelled by joining the roster view state.
+  let scoreboardObserved = false;
+  try {
+    await waitForPlaytestState(page, (state) => state.scoreboardEntryCount >= 1, 7000);
+    scoreboardObserved = true;
+  } catch {
+    scoreboardObserved = false;
+  }
+  const scoreboardState = await readPlaytestState(page);
+  const scoreboardRows = Array.isArray(scoreboardState.scoreboardRows)
+    ? scoreboardState.scoreboardRows
+    : [];
+  const localScoreRow = scoreboardRows.find((row) => row.isLocalSession === true);
+
   const primaryAfterCombat = await readPlaytestState(page);
   const peerAfterCombat = await readPlaytestState(peerPage);
   const browserErrorCount = consoleErrors.length + pageErrors.length;
@@ -319,6 +334,23 @@ async (page) => {
       peerCallsigns: rosterColumn(initialPeerRoster, "callsign"),
       primaryWeapons: rosterColumn(initialPrimary, "weaponLabel"),
       peerEntryCountAfterPrimaryDisconnect: peerRosterAfterPrimaryDisconnect.rosterEntryCount
+    },
+    scoreboard: {
+      observed: scoreboardObserved,
+      entryCount: scoreboardState.scoreboardEntryCount,
+      localCallsign: localScoreRow?.callsign,
+      allRowsResolved:
+        scoreboardRows.length > 0 &&
+        scoreboardRows.every(
+          (row) => typeof row.callsign === "string" && row.callsign.length > 0
+        ),
+      rows: scoreboardRows.map((row) => ({
+        callsign: row.callsign ?? null,
+        deaths: row.deaths,
+        isLocalSession: row.isLocalSession,
+        kills: row.kills,
+        sessionId: row.sessionId
+      }))
     },
     render: {
       primaryNonblank: initialPrimary.renderSampleHealthy,

@@ -52,7 +52,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 40. Server-authoritative player roster (stable identity, broadcast roster).
 41. Read-only in-renderer participant panel.
 42. Local two-client harness asserts the server-owned roster end to end.
-43. **Current: Read-only scoreboard labelled with roster-resolved callsigns.**
+43. Read-only scoreboard labelled with roster-resolved callsigns.
+44. **Current: Local two-client harness asserts the roster-labelled scoreboard end to end.**
 
 ## Phase 8 Status
 
@@ -519,18 +520,29 @@ Phase 43 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed, the roster feed and participant panel, the two-client harness roster assertion, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 44 Status
+
+Phase 44 is current when validation passes because:
+
+- `npm run playtest:harness` now asserts the roster-labelled scoreboard end to end: after the harness confirms a kill, it reads the diagnostics-only scoreboard view state and confirms the scored rows carry roster-resolved callsigns rather than bare session ids.
+- Kills and deaths in the evidence are sourced from the broadcast; the harness only reads existing view state and adds no authority, identity, or protocol data.
+- The harness prints a `- scoreboard callsigns:` line in its human-review summary. Because the scoreboard only populates on a confirmed kill, the harness reports a caveat honestly when no kill is scored, and a scored session with no roster entry surfaces as a neutral session label rather than a fabricated callsign.
+- Focused tests cover the healthy scoreboard-callsign summary, the no-kill caveat, and the unresolved-row caveat.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness roster assertion, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **assert the roster-labelled scoreboard end to end in the local two-client harness, so the kill/death board is proven to read participant callsigns across a real connection after a confirmed kill**.
+The next milestone is **assert the roster panel and labelled scoreboard markup in the validate-included browser-page smoke, so the Phase 41/43 presentation surfaces are guarded by the always-run smoke rather than only by the manual harness**.
 
-The scoreboard label join (Phase 43) is proven in unit projection, and the harness already drives a confirmed kill and an end-of-round transition (Phase 34/42). The matching integration step is to have `npm run playtest:harness` read the diagnostics-only scoreboard view state after the kill and confirm the killer/victim rows carry roster-resolved callsigns rather than bare session ids, printed in the human-review summary.
+The browser-page smoke (`npm run smoke:browser-page`) is the only browser-surface check inside `npm run validate`, but it has not been updated since the Phase 41 roster panel and Phase 43 scoreboard callsign labels landed, so it still asserts an older `/playtest.html` markup contract. The matching step is to extend the smoke's static assertions to cover the roster panel elements (`#playtest-roster-summary`, `#playtest-roster-rows`) and confirm the playtest module wires the roster and scoreboard presentations, keeping these surfaces from regressing silently between manual harness runs.
 
 Expected proof:
 
-- After the harness confirms a kill, it reads the diagnostics-only scoreboard view state and confirms the scored rows carry roster-resolved callsigns matching the observed roster, with kills/deaths sourced from the broadcast.
-- A scored session with no roster entry would still surface as a neutral session label, and the harness reports this honestly rather than fabricating a callsign.
-- The harness prints the scoreboard-callsign evidence in its human-review summary without uploading analytics, writing remote logs, or starting hosted services.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- The validate-included browser-page smoke asserts the roster panel markup and the presence of the roster/scoreboard presentation wiring in the served playtest module.
+- The smoke remains a static fetch-based check: it does not start a real browser, drive gameplay, or assert server authority.
+- The smoke still passes for the diagnostics page, sandbox page, and playtest page, and continues to confirm zero regressions in the existing asserted ids.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

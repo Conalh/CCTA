@@ -66,6 +66,16 @@ const completeEvidence = {
     primaryRoundTransition: "active -> ended",
     primaryResetCue: "reset in 12 ticks"
   },
+  scoreboard: {
+    observed: true,
+    entryCount: 2,
+    localCallsign: "Vesper",
+    allRowsResolved: true,
+    rows: [
+      { callsign: "Vesper", deaths: 0, isLocalSession: true, kills: 1, sessionId: 1 },
+      { callsign: "Quill", deaths: 1, isLocalSession: false, kills: 0, sessionId: 2 }
+    ]
+  },
   reconnect: {
     beforeStatus: "closed",
     afterStatus: "accepted",
@@ -98,6 +108,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
   assert.match(text, /accepted hit: ok \(accepted hit, target 2\)/);
   assert.match(text, /combat\/round: ok \(dead, ended, elimination, reset in 12 ticks\)/);
+  assert.match(text, /scoreboard callsigns: ok \(Vesper 1\/0, Quill 0\/1; local Vesper\)/);
   assert.match(text, /reconnect cleanup: ok \(closed -> accepted, transient cleared\)/);
   assert.match(text, /baseline pages: ok \(diagnostics accepted, sandbox nonblank\)/);
   assert.match(text, /browser console: ok \(0 errors\)/);
@@ -133,6 +144,40 @@ test("playtest harness summary flags an incomplete server-owned roster", () => {
 
   assert.match(text, /roster: fail \(primary 2, peer 1, distinct false, disconnect -> 2\)/);
   assert.doesNotMatch(text, /roster: ok/);
+});
+
+test("playtest harness summary reports an honest scoreboard caveat when no kill is scored", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    scoreboard: {
+      observed: false,
+      entryCount: 0,
+      localCallsign: undefined,
+      allRowsResolved: false,
+      rows: []
+    }
+  });
+
+  assert.match(text, /scoreboard callsigns: caveat \(no scored rows observed\)/);
+  assert.doesNotMatch(text, /scoreboard callsigns: ok/);
+});
+
+test("playtest harness summary flags scoreboard rows that resolve no callsign", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    scoreboard: {
+      observed: true,
+      entryCount: 2,
+      localCallsign: "Vesper",
+      allRowsResolved: false,
+      rows: [
+        { callsign: "Vesper", deaths: 0, isLocalSession: true, kills: 1, sessionId: 1 },
+        { callsign: null, deaths: 1, isLocalSession: false, kills: 0, sessionId: 2 }
+      ]
+    }
+  });
+
+  assert.match(text, /scoreboard callsigns: caveat \(Vesper 1\/0, session 2 0\/1; some rows unresolved\)/);
 });
 
 test("playtest harness summary reports optional local network simulation evidence", () => {
