@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   computeNetworkSimulationDelayMs,
+  computeOrderedDeliveryMs,
   createNetworkSimulationRandom,
+  isReliableMessageKind,
   readNetworkSimulationProfile,
   readNetworkSimulationProfileFromSearch,
   shouldSimulateMessageDrop
@@ -74,4 +76,35 @@ test("network simulation profile can be read from playtest query parameters", ()
 
   assert.equal(profile.id, "small-drop");
   assert.equal(profile.seed, 99);
+});
+
+test("only the unreliable datagram kinds reorder; control messages stay ordered", () => {
+  assert.equal(isReliableMessageKind("client.input"), false);
+  assert.equal(isReliableMessageKind("client.fire"), false);
+  assert.equal(isReliableMessageKind("server.snapshot"), false);
+
+  assert.equal(isReliableMessageKind("server.combat.state"), true);
+  assert.equal(isReliableMessageKind("server.round.state"), true);
+  assert.equal(isReliableMessageKind("server.loadout.state"), true);
+  assert.equal(isReliableMessageKind("server.fire.result"), true);
+  assert.equal(isReliableMessageKind("input.ack"), true);
+});
+
+test("reliable delivery is clamped so a jittered message never overtakes an earlier one", () => {
+  // An earlier reliable message lands at t=200; a later one with a smaller jittered delay would
+  // naturally arrive at t=130, so it is held back to the prior delivery floor.
+  const earlier = computeOrderedDeliveryMs(100, 100, true, 0);
+  assert.deepEqual(earlier, { deliveryMs: 200, nextLastReliableDeliveryMs: 200 });
+
+  const reordered = computeOrderedDeliveryMs(110, 20, true, earlier.nextLastReliableDeliveryMs);
+  assert.deepEqual(reordered, { deliveryMs: 200, nextLastReliableDeliveryMs: 200 });
+
+  // A later reliable message whose natural delivery is already past the floor keeps its own time.
+  const later = computeOrderedDeliveryMs(160, 90, true, reordered.nextLastReliableDeliveryMs);
+  assert.deepEqual(later, { deliveryMs: 250, nextLastReliableDeliveryMs: 250 });
+});
+
+test("unreliable messages keep an independent delay and do not move the reliable floor", () => {
+  const unreliable = computeOrderedDeliveryMs(160, 5, false, 200);
+  assert.deepEqual(unreliable, { deliveryMs: 165, nextLastReliableDeliveryMs: 200 });
 });

@@ -111,6 +111,42 @@ export function shouldSimulateMessageDrop(
   return random() < dropRate;
 }
 
+// The unreliable datagram kinds: the inverse of the protocol's ReliableControlMessage type.
+// These ride lossy datagrams in the intended transport, so the simulation may freely reorder
+// or drop them (the snapshot reducer and server-side fire/input sequencing absorb that).
+const UNRELIABLE_MESSAGE_KINDS: ReadonlySet<ProtocolMessage["kind"]> = new Set([
+  "client.input",
+  "client.fire",
+  "server.snapshot"
+]);
+
+export function isReliableMessageKind(kind: ProtocolMessage["kind"]): boolean {
+  return !UNRELIABLE_MESSAGE_KINDS.has(kind);
+}
+
+export type OrderedDelivery = Readonly<{
+  deliveryMs: number;
+  nextLastReliableDeliveryMs: number;
+}>;
+
+// Reliable control messages travel an ordered stream in the intended transport, so a jittered
+// delay must never let one overtake an earlier reliable message: clamp its delivery to at least
+// the previous reliable delivery. Unreliable kinds keep their independent (reorderable) delay.
+export function computeOrderedDeliveryMs(
+  nowMs: number,
+  delayMs: number,
+  reliable: boolean,
+  lastReliableDeliveryMs: number
+): OrderedDelivery {
+  const naturalDeliveryMs = nowMs + Math.max(0, delayMs);
+  if (!reliable) {
+    return { deliveryMs: naturalDeliveryMs, nextLastReliableDeliveryMs: lastReliableDeliveryMs };
+  }
+
+  const deliveryMs = Math.max(naturalDeliveryMs, lastReliableDeliveryMs);
+  return { deliveryMs, nextLastReliableDeliveryMs: deliveryMs };
+}
+
 export function createNetworkSimulatedTransport(
   inner: MessageTransport,
   profile: NetworkSimulationProfile
@@ -119,6 +155,10 @@ export function createNetworkSimulatedTransport(
   const inboundRandom = createNetworkSimulationRandom(profile.seed + 0x9e3779b9);
   const pendingTimers = new Set<ReturnType<typeof globalThis.setTimeout>>();
   let closed = false;
+  // The client->server and server->client reliable streams are independent, so each direction
+  // tracks its own delivery floor.
+  let lastOutboundReliableDeliveryMs = 0;
+  let lastInboundReliableDeliveryMs = 0;
 
   function schedule(callback: () => void, delayMs: number): void {
     if (closed) {
@@ -152,10 +192,18 @@ export function createNetworkSimulatedTransport(
         return;
       }
 
+      const nowMs = clockNowMs();
       const delayMs = computeNetworkSimulationDelayMs(profile, outboundRandom);
+      const ordered = computeOrderedDeliveryMs(
+        nowMs,
+        delayMs,
+        isReliableMessageKind(message.kind),
+        lastOutboundReliableDeliveryMs
+      );
+      lastOutboundReliableDeliveryMs = ordered.nextLastReliableDeliveryMs;
       schedule(() => {
         void inner.send(message);
-      }, delayMs);
+      }, ordered.deliveryMs - nowMs);
     },
     onMessage(handler: TransportMessageHandler): TransportUnsubscribe {
       return inner.onMessage((message) => {
@@ -163,10 +211,18 @@ export function createNetworkSimulatedTransport(
           return;
         }
 
+        const nowMs = clockNowMs();
         const delayMs = computeNetworkSimulationDelayMs(profile, inboundRandom);
+        const ordered = computeOrderedDeliveryMs(
+          nowMs,
+          delayMs,
+          isReliableMessageKind(message.kind),
+          lastInboundReliableDeliveryMs
+        );
+        lastInboundReliableDeliveryMs = ordered.nextLastReliableDeliveryMs;
         schedule(() => {
           handler(message);
-        }, delayMs);
+        }, ordered.deliveryMs - nowMs);
       });
     },
     onClose(handler: TransportCloseHandler): TransportUnsubscribe {
@@ -178,6 +234,10 @@ export function createNetworkSimulatedTransport(
       void inner.close();
     }
   };
+}
+
+function clockNowMs(): number {
+  return typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : Date.now();
 }
 
 function cloneProfile(profile: NetworkSimulationProfile): NetworkSimulationProfile {
