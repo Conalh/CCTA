@@ -9,7 +9,9 @@ export const CLIENT_INPUT_BUTTONS = {
   forward: 1 << 0,
   backward: 1 << 1,
   left: 1 << 2,
-  right: 1 << 3
+  right: 1 << 3,
+  jump: 1 << 4,
+  crouch: 1 << 5
 } as const;
 
 export const PACKET_KIND = {

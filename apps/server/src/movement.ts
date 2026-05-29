@@ -1,5 +1,6 @@
 import {
   CLIENT_INPUT_BUTTONS,
+  advancePlayerVerticalMotion,
   resolveArenaCollisionMotion,
   type ArenaCollisionGeometry,
   type ClientInputMessage
@@ -13,6 +14,7 @@ export type PlayerMovementState = Readonly<{
   y: number;
   z: number;
   yaw: number;
+  verticalVelocity: number;
 }>;
 
 export type InitialPlayerMovementStateInput = Partial<PlayerMovementState>;
@@ -38,7 +40,8 @@ export function createInitialPlayerMovementState(
     x: readFiniteOrDefault(input.x, 0),
     y: readFiniteOrDefault(input.y, 0),
     z: readFiniteOrDefault(input.z, 0),
-    yaw: normalizeYaw(readFiniteOrDefault(input.yaw, 0))
+    yaw: normalizeYaw(readFiniteOrDefault(input.yaw, 0)),
+    verticalVelocity: readFiniteOrDefault(input.verticalVelocity, 0)
   };
 }
 
@@ -90,11 +93,23 @@ export function advancePlayerMovement(
           radiusMeters: step.collisionRadiusMeters
         }).position;
 
+  // Vertical motion is server-authoritative; the jump button launches from the ground and
+  // gravity returns the player to the plane. Collision stays 2D, so this is a pure arc.
+  const vertical = advancePlayerVerticalMotion(
+    { y: state.y, verticalVelocity: state.verticalVelocity },
+    {
+      deltaSeconds,
+      jump: hasButton(input.buttons, CLIENT_INPUT_BUTTONS.jump),
+      maxDeltaSeconds
+    }
+  );
+
   return {
     x: position.x,
-    y: state.y,
+    y: vertical.y,
     z: position.z,
-    yaw
+    yaw,
+    verticalVelocity: vertical.verticalVelocity
   };
 }
 

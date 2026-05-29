@@ -91,6 +91,39 @@ test("movement clamps oversized fixed-tick delta and ignores invalid values", ()
   );
 });
 
+test("server movement launches a server-owned jump from the jump button and lands", () => {
+  const initial = server.createInitialPlayerMovementState({ x: 0, y: 0, z: 0, yaw: 0 });
+  const jumped = server.advancePlayerMovement(
+    initial,
+    input({ buttons: CLIENT_INPUT_BUTTONS.jump, yaw: 0 }),
+    { deltaSeconds: 1 / 60, speedMetersPerSecond: 3.6 }
+  );
+
+  // Jump raises height and vertical velocity but does not move the player on the plane.
+  assert.equal(jumped.y > 0, true);
+  assert.equal(jumped.verticalVelocity > 0, true);
+  assert.equal(jumped.x, 0);
+  assert.equal(jumped.z, 0);
+
+  // Releasing the jump button lets gravity return the player to the ground.
+  let state = jumped;
+  let peak = jumped.y;
+  for (let tick = 0; tick < 240; tick += 1) {
+    state = server.advancePlayerMovement(
+      state,
+      input({ buttons: 0, yaw: 0 }),
+      { deltaSeconds: 1 / 60, speedMetersPerSecond: 3.6 }
+    );
+    peak = Math.max(peak, state.y);
+    if (state.y === 0 && state.verticalVelocity === 0) {
+      break;
+    }
+  }
+  assert.equal(peak > 0.5, true);
+  assert.equal(state.y, 0);
+  assert.equal(state.verticalVelocity, 0);
+});
+
 test("server movement stops against arena collision blockers when collision geometry is provided", () => {
   const collisionGeometry = deriveArenaCollisionGeometry(EBB_TERMINAL_ARENA);
   const moved = server.advancePlayerMovement(

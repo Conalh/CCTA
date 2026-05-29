@@ -12,6 +12,7 @@ export function createPlaytestHarnessSummary(evidence) {
     `- match occupancy: ${formatOccupancyStatus(evidence.occupancy)}`,
     `- render: ${formatRenderStatus(evidence.render)}`,
     `- movement/collision: ${formatMovementStatus(evidence.movement)}`,
+    `- jump: ${formatJumpStatus(evidence.jump)}`,
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
     `- accepted hit: ${formatHitStatus(evidence.fire?.acceptedHit)}`,
     `- combat/round: ${formatCombatRoundStatus(evidence.combatRound)}`,
@@ -90,6 +91,15 @@ function formatMovementStatus(movement) {
   }
 
   return `caveat (${samples})`;
+}
+
+function formatJumpStatus(jump) {
+  const peak = readNumber(jump?.peakY);
+  if (jump?.observed === true && peak > 0.3) {
+    return `ok (peak Y ${peak.toFixed(2)})`;
+  }
+
+  return "caveat (jump arc not observed)";
 }
 
 function formatMissStatus(miss) {

@@ -40,7 +40,10 @@ test("networked playtest input maps inspection keys to the validated placeholder
   assert.equal(message.kind, "client.input");
   assert.equal(message.sequence, 9);
   assert.equal(message.clientTimeMs, 1234);
-  assert.equal(message.buttons, CLIENT_INPUT_BUTTONS.forward | CLIENT_INPUT_BUTTONS.right);
+  assert.equal(
+    message.buttons,
+    CLIENT_INPUT_BUTTONS.forward | CLIENT_INPUT_BUTTONS.right | CLIENT_INPUT_BUTTONS.jump
+  );
   assert.equal(message.yaw, 0.5);
   assert.equal(message.pitch, 0.12);
 });

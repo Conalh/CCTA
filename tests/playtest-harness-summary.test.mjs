@@ -40,6 +40,10 @@ const completeEvidence = {
     slidingObserved: true,
     contactSamples: ["moving", "blocked", "sliding"]
   },
+  jump: {
+    observed: true,
+    peakY: 1.01
+  },
   fire: {
     acceptedMiss: {
       status: "accepted miss",
@@ -123,6 +127,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /match occupancy: ok \(2 \/ 8, disconnect -> 1 \/ 8\)/);
   assert.match(text, /render: ok \(nonblank, remote models 1\)/);
   assert.match(text, /movement\/collision: ok \(moving -> blocked -> sliding\)/);
+  assert.match(text, /jump: ok \(peak Y 1\.01\)/);
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
   assert.match(text, /accepted hit: ok \(accepted hit, target 2\)/);
   assert.match(text, /combat\/round: ok \(dead, ended, elimination, reset in 12 ticks\)/);

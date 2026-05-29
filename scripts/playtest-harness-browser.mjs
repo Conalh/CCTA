@@ -145,6 +145,28 @@ async (page) => {
   const afterMovement = await readPlaytestState(page);
   const contactSamples = [...new Set([...blockedSamples, ...slidingSamples])];
 
+  // Jump: press Space and confirm the server-owned height rises, then lands back down.
+  let jumpPeakY = 0;
+  let jumpObserved = false;
+  await page.keyboard.down("Space");
+  try {
+    await waitForPlaytestState(
+      page,
+      (state) => Array.isArray(state.serverPosition) && state.serverPosition[1] > 0.3,
+      4000
+    );
+    jumpObserved = true;
+    jumpPeakY = (await readPlaytestState(page)).serverPosition[1];
+  } catch {
+    jumpObserved = false;
+  }
+  await page.keyboard.up("Space");
+  await waitForPlaytestState(
+    page,
+    (state) => Array.isArray(state.serverPosition) && state.serverPosition[1] <= 0.05,
+    4000
+  ).catch(() => undefined);
+
   await page.evaluate(() => window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__.fire());
   await waitForPlaytestState(
     page,
@@ -424,6 +446,10 @@ async (page) => {
       blockedObserved: contactSamples.includes("blocked"),
       slidingObserved: contactSamples.includes("sliding"),
       contactSamples
+    },
+    jump: {
+      observed: jumpObserved,
+      peakY: jumpPeakY
     },
     fire: {
       acceptedMiss: {

@@ -521,6 +521,9 @@ function readMovementButtons(keys: ReadonlySet<string>): number {
   if (keys.has("KeyD") || keys.has("ArrowRight")) {
     buttons |= CLIENT_INPUT_BUTTONS.right;
   }
+  if (keys.has("Space")) {
+    buttons |= CLIENT_INPUT_BUTTONS.jump;
+  }
   return buttons;
 }
 

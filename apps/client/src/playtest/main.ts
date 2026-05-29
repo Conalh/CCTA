@@ -1428,7 +1428,8 @@ function isPlaytestInputKey(code: string): boolean {
     code === "ArrowUp" ||
     code === "ArrowLeft" ||
     code === "ArrowDown" ||
-    code === "ArrowRight"
+    code === "ArrowRight" ||
+    code === "Space"
   );
 }
 
