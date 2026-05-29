@@ -137,6 +137,7 @@ declare global {
       roundPresentationTone: string;
       roundTransition: string;
       roundTransitionActive: boolean;
+      roundWinner: string;
       scoreboardEntryCount: number;
       scoreboardLastServerTick: number | undefined;
       scoreboardLocalPosition: number | undefined;
@@ -194,6 +195,7 @@ const reconnectCountEl = requireElement("playtest-reconnect-count");
 const lastErrorEl = requireElement("playtest-last-error");
 const roundPhaseEl = requireElement("playtest-round-phase");
 const roundOutcomeEl = requireElement("playtest-round-outcome");
+const roundWinnerEl = requireElement("playtest-round-winner");
 const roundTransitionEl = requireElement("playtest-round-transition");
 const roundResetCueEl = requireElement("playtest-round-reset-cue");
 const localHealthEl = requireElement("playtest-local-health");
@@ -995,10 +997,12 @@ function updateReadout(
     localSessionId: presentation.localSessionId,
     nowMs,
     respawnEligibleTick: state.localRespawnEligibleTick,
+    rosterEntries: state.matchRoster,
     roundId: state.roundId,
     roundOutcome: state.roundOutcome,
     roundPhase: state.roundPhase,
     roundResetReadyTick: state.roundResetReadyTick,
+    roundWinnerSessionId: state.roundWinnerSessionId,
     sourceSessionId: state.lastCombatSourceSessionId,
     targetSessionId: state.lastCombatTargetSessionId
   });
@@ -1042,6 +1046,7 @@ function updateReadout(
   lastErrorEl.textContent = reviewStats.lastError ?? "-";
   roundPhaseEl.textContent = roundCombatPresentationState.roundPhaseLabel;
   roundOutcomeEl.textContent = roundCombatPresentationState.roundOutcomeLabel;
+  roundWinnerEl.textContent = roundCombatPresentationState.roundWinnerLabel;
   roundTransitionEl.textContent = roundCombatPresentationState.roundTransitionLabel;
   roundTransitionEl.dataset.active = roundCombatPresentationState.roundTransitionActive ? "true" : "false";
   roundResetCueEl.textContent = roundCombatPresentationState.resetCueLabel;
@@ -1115,6 +1120,7 @@ function updateReadout(
     roundPresentationTone: roundCombatPresentationState.presentationTone,
     roundTransition: roundCombatPresentationState.roundTransitionLabel,
     roundTransitionActive: roundCombatPresentationState.roundTransitionActive,
+    roundWinner: roundCombatPresentationState.roundWinnerLabel,
     scoreboardEntryCount: scoreboard.entryCount,
     scoreboardLastServerTick: scoreboard.lastServerTick,
     scoreboardLocalPosition: scoreboard.localPosition,

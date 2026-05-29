@@ -181,6 +181,44 @@ test("round combat presentation derives remote hit cue only from existing fire r
   assert.equal(presentation.remoteCombatCueActive, false);
 });
 
+test("round combat presentation resolves the server-owned round winner to a roster callsign", () => {
+  const rosterEntries = [
+    { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
+    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1 }
+  ];
+
+  const resolved = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundId: 4,
+    roundOutcome: ROUND_OUTCOME.elimination,
+    roundPhase: ROUND_PHASE.ended,
+    roundWinnerSessionId: 1,
+    rosterEntries
+  });
+  assert.equal(resolved.roundOutcomeLabel, "elimination");
+  assert.equal(resolved.roundWinnerLabel, "Vesper");
+
+  // A winner with no roster entry falls back to a neutral session label.
+  const neutral = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundOutcome: ROUND_OUTCOME.elimination,
+    roundPhase: ROUND_PHASE.ended,
+    roundWinnerSessionId: 9,
+    rosterEntries
+  });
+  assert.equal(neutral.roundWinnerLabel, "session 9");
+
+  // No winner session reported (timeout/none) shows no winner callsign.
+  const noWinner = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundOutcome: ROUND_OUTCOME.timeout,
+    roundPhase: ROUND_PHASE.ended,
+    rosterEntries
+  });
+  assert.equal(noWinner.roundWinnerLabel, "-");
+  assert.equal(forbiddenHudPattern.test(Object.values(resolved).join(" ")), false);
+});
+
 test("round combat presentation ignores malformed values without poisoning readouts", () => {
   const presentation = updateRoundCombatPresentationState(
     createInitialRoundCombatPresentationState(),

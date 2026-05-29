@@ -54,7 +54,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 42. Local two-client harness asserts the server-owned roster end to end.
 43. Read-only scoreboard labelled with roster-resolved callsigns.
 44. Local two-client harness asserts the roster-labelled scoreboard end to end.
-45. **Current: Validate-included smoke guards the roster and scoreboard presentation surfaces.**
+45. Validate-included smoke guards the roster and scoreboard presentation surfaces.
+46. **Current: Round outcome labelled with the server-owned winner's callsign.**
 
 ## Phase 8 Status
 
@@ -542,19 +543,29 @@ Phase 45 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 46 Status
+
+Phase 46 is current when validation passes because:
+
+- `/playtest.html` labels the read-only round/combat presentation with the server-owned round winner's roster-resolved callsign, so an elimination outcome reads as "who won" rather than only "what happened".
+- The label is presentation-only: the outcome and winning session id come straight from `server.round.state` (already mirrored on the client), the callsign resolves from the roster's numeric handle id, and the client never decides or computes a winner.
+- A winner session with no current roster entry falls back to a neutral `session <id>` label rather than fabricating identity, and a round with no winner session reported (timeout/none) shows no winner callsign.
+- The winner readout (`#playtest-round-winner`) is exposed on the diagnostics view state, guarded by the browser-page smoke, and clears on reconnect with the rest of the diagnostics-only view state. Focused tests cover the resolved, neutral-fallback, and no-winner cases.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **resolve the server-owned round winner to a roster callsign in the read-only round/combat presentation, so an elimination outcome reads as "who won" rather than only "what happened"**.
+The next milestone is **assert the round-winner callsign end to end in the local two-client harness, so the server-owned winner is proven to read as a roster callsign across a real elimination rather than only in unit projection**.
 
-The server already owns the round outcome and the winning session id (Phase 18 round state), and the client already mirrors both alongside the roster view state. The matching step is a presentation join: when the server reports a round winner session, the round/combat presentation resolves that session id to its roster callsign, with a neutral fallback when no roster entry is present. The winner is never computed on the client; it is read straight from the server-owned round state.
+The winner label join (Phase 46) is proven in unit projection, and the harness already drives a confirmed kill and an end-of-round elimination (Phase 34/44). The matching step is to have `npm run playtest:harness` read the diagnostics-only winner view state after the elimination and confirm it resolves to the surviving participant's roster callsign, printed in the human-review summary, with an honest caveat when no winner is observed.
 
 Expected proof:
 
-- The read-only round/combat presentation labels the server-owned round outcome with the winner's roster-resolved callsign when the server reports a winner session.
-- The label is presentation-only: the outcome and winner session come straight from `server.round.state`, the callsign resolves from the roster's numeric handle id, and the client never decides or computes a winner.
-- A winner session with no current roster entry falls back to a neutral session label rather than fabricating identity, and a round with no winner (timeout/none) shows no winner callsign.
-- The label clears on reconnect with the rest of the diagnostics-only view state, and focused tests cover the resolved, neutral-fallback, and no-winner cases.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the two-client harness assertions, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- After the harness observes an elimination, it reads the diagnostics-only round-winner view state and confirms it resolves to a roster callsign matching the observed roster, sourced from the server-owned round state.
+- A round that ends with no winner session, or a winner with no roster entry, is reported honestly (neutral label or caveat) rather than as a fabricated callsign.
+- The harness prints the winner-callsign evidence in its human-review summary without uploading analytics, writing remote logs, or starting hosted services.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

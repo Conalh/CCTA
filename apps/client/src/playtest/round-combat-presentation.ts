@@ -2,7 +2,9 @@ import {
   COMBAT_EVENT_KIND,
   ROUND_EVENT_KIND,
   ROUND_OUTCOME,
-  ROUND_PHASE
+  ROUND_PHASE,
+  getPlayerCallsign,
+  type MatchRosterEntry
 } from "@breachline/shared";
 
 export const ROUND_COMBAT_PRESENTATION_CUE_DURATION_MS = 1800 as const;
@@ -37,10 +39,12 @@ export type RoundCombatPresentationInput = Readonly<{
   localSessionId?: number;
   nowMs: number;
   respawnEligibleTick?: number;
+  rosterEntries?: readonly MatchRosterEntry[];
   roundId?: number;
   roundOutcome?: number;
   roundPhase?: number;
   roundResetReadyTick?: number;
+  roundWinnerSessionId?: number;
   sourceSessionId?: number;
   targetSessionId?: number;
 }>;
@@ -68,6 +72,7 @@ export type RoundCombatPresentationState = Readonly<{
   roundPhaseLabel: string;
   roundTransitionActive: boolean;
   roundTransitionLabel: string;
+  roundWinnerLabel: string;
 }>;
 
 const NO_LABEL = "-";
@@ -95,7 +100,8 @@ export function createInitialRoundCombatPresentationState(): RoundCombatPresenta
     roundOutcomeLabel: NO_LABEL,
     roundPhaseLabel: NO_LABEL,
     roundTransitionActive: false,
-    roundTransitionLabel: NO_LABEL
+    roundTransitionLabel: NO_LABEL,
+    roundWinnerLabel: NO_LABEL
   };
 }
 
@@ -136,8 +142,39 @@ export function updateRoundCombatPresentationState(
     roundOutcomeLabel: formatRoundOutcome(input.roundOutcome),
     roundPhaseLabel: formatRoundPhase(input.roundPhase),
     roundTransitionActive: transition.active,
-    roundTransitionLabel: transition.label
+    roundTransitionLabel: transition.label,
+    roundWinnerLabel: formatRoundWinner(input)
   };
+}
+
+function formatRoundWinner(input: RoundCombatPresentationInput): string {
+  const winnerSessionId = readPositiveInteger(input.roundWinnerSessionId);
+  if (winnerSessionId === undefined) {
+    return NO_LABEL;
+  }
+
+  // The winner session is server-owned (server.round.state); the client only resolves
+  // it to a roster callsign and never decides a winner. A winner session with no roster
+  // entry falls back to a neutral session label rather than fabricating identity.
+  const callsign = resolveRosterCallsign(input.rosterEntries, winnerSessionId);
+  return callsign ?? `session ${winnerSessionId}`;
+}
+
+function resolveRosterCallsign(
+  entries: readonly MatchRosterEntry[] | undefined,
+  sessionId: number
+): string | undefined {
+  if (entries === undefined) {
+    return undefined;
+  }
+
+  for (const entry of entries) {
+    if (readPositiveInteger(entry?.sessionId) !== sessionId) {
+      continue;
+    }
+    return typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+  }
+  return undefined;
 }
 
 function readRoundTransition(
