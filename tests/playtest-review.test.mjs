@@ -25,6 +25,9 @@ test("playtest review instructions print local-only evidence collection steps", 
   assert.match(text, /reconnect count/i);
   assert.match(text, /last error/i);
   assert.match(text, /desktop and mobile/i);
+  assert.match(text, /npm\.cmd run host:match/);
+  assert.match(text, /first playable-match proof/i);
+  assert.match(text, /match-over banner/i);
 });
 
 test("playtest review command is exposed as an npm script", async () => {

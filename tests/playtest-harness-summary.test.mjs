@@ -86,6 +86,13 @@ const completeEvidence = {
     localCallsign: "Vesper",
     matchesLocalCallsign: true
   },
+  matchResult: {
+    observed: true,
+    matchOver: true,
+    banner: "Vesper wins the match",
+    localCallsign: "Vesper",
+    bannerNamesLocal: true
+  },
   reconnect: {
     beforeStatus: "closed",
     afterStatus: "accepted",
@@ -120,6 +127,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /accepted hit: ok \(accepted hit, target 2\)/);
   assert.match(text, /combat\/round: ok \(dead, ended, elimination, reset in 12 ticks\)/);
   assert.match(text, /round winner: ok \(Vesper\)/);
+  assert.match(text, /match result: ok \(Vesper wins the match\)/);
   assert.match(text, /scoreboard callsigns: ok \(Vesper 1\/0, Quill 0\/1; local Vesper\)/);
   assert.match(text, /reconnect cleanup: ok \(closed -> accepted, transient cleared\)/);
   assert.match(text, /baseline pages: ok \(diagnostics accepted, sandbox nonblank\)/);
@@ -169,6 +177,22 @@ test("playtest harness summary flags match occupancy that does not shrink on dis
 
   assert.match(text, /match occupancy: caveat \(2 \/ 8, disconnect -> 2 \/ 8\)/);
   assert.doesNotMatch(text, /match occupancy: ok/);
+});
+
+test("playtest harness summary reports an honest match-result caveat when the match is not decided", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    matchResult: {
+      observed: false,
+      matchOver: false,
+      banner: "-",
+      localCallsign: "Vesper",
+      bannerNamesLocal: false
+    }
+  });
+
+  assert.match(text, /match result: caveat \(match not decided\)/);
+  assert.doesNotMatch(text, /match result: ok/);
 });
 
 test("playtest harness summary reports an honest round-winner caveat when none is observed", () => {

@@ -105,7 +105,10 @@ function startDevServer() {
     cwd: repoRoot,
     env: {
       ...process.env,
-      NO_COLOR: "1"
+      NO_COLOR: "1",
+      // A frag limit of 1 lets the harness's single confirmed kill end the match, so the
+      // full playable-match flow (connect -> shoot -> kill -> match over) is exercised.
+      BREACHLINE_SERVER_MATCH_KILL_TARGET: process.env.BREACHLINE_SERVER_MATCH_KILL_TARGET ?? "1"
     },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true

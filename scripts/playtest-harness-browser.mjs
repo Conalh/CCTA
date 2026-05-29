@@ -263,6 +263,17 @@ async (page) => {
   }
   const roundWinnerState = await readPlaytestState(page);
 
+  // With the harness frag limit of 1, the single confirmed kill ends the match. The
+  // primary is the winner, so its diagnostics-only match banner should name its callsign.
+  let matchOverObserved = false;
+  try {
+    await waitForPlaytestState(page, (state) => state.matchOver === true, 7000);
+    matchOverObserved = true;
+  } catch {
+    matchOverObserved = false;
+  }
+  const matchResultState = await readPlaytestState(page);
+
   const primaryAfterCombat = await readPlaytestState(page);
   const peerAfterCombat = await readPlaytestState(peerPage);
   const browserErrorCount = consoleErrors.length + pageErrors.length;
@@ -389,6 +400,16 @@ async (page) => {
       matchesLocalCallsign:
         typeof roundWinnerState.roundWinner === "string" &&
         roundWinnerState.roundWinner === initialPrimary.rosterLocalCallsign
+    },
+    matchResult: {
+      observed: matchOverObserved,
+      matchOver: matchResultState.matchOver === true,
+      banner: matchResultState.matchBanner,
+      localCallsign: initialPrimary.rosterLocalCallsign,
+      bannerNamesLocal:
+        typeof matchResultState.matchBanner === "string" &&
+        typeof initialPrimary.rosterLocalCallsign === "string" &&
+        matchResultState.matchBanner.includes(initialPrimary.rosterLocalCallsign)
     },
     render: {
       primaryNonblank: initialPrimary.renderSampleHealthy,

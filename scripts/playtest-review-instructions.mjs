@@ -24,6 +24,14 @@ Collect evidence:
 - Desktop and mobile: check desktop and mobile viewport usability for readouts and controls.
 - Baseline pages: confirm /sandbox.html renders nonblank and / still connects.
 
+Host a real two-human match (first playable-match proof):
+
+1. On the host machine run npm.cmd run host:match. It binds the server LAN-reachable and prints a shareable http://<lan-ip>:8787/playtest.html join URL for each LAN address. This is local-only: no accounts, no hosted services, no analytics. Share the URL only on a trusted network.
+2. Both players open their join URL, click the canvas to capture the pointer, then connect.
+3. Play the loop: move (WASD), aim (mouse), fire (left click), reload (R). Confirm the crosshair, server-driven hitmarker, health/state/weapon/ammo HUD, scoreboard callsigns, and roster panel read from server-owned state only.
+4. Confirm death shows the respawn countdown, the round-winner banner names the server-owned winner, and reaching the server-owned kill target shows the match-over banner. Optionally set BREACHLINE_SERVER_MATCH_KILL_TARGET to shorten the match.
+5. Record honest caveats: this is a local LAN prototype over the WebSocket fallback, with no lag compensation, no anti-cheat beyond server authority, and no hosted/public play.
+
 Keep manual notes, screenshots, and clips local unless the tester intentionally shares them. Store generated or manual notes under local-assets/playtest-review/ so they remain ignored by git.
 `;
 }
