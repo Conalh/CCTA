@@ -1,6 +1,6 @@
 # Architecture Spine
 
-Breachline uses a simple TypeScript monorepo split into client, server, and shared protocol packages. Phase 1 establishes the boundary map only; gameplay and rendering are intentionally deferred.
+Breachline uses a simple TypeScript monorepo split into client, server, and shared protocol packages. This document defines the ownership boundaries between those packages; the active milestone is tracked in [ROADMAP.md](ROADMAP.md). The client renderer, authoritative simulation spine, and network loop now exist as proven prototypes, while full gameplay remains intentionally deferred.
 
 ## Top-Level Shape
 
@@ -96,13 +96,13 @@ Phase 26 adds server-authoritative greybox collision for placeholder movement. T
 
 ## Gameplay Systems
 
-Gameplay systems are deferred. The early contract is limited to small teams, original arena maps, hitscan weapons, round flow, health/death, and simple loadouts. The contract exists so future work has direction, not so Phase 1 can implement those systems.
+Full gameplay systems are deferred. The early contract is limited to small teams, original arena maps, hitscan weapons, round flow, health/death, and simple loadouts. The contract exists so future work has direction; the prototypes built so far (placeholder hitscan, combat state, loadout, round flow) stay deliberately narrow until a milestone expands them.
 
 See [docs/GAMEPLAY_CONTRACT.md](docs/GAMEPLAY_CONTRACT.md).
 
 ## Persistence Policy
 
-Phase 1 has no database and no player account persistence. Future persistence must be added only after the multiplayer loop proves useful.
+The prototype has no database and no player account persistence. Future persistence must be added only after the multiplayer loop proves useful.
 
 Allowed before persistence exists:
 
@@ -110,7 +110,7 @@ Allowed before persistence exists:
 - Process-local debug configuration.
 - Local development logs.
 
-Not allowed in Phase 1:
+Not allowed until a milestone requires them:
 
 - Account systems.
 - Ranked progression.

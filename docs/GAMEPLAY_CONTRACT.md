@@ -1,6 +1,6 @@
 # Gameplay Contract
 
-This contract gives future gameplay work a narrow direction. It is not an implementation plan for Phase 1.
+This contract gives future gameplay work a narrow direction. It describes intended boundaries, not the current implementation; the active milestone is tracked in [ROADMAP.md](../ROADMAP.md).
 
 ## Core Shape
 
@@ -91,7 +91,7 @@ During Phase 25 renderer-feel review, the default placeholder active round lasts
 
 Phase 19 developer telemetry may summarize round, combat, fire, loadout, prediction, interpolation, and connection diagnostics for local inspection. It is not a gameplay HUD, scoreboard, spectator view, analytics pipeline, or public playtest package.
 
-No economy, ranked progression, cosmetics, or long-term inventory exists in Phase 1.
+No economy, ranked progression, cosmetics, or long-term inventory exists in the prototype yet.
 
 ## Health And Death
 
@@ -109,15 +109,12 @@ Phase 17 does not introduce weapon identities, ammo, reloads, economy, buy/loado
 
 ## Explicit Deferrals
 
-The following are out of scope until their roadmap goal:
+Client prediction, remote interpolation, and server-authoritative greybox collision now exist as narrow prototypes (see [ROADMAP.md](../ROADMAP.md) for the milestones that introduced them). The following remain out of scope until their roadmap goal:
 
-- Movement gameplay.
-- Combat gameplay.
-- Map gameplay, authored art, map selection, and collision/nav systems.
-- User interface.
+- Full movement and combat gameplay. The existing movement, hitscan, and combat-state prototypes stay deliberately narrow.
+- Authored art, map selection, and navigation systems.
+- Gameplay user interface / HUD.
 - Matchmaking.
-- Prediction.
-- Interpolation.
 - Persistence.
 - Cosmetics.
 - Ranking.

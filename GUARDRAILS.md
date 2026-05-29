@@ -17,7 +17,7 @@ These rules are non-negotiable for the project.
 
 ## Scope Control
 
-- Do not implement gameplay during Phase 1.
+- Do not implement gameplay ahead of the milestone that calls for it. Subsystems that already exist (movement, prediction, interpolation, hitscan, placeholder combat/loadout/round flow) are intentionally narrow prototypes, not full gameplay.
 - Do not add speculative systems because they seem likely to be needed later.
 - Do not rewrite project structure without a milestone that requires it.
 - Do not do unrelated cleanup while touching nearby files.
@@ -26,7 +26,7 @@ These rules are non-negotiable for the project.
 
 - Add dependencies carefully and document why they are needed.
 - Prefer standard TypeScript and platform APIs until a real feature requires a library.
-- Do not introduce a rendering engine, physics engine, ECS, networking abstraction, database, or asset pipeline during Phase 1.
+- The client renderer uses Three.js, introduced at the renderer-sandbox milestone for `apps/client` only. Do not introduce a physics engine, ECS, networking abstraction, database, or asset pipeline ahead of a milestone that requires it.
 - Lock dependency changes through package metadata and validate after installation.
 
 ## Validation Before Completion

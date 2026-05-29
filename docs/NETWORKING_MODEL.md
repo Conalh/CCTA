@@ -57,7 +57,7 @@ The intended future flow:
 4. Server sends snapshots tagged with tick numbers.
 5. Client renders interpolated state and later may predict local motion.
 
-Phase 1 does not implement this flow. It only defines where the flow will live.
+This flow is now implemented over the WebSocket fallback: sequenced input, authoritative fixed-tick advancement, tagged snapshots, client prediction/reconciliation, and remote interpolation. What remains deferred is the intended WebTransport transport beneath it, not the flow itself.
 
 ## Prediction And Interpolation Notes
 

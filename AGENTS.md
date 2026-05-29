@@ -1,12 +1,11 @@
 # Agent Instructions
 
-This repository is in **Phase 1: Project Spine** for an original browser tactical FPS prototype. Future agents must preserve the foundation before expanding it.
+This repository is an original browser tactical FPS prototype, built as a server-authoritative spine one verifiable milestone at a time. The current milestone is tracked in [ROADMAP.md](ROADMAP.md) — read it first rather than assuming a phase number from this file. Future agents must preserve the proven spine before expanding it.
 
 ## Scope Discipline
 
 - Work only inside the requested milestone.
-- Do not build gameplay unless the current task explicitly asks for that milestone.
-- Do not add movement, weapons, maps, UI, matchmaking, prediction, interpolation, ranking, persistence, or art pipelines during Phase 1.
+- Do not build gameplay or add systems ahead of the milestone that calls for them. Several subsystems already exist as deliberately narrow prototypes — movement, prediction, interpolation, hitscan, and placeholder combat/loadout/round flow. Do not expand them into real gameplay, a gameplay HUD, matchmaking, ranking, persistence, or art pipelines unless the current task explicitly asks for that milestone.
 - Do not perform unrelated cleanup, dependency swaps, formatting churn, or speculative rewrites.
 - Read the relevant docs before editing code.
 
