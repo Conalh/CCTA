@@ -254,6 +254,43 @@ test("round combat presentation surfaces a server-owned respawn countdown only w
   assert.equal(forbiddenHudPattern.test(Object.values(counting).join(" ")), false);
 });
 
+test("round combat presentation raises a round banner only on a decided outcome window", () => {
+  const rosterEntries = [{ sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 }];
+
+  // Active round with no decided outcome: no banner.
+  const active = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundPhase: ROUND_PHASE.active,
+    roundOutcome: ROUND_OUTCOME.none,
+    roundWinnerSessionId: 0,
+    rosterEntries
+  });
+  assert.equal(active.roundBannerActive, false);
+  assert.equal(active.roundBannerLabel, "-");
+
+  // Ended elimination: banner names the server-owned winner.
+  const ended = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundPhase: ROUND_PHASE.ended,
+    roundOutcome: ROUND_OUTCOME.elimination,
+    roundWinnerSessionId: 1,
+    rosterEntries
+  });
+  assert.equal(ended.roundBannerActive, true);
+  assert.equal(ended.roundBannerLabel, "Vesper wins the round");
+
+  // Timeout: banner reports the outcome without a winner callsign.
+  const timeout = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundPhase: ROUND_PHASE.ended,
+    roundOutcome: ROUND_OUTCOME.timeout,
+    rosterEntries
+  });
+  assert.equal(timeout.roundBannerActive, true);
+  assert.equal(timeout.roundBannerLabel, "Round over — time");
+  assert.equal(forbiddenHudPattern.test(Object.values(ended).join(" ")), false);
+});
+
 test("round combat presentation ignores malformed values without poisoning readouts", () => {
   const presentation = updateRoundCombatPresentationState(
     createInitialRoundCombatPresentationState(),

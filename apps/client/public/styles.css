@@ -493,6 +493,30 @@ li {
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
+.playtest-round-banner {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 22px;
+  border: 1px solid #5e6b66;
+  border-radius: 10px;
+  color: #101214;
+  background: rgb(158 226 175 / 92%);
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 4;
+}
+
+.playtest-round-banner[data-active="true"] {
+  opacity: 1;
+}
+
 .playtest-hud {
   position: absolute;
   bottom: 14px;

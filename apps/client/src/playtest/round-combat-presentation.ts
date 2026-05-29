@@ -69,6 +69,8 @@ export type RoundCombatPresentationState = Readonly<{
   remoteCombatTargetSessionId: number | undefined;
   resetCueLabel: string;
   respawnCueLabel: string;
+  roundBannerActive: boolean;
+  roundBannerLabel: string;
   roundOutcomeLabel: string;
   roundPhaseLabel: string;
   roundTransitionActive: boolean;
@@ -99,6 +101,8 @@ export function createInitialRoundCombatPresentationState(): RoundCombatPresenta
     remoteCombatTargetSessionId: undefined,
     resetCueLabel: NO_LABEL,
     respawnCueLabel: NO_LABEL,
+    roundBannerActive: false,
+    roundBannerLabel: NO_LABEL,
     roundOutcomeLabel: NO_LABEL,
     roundPhaseLabel: NO_LABEL,
     roundTransitionActive: false,
@@ -121,6 +125,8 @@ export function updateRoundCombatPresentationState(
   });
   const localCombatCue = readLocalCombatCue(previous, input, nowMs);
   const remoteCombatCue = readRemoteCombatCue(previous, input, nowMs);
+  const roundWinnerLabel = formatRoundWinner(input);
+  const roundBanner = readRoundBanner(input, roundWinnerLabel);
 
   return {
     lastCombatCueAtMs: localCombatCue.lastCueAtMs,
@@ -142,12 +148,38 @@ export function updateRoundCombatPresentationState(
     remoteCombatTargetSessionId: remoteCombatCue.targetSessionId,
     resetCueLabel: formatResetCue(input),
     respawnCueLabel: formatRespawnCue(input),
+    roundBannerActive: roundBanner.active,
+    roundBannerLabel: roundBanner.label,
     roundOutcomeLabel: formatRoundOutcome(input.roundOutcome),
     roundPhaseLabel: formatRoundPhase(input.roundPhase),
     roundTransitionActive: transition.active,
     roundTransitionLabel: transition.label,
-    roundWinnerLabel: formatRoundWinner(input)
+    roundWinnerLabel
   };
+}
+
+function readRoundBanner(
+  input: RoundCombatPresentationInput,
+  roundWinnerLabel: string
+): Readonly<{ active: boolean; label: string }> {
+  // The banner shows only once the server has decided a round outcome, during the
+  // ended/reset result window. The outcome and winner are server-owned; the client
+  // never decides who won.
+  const outcome = readInteger(input.roundOutcome);
+  const decided = outcome === ROUND_OUTCOME.elimination || outcome === ROUND_OUTCOME.timeout;
+  const inResultWindow =
+    input.roundPhase === ROUND_PHASE.ended || input.roundPhase === ROUND_PHASE.reset;
+  if (!decided || !inResultWindow) {
+    return { active: false, label: NO_LABEL };
+  }
+
+  if (outcome === ROUND_OUTCOME.elimination && roundWinnerLabel !== NO_LABEL) {
+    return { active: true, label: `${roundWinnerLabel} wins the round` };
+  }
+  if (outcome === ROUND_OUTCOME.timeout) {
+    return { active: true, label: "Round over — time" };
+  }
+  return { active: true, label: "Round over" };
 }
 
 function formatRoundWinner(input: RoundCombatPresentationInput): string {

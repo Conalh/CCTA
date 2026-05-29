@@ -198,6 +198,7 @@ try {
   assert.match(playtestHtml, /id="playtest-round-phase"/);
   assert.match(playtestHtml, /id="playtest-round-outcome"/);
   assert.match(playtestHtml, /id="playtest-round-winner"/);
+  assert.match(playtestHtml, /id="playtest-round-banner"/);
   assert.match(playtestHtml, /id="playtest-round-transition"/);
   assert.match(playtestHtml, /id="playtest-round-reset-cue"/);
   assert.match(playtestHtml, /id="playtest-local-health"/);
