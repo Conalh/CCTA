@@ -1,5 +1,5 @@
 export const DEFAULT_MATCH_ID = 1 as const;
-export const DEFAULT_MATCH_CAPACITY = 4 as const;
+export const DEFAULT_MATCH_CAPACITY = 8 as const;
 export const DEFAULT_FIRST_SESSION_ID = 1 as const;
 
 export type FixedMatchSessionConfig = Readonly<{

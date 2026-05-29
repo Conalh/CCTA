@@ -183,7 +183,7 @@ test("world state default slot starts are clear of the original arena blockers",
     firstEntityId: 600
   });
 
-  for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+  for (let slotIndex = 0; slotIndex < 8; slotIndex += 1) {
     const entity = world.assignSessionEntity({
       sessionId: 50 + slotIndex,
       slotIndex

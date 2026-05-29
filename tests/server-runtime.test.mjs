@@ -97,7 +97,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
     matchId: 1,
     sessionId: 1,
     slotIndex: 0,
-    capacity: 4,
+    capacity: 8,
     connectedSlots: 1
   });
   assert.deepEqual(runtime.getSessionInputSequences("session-1"), [2]);
