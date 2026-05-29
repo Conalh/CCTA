@@ -57,7 +57,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 45. Validate-included smoke guards the roster and scoreboard presentation surfaces.
 46. Round outcome labelled with the server-owned winner's callsign.
 47. Local two-client harness asserts the round-winner callsign end to end.
-48. **Current: Read-only server-owned match occupancy readout in the playtest view.**
+48. Read-only server-owned match occupancy readout in the playtest view.
+49. **Current: Local two-client harness asserts the server-owned match occupancy end to end.**
 
 ## Phase 8 Status
 
@@ -576,18 +577,28 @@ Phase 48 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label and its harness assertion, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 49 Status
+
+Phase 49 is current when validation passes because:
+
+- `npm run playtest:harness` now asserts the server-owned match occupancy end to end: with both clients connected it reads the diagnostics-only occupancy view state and confirms it reflects two connected slots of capacity, and after the primary disconnects it confirms the remaining client's observed occupancy drops to one connected slot of capacity.
+- The harness prints a `- match occupancy:` line in its human-review summary and reports an honest caveat when occupancy does not read as two-of-capacity then shrink to one-of-capacity.
+- The harness only reads existing view state and adds no authority, identity, or protocol data. A focused test covers the healthy occupancy line and the does-not-shrink caveat.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **assert the server-owned match occupancy end to end in the local two-client harness, so occupancy is proven to reflect connected slots of capacity across a real two-client session and a disconnect**.
+The next milestone is **surface the server-owned active-round time remaining as a read-only round-timer readout in `/playtest.html`, so the playtest view shows how long the active phase has left, sourced only from server-owned round timing**.
 
-The occupancy readout (Phase 48) is proven in unit projection, and the harness already opens two clients and disconnects one (Phase 34/42). The matching step is to have `npm run playtest:harness` read the diagnostics-only occupancy view state with both clients connected, confirm it reads as two-of-capacity, and confirm the disconnect reduces the observed occupancy on the remaining client, printed in the human-review summary.
+The server owns the round phase end tick and broadcasts it in the existing round-state message (the diagnostics page already shows the phase-ends tick, and the playtest reset cue already derives a ticks-remaining value the same way). The matching step is a read-only round-timer readout that formats the server-owned active-phase end tick minus the latest server tick, falling back to a neutral label when the phase is not timed or the values are missing. The client computes no authoritative timing of its own.
 
 Expected proof:
 
-- With both clients connected the harness reads the diagnostics-only occupancy view state and confirms it reflects two connected slots of the server-owned capacity.
-- After the primary disconnects, the remaining client's observed occupancy drops to one connected slot of capacity, read from the same diagnostics-only state.
-- The harness prints the occupancy evidence in its human-review summary without uploading analytics, writing remote logs, or starting hosted services, and reports an honest caveat if occupancy is never observed.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- `/playtest.html` shows a read-only round-timer readout derived from the server-owned round phase end tick and latest server tick, guarded by the browser-page smoke.
+- The readout is presentation-only: it formats only the already-mirrored server-owned round timing, computes no authoritative clock, and falls back to a neutral label before the first round state or when the active phase has no end tick.
+- A focused test covers the timer formatting, including the not-timed and malformed-value fallbacks.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout and its harness assertion, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 

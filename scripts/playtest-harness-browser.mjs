@@ -276,6 +276,17 @@ async (page) => {
   const primaryAfterDisconnect = await readPlaytestState(page);
   await waitForPlaytestState(peerPage, (state) => state.rosterEntryCount === 1, 12000);
   const peerRosterAfterPrimaryDisconnect = await readPlaytestState(peerPage);
+  let peerOccupancyAfterDisconnect = peerRosterAfterPrimaryDisconnect.matchOccupancy;
+  try {
+    await waitForPlaytestState(
+      peerPage,
+      (state) => typeof state.matchOccupancy === "string" && state.matchOccupancy.startsWith("1 /"),
+      7000
+    );
+    peerOccupancyAfterDisconnect = (await readPlaytestState(peerPage)).matchOccupancy;
+  } catch {
+    // Keep the already-read occupancy; the summary reports it honestly.
+  }
   await page.evaluate(() => window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__.connect());
   await page.waitForFunction(
     () => window.__BREACHLINE_PLAYTEST_STATE__?.connectionStatus === "accepted",
@@ -349,6 +360,10 @@ async (page) => {
       peerCallsigns: rosterColumn(initialPeerRoster, "callsign"),
       primaryWeapons: rosterColumn(initialPrimary, "weaponLabel"),
       peerEntryCountAfterPrimaryDisconnect: peerRosterAfterPrimaryDisconnect.rosterEntryCount
+    },
+    occupancy: {
+      bothConnected: initialPrimary.matchOccupancy,
+      afterPrimaryDisconnect: peerOccupancyAfterDisconnect
     },
     scoreboard: {
       observed: scoreboardObserved,

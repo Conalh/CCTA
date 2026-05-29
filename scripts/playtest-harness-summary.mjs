@@ -9,6 +9,7 @@ export function createPlaytestHarnessSummary(evidence) {
     "Evidence:",
     `- two clients: ${formatClientStatus(evidence.clients)}`,
     `- roster: ${formatRosterStatus(evidence.roster)}`,
+    `- match occupancy: ${formatOccupancyStatus(evidence.occupancy)}`,
     `- render: ${formatRenderStatus(evidence.render)}`,
     `- movement/collision: ${formatMovementStatus(evidence.movement)}`,
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
@@ -61,6 +62,16 @@ function formatRosterStatus(roster) {
   }
 
   return `fail (primary ${readNumber(roster?.primaryEntryCount)}, peer ${readNumber(roster?.peerEntryCount)}, distinct ${readBoolean(roster?.distinctLocalCallsigns)}, disconnect -> ${readNumber(roster?.peerEntryCountAfterPrimaryDisconnect)})`;
+}
+
+function formatOccupancyStatus(occupancy) {
+  const both = readText(occupancy?.bothConnected, "-");
+  const after = readText(occupancy?.afterPrimaryDisconnect, "-");
+  if (/^2 \/ \d+$/.test(both) && /^1 \/ \d+$/.test(after)) {
+    return `ok (${both}, disconnect -> ${after})`;
+  }
+
+  return `caveat (${both}, disconnect -> ${after})`;
 }
 
 function formatRenderStatus(render) {

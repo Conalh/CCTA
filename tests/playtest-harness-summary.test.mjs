@@ -66,6 +66,10 @@ const completeEvidence = {
     primaryRoundTransition: "active -> ended",
     primaryResetCue: "reset in 12 ticks"
   },
+  occupancy: {
+    bothConnected: "2 / 8",
+    afterPrimaryDisconnect: "1 / 8"
+  },
   scoreboard: {
     observed: true,
     entryCount: 2,
@@ -109,6 +113,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /WebTransport remains pending\/unproven/);
   assert.match(text, /two clients: ok \(accepted, accepted\)/);
   assert.match(text, /roster: ok \(both see 2 \[Vesper, Quill\], weapons \[Halcyon\], local Vesper\/Quill, disconnect -> 1\)/);
+  assert.match(text, /match occupancy: ok \(2 \/ 8, disconnect -> 1 \/ 8\)/);
   assert.match(text, /render: ok \(nonblank, remote models 1\)/);
   assert.match(text, /movement\/collision: ok \(moving -> blocked -> sliding\)/);
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
@@ -151,6 +156,19 @@ test("playtest harness summary flags an incomplete server-owned roster", () => {
 
   assert.match(text, /roster: fail \(primary 2, peer 1, distinct false, disconnect -> 2\)/);
   assert.doesNotMatch(text, /roster: ok/);
+});
+
+test("playtest harness summary flags match occupancy that does not shrink on disconnect", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    occupancy: {
+      bothConnected: "2 / 8",
+      afterPrimaryDisconnect: "2 / 8"
+    }
+  });
+
+  assert.match(text, /match occupancy: caveat \(2 \/ 8, disconnect -> 2 \/ 8\)/);
+  assert.doesNotMatch(text, /match occupancy: ok/);
 });
 
 test("playtest harness summary reports an honest round-winner caveat when none is observed", () => {
