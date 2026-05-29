@@ -248,6 +248,21 @@ async (page) => {
     : [];
   const localScoreRow = scoreboardRows.find((row) => row.isLocalSession === true);
 
+  // The server-owned round winner is set at elimination; the primary is the killer, so
+  // its diagnostics-only winner label should resolve to its own roster callsign.
+  let roundWinnerObserved = false;
+  try {
+    await waitForPlaytestState(
+      page,
+      (state) => typeof state.roundWinner === "string" && state.roundWinner !== "-",
+      7000
+    );
+    roundWinnerObserved = true;
+  } catch {
+    roundWinnerObserved = false;
+  }
+  const roundWinnerState = await readPlaytestState(page);
+
   const primaryAfterCombat = await readPlaytestState(page);
   const peerAfterCombat = await readPlaytestState(peerPage);
   const browserErrorCount = consoleErrors.length + pageErrors.length;
@@ -351,6 +366,14 @@ async (page) => {
         kills: row.kills,
         sessionId: row.sessionId
       }))
+    },
+    roundWinner: {
+      observed: roundWinnerObserved,
+      label: roundWinnerState.roundWinner,
+      localCallsign: initialPrimary.rosterLocalCallsign,
+      matchesLocalCallsign:
+        typeof roundWinnerState.roundWinner === "string" &&
+        roundWinnerState.roundWinner === initialPrimary.rosterLocalCallsign
     },
     render: {
       primaryNonblank: initialPrimary.renderSampleHealthy,

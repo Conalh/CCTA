@@ -76,6 +76,12 @@ const completeEvidence = {
       { callsign: "Quill", deaths: 1, isLocalSession: false, kills: 0, sessionId: 2 }
     ]
   },
+  roundWinner: {
+    observed: true,
+    label: "Vesper",
+    localCallsign: "Vesper",
+    matchesLocalCallsign: true
+  },
   reconnect: {
     beforeStatus: "closed",
     afterStatus: "accepted",
@@ -108,6 +114,7 @@ test("playtest harness summary reports local evidence and transport caveats", ()
   assert.match(text, /accepted miss: ok \(accepted miss, miss, tracers 1\)/);
   assert.match(text, /accepted hit: ok \(accepted hit, target 2\)/);
   assert.match(text, /combat\/round: ok \(dead, ended, elimination, reset in 12 ticks\)/);
+  assert.match(text, /round winner: ok \(Vesper\)/);
   assert.match(text, /scoreboard callsigns: ok \(Vesper 1\/0, Quill 0\/1; local Vesper\)/);
   assert.match(text, /reconnect cleanup: ok \(closed -> accepted, transient cleared\)/);
   assert.match(text, /baseline pages: ok \(diagnostics accepted, sandbox nonblank\)/);
@@ -144,6 +151,35 @@ test("playtest harness summary flags an incomplete server-owned roster", () => {
 
   assert.match(text, /roster: fail \(primary 2, peer 1, distinct false, disconnect -> 2\)/);
   assert.doesNotMatch(text, /roster: ok/);
+});
+
+test("playtest harness summary reports an honest round-winner caveat when none is observed", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    roundWinner: {
+      observed: false,
+      label: "-",
+      localCallsign: "Vesper",
+      matchesLocalCallsign: false
+    }
+  });
+
+  assert.match(text, /round winner: caveat \(no winner observed\)/);
+  assert.doesNotMatch(text, /round winner: ok/);
+});
+
+test("playtest harness summary flags a round winner that is not the local callsign", () => {
+  const text = createPlaytestHarnessSummary({
+    ...completeEvidence,
+    roundWinner: {
+      observed: true,
+      label: "session 2",
+      localCallsign: "Vesper",
+      matchesLocalCallsign: false
+    }
+  });
+
+  assert.match(text, /round winner: caveat \(session 2; not the local callsign\)/);
 });
 
 test("playtest harness summary reports an honest scoreboard caveat when no kill is scored", () => {

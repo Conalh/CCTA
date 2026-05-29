@@ -14,6 +14,7 @@ export function createPlaytestHarnessSummary(evidence) {
     `- accepted miss: ${formatMissStatus(evidence.fire?.acceptedMiss)}`,
     `- accepted hit: ${formatHitStatus(evidence.fire?.acceptedHit)}`,
     `- combat/round: ${formatCombatRoundStatus(evidence.combatRound)}`,
+    `- round winner: ${formatRoundWinnerStatus(evidence.roundWinner)}`,
     `- scoreboard callsigns: ${formatScoreboardCallsignStatus(evidence.scoreboard)}`,
     ...formatNetworkDiagnosticsLines(evidence.network),
     `- reconnect cleanup: ${formatReconnectStatus(evidence.reconnect)}`,
@@ -103,6 +104,20 @@ function formatCombatRoundStatus(combatRound) {
   }
 
   return "caveat (death/round transition not observed)";
+}
+
+function formatRoundWinnerStatus(roundWinner) {
+  const label = readText(roundWinner?.label, "-");
+
+  if (roundWinner?.observed === true && roundWinner.matchesLocalCallsign === true) {
+    return `ok (${label})`;
+  }
+
+  if (roundWinner?.observed === true && label !== "-") {
+    return `caveat (${label}; not the local callsign)`;
+  }
+
+  return "caveat (no winner observed)";
 }
 
 function formatScoreboardCallsignStatus(scoreboard) {
