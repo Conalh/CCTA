@@ -58,7 +58,8 @@ The roadmap is intentionally milestone-based. Each goal should leave the project
 46. Round outcome labelled with the server-owned winner's callsign.
 47. Local two-client harness asserts the round-winner callsign end to end.
 48. Read-only server-owned match occupancy readout in the playtest view.
-49. **Current: Local two-client harness asserts the server-owned match occupancy end to end.**
+49. Local two-client harness asserts the server-owned match occupancy end to end.
+50. **Current: New original eight-player arena (Drydock Span) authored as validated data.**
 
 ## Phase 8 Status
 
@@ -587,19 +588,31 @@ Phase 49 is current when validation passes because:
 - Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - WebTransport status remains honest.
 
+## Phase 50 Status
+
+Phase 50 is current when validation passes because:
+
+- A new original arena, Drydock Span (`arena-drydock-span`), is authored in shared as validated data sized for the eight-player match capacity.
+- It is a mirrored two-end greybox: four north and four south neutral spawns face a contested midline, with cover symmetric about the midline so neither end holds a layout advantage. It passes the existing map metadata contract (bounded counts, positive geometry inside ~40×40 world bounds, original naming) and renders a greybox layout from its metadata.
+- The arena is data only this phase: the server collision arena, the slot starts, and the renderer default are unchanged, so there is no behavior change yet. Ebb Terminal remains the small test arena.
+- Focused tests cover metadata validity, the eight-spawn mirrored structure, original naming, and a conservative clearance check confirming every spawn is clear of the derived collision blockers.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout and its harness assertion, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- WebTransport status remains honest.
+
 ## Next Proof Milestone
 
-The next milestone is **surface the server-owned active-round time remaining as a read-only round-timer readout in `/playtest.html`, so the playtest view shows how long the active phase has left, sourced only from server-owned round timing**.
+The next milestone is **make Drydock Span the default arena for the server collision world and the client renderer/camera, and reposition the eight slot starts onto its mirrored spawns, so the eight-player arena is actually live end to end**.
 
-The server owns the round phase end tick and broadcasts it in the existing round-state message (the diagnostics page already shows the phase-ends tick, and the playtest reset cue already derives a ticks-remaining value the same way). The matching step is a read-only round-timer readout that formats the server-owned active-phase end tick minus the latest server tick, falling back to a neutral label when the phase is not timed or the values are missing. The client computes no authoritative timing of its own.
+Drydock Span exists and is validated (Phase 50) but nothing uses it yet. The matching step swaps the default consumers from Ebb Terminal to Drydock Span: the server world-state collision geometry, the `DEFAULT_SLOT_STARTS` positions (moved onto the eight mirrored spawns, all collision-clear and well separated), the client renderer greybox default, and the player-camera/map-metadata default. Ebb Terminal stays as the small test arena referenced by its own tests.
 
 Expected proof:
 
-- `/playtest.html` shows a read-only round-timer readout derived from the server-owned round phase end tick and latest server tick, guarded by the browser-page smoke.
-- The readout is presentation-only: it formats only the already-mirrored server-owned round timing, computes no authoritative clock, and falls back to a neutral label before the first round state or when the active phase has no end tick.
-- A focused test covers the timer formatting, including the not-timed and malformed-value fallbacks.
-- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout and its harness assertion, the browser-page smoke, diagnostics page, renderer sandbox, player camera, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
+- The server derives collision from Drydock Span, and all eight `DEFAULT_SLOT_STARTS` resolve to collision-clear, well-separated positions on the arena's mirrored spawns (proven by the existing world-state slot-start collision test, updated for the new layout).
+- The client renderer and player camera default to Drydock Span, so client-prediction collision matches the server arena and the playtest/sandbox render the new map; the map-id/revision diagnostics reflect Drydock Span.
+- Client prediction and server movement continue to agree under the shared collision helper on the new arena.
+- Ebb Terminal remains valid and tested as the small test arena, and the two-client harness still runs green end to end on the new default arena.
+- Existing round flow, loadout, weapon authority, combat, fire validation, the match-stats feed and roster-labelled scoreboard, the roster feed and participant panel, the round-winner label, the match occupancy readout, the browser-page smoke, diagnostics page, renderer sandbox, map metadata tests, match slots, prediction/interpolation diagnostics, and transport smokes remain intact.
 - Transport adapters still hide WebSocket/WebTransport details.
 - WebTransport setup is retried only when HTTP/3/TLS support is available.
 
-This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection, collision gameplay, player avatars/skins, nameplates, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.
+This milestone does not relax server authority. Do not add client-owned identity, client-owned hits, client-owned damage/health/death, client-owned scores, client-owned win/loss, matchmaking queue, economy, lag compensation, persistence, art pass, server spawn selection beyond the existing fixed slot starts, player avatars/skins, nameplates, or ranked systems during this milestone. All match meaning continues to originate from state the server already owns.
