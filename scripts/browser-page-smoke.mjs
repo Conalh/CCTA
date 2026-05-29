@@ -180,6 +180,9 @@ try {
   assert.match(playtestHtml, /id="playtest-canvas"/);
   assert.match(playtestHtml, /id="playtest-crosshair"/);
   assert.match(playtestHtml, /id="playtest-hitmarker"/);
+  assert.match(playtestHtml, /id="playtest-diagnostics-toggle"/);
+  // The developer diagnostics readout ships hidden by default so the playtest reads as a game.
+  assert.match(playtestHtml, /id="playtest-readout"[^>]*data-visible="false"/);
   assert.match(playtestHtml, /id="playtest-status"/);
   assert.match(playtestHtml, /id="playtest-server-url"/);
   assert.match(playtestHtml, /id="playtest-connect"/);

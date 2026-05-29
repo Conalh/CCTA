@@ -32,6 +32,7 @@
         <input id="playtest-server-url" autocomplete="off" spellcheck="false" />
         <button id="playtest-connect" type="button">Connect</button>
         <button id="playtest-disconnect" type="button" disabled>Disconnect</button>
+        <button id="playtest-diagnostics-toggle" type="button" aria-pressed="false">Show diagnostics</button>
       </section>
 
       <section class="playtest-stage" aria-label="Networked renderer playtest view">
@@ -59,7 +60,7 @@
           </span>
           <strong id="playtest-hud-respawn" class="playtest-hud-respawn"></strong>
         </div>
-        <div class="playtest-readout" aria-label="Networked playtest diagnostics">
+        <div id="playtest-readout" class="playtest-readout" data-visible="false" aria-label="Networked playtest diagnostics">
           <span>Pointer <strong id="playtest-pointer-state">free</strong></span>
           <span>Frames <strong id="playtest-frame-count">0</strong></span>
           <span>Match <strong id="playtest-match-occupancy">-</strong></span>

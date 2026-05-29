@@ -222,6 +222,8 @@ const hudLifeEl = requireElement("playtest-hud-life");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
 const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
+const readoutEl = requireElement("playtest-readout");
+const diagnosticsToggleEl = requireElement("playtest-diagnostics-toggle");
 const localCombatEventEl = requireElement("playtest-combat-event");
 const localCombatCueEl = requireElement("playtest-combat-cue");
 const remoteCombatCueEl = requireElement("playtest-remote-combat");
@@ -251,6 +253,9 @@ let sequence = 0;
 let fireSequence = 0;
 let loadoutSequence = 0;
 let reloadSequence = 0;
+// Developer diagnostics readout is hidden by default so the playtest reads as a clean
+// game; toggled with the controls button or the Backquote key.
+let diagnosticsVisible = false;
 let yawRadians = 0;
 let pitchRadians = 0;
 let smoothedCameraPosition: readonly [number, number, number] | undefined;
@@ -282,6 +287,10 @@ connectButton.addEventListener("click", () => {
 disconnectButton.addEventListener("click", () => {
   disconnect("client disconnect");
 });
+diagnosticsToggleEl.addEventListener("click", () => {
+  toggleDiagnostics();
+});
+applyDiagnosticsVisibility();
 window.__BREACHLINE_PLAYTEST_DIAGNOSTICS__ = {
   aimAtRemote: aimAtRemoteForLocalDiagnostics,
   aimAtRemoteAndFire: (targetEntityId?: number) => {
@@ -356,6 +365,12 @@ try {
     pitchRadians = clamp(pitchRadians - event.movementY * 0.0025, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
   });
   document.addEventListener("keydown", (event) => {
+    if (event.code === "Backquote") {
+      event.preventDefault();
+      toggleDiagnostics();
+      return;
+    }
+
     if (event.code === "KeyR") {
       event.preventDefault();
       sendReloadIntent();
@@ -1246,6 +1261,17 @@ function resetFireResultPresentation(): void {
   fireResultPresentationState = createInitialFireResultPresentationState();
   lastFireIntentSequence = undefined;
   lastFireIntentTimeMs = undefined;
+}
+
+function applyDiagnosticsVisibility(): void {
+  readoutEl.dataset.visible = diagnosticsVisible ? "true" : "false";
+  diagnosticsToggleEl.textContent = diagnosticsVisible ? "Hide diagnostics" : "Show diagnostics";
+  diagnosticsToggleEl.setAttribute("aria-pressed", diagnosticsVisible ? "true" : "false");
+}
+
+function toggleDiagnostics(): void {
+  diagnosticsVisible = !diagnosticsVisible;
+  applyDiagnosticsVisibility();
 }
 
 function resetRoundCombatPresentation(): void {

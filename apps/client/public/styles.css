@@ -410,6 +410,10 @@ li {
   overflow: auto;
 }
 
+.playtest-readout[data-visible="false"] {
+  display: none;
+}
+
 .playtest-readout span {
   padding: 7px 9px;
   border: 1px solid #3c4746;
