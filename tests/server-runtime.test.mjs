@@ -1601,9 +1601,9 @@ test("server runtime hosts the configured map and spawns players on it", () => {
   );
 
   runtime.step(1, 1000);
-  // Session 1 (slot 0) spawns on Foundry Row's first Cop start, not Drydock's.
+  // Session 1 (slot 0) spawns on Foundry Row's first Cop start (inside the foundry), not Drydock's.
   const entity = runtime.getWorldSnapshot(1).entities.find((e) => e.sessionId === 1);
-  assert.deepEqual([entity.x, entity.y, entity.z], [-6, 0, -17]);
+  assert.deepEqual([entity.x, entity.y, entity.z], [-6, 0, -15]);
 });
 
 test("server runtime exposes the charge and never arms it away from the plant site", () => {
