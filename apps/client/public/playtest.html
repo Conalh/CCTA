@@ -38,20 +38,26 @@
       <section class="playtest-stage" aria-label="Networked renderer playtest view">
         <canvas id="playtest-canvas"></canvas>
         <section id="playtest-menu" class="playtest-menu" data-visible="true" aria-label="Main menu">
-          <div class="playtest-menu-frame">
-            <header class="playtest-menu-header">
-              <div class="playtest-menu-brand">
-                <span class="playtest-menu-wordmark">BREACHLINE</span>
-                <span id="playtest-menu-build" class="playtest-menu-build"></span>
-              </div>
-              <nav class="playtest-menu-nav" aria-label="Menu sections">
-                <button class="playtest-nav-button" data-panel="servers" data-active="true" type="button">Find Servers</button>
-                <button class="playtest-nav-button" data-panel="settings" data-active="false" type="button">Settings</button>
-                <button class="playtest-nav-button" data-panel="controls" data-active="false" type="button">Controls</button>
-              </nav>
-            </header>
+          <div class="playtest-menu-vignette" aria-hidden="true"></div>
 
-            <section class="playtest-menu-section" data-panel="servers" data-active="true">
+          <div class="playtest-mainmenu">
+            <div class="playtest-mainmenu-brand">
+              <span class="playtest-menu-wordmark">BREACHLINE</span>
+              <span id="playtest-menu-build" class="playtest-menu-build"></span>
+            </div>
+            <nav class="playtest-mainmenu-list" aria-label="Main menu">
+              <button class="playtest-mainmenu-item" data-window="servers" type="button">Find Servers</button>
+              <button class="playtest-mainmenu-item" data-window="settings" type="button">Settings</button>
+              <button class="playtest-mainmenu-item" data-window="controls" type="button">Controls</button>
+            </nav>
+          </div>
+
+          <div id="playtest-window-servers" class="playtest-window playtest-window-wide" data-window="servers" data-open="false" role="dialog" aria-label="Find Servers" aria-modal="false">
+            <div class="playtest-window-titlebar">
+              <span class="playtest-window-title">Find Servers</span>
+              <button class="playtest-window-close" data-window-close type="button" aria-label="Close">✕</button>
+            </div>
+            <div class="playtest-window-body">
               <div class="playtest-browser-tabs" role="tablist" aria-label="Server source">
                 <button class="playtest-browser-tab" data-tab="internet" data-active="true" type="button">Internet (<span data-count="internet">0</span>)</button>
                 <button class="playtest-browser-tab" data-tab="recent" data-active="false" type="button">Recent (<span data-count="recent">0</span>)</button>
@@ -76,9 +82,16 @@
                 <input id="playtest-manual-join" class="playtest-menu-input" autocomplete="off" spellcheck="false" placeholder="ws://host:8787 or join link" />
                 <button id="playtest-menu-connect" class="playtest-menu-button playtest-menu-button-primary" type="button">Connect</button>
               </div>
-            </section>
+              <p class="playtest-menu-hint">Double-click a server to join, or select one and press Connect.</p>
+            </div>
+          </div>
 
-            <section class="playtest-menu-section" data-panel="settings" data-active="false">
+          <div id="playtest-window-settings" class="playtest-window" data-window="settings" data-open="false" role="dialog" aria-label="Settings" aria-modal="false">
+            <div class="playtest-window-titlebar">
+              <span class="playtest-window-title">Settings</span>
+              <button class="playtest-window-close" data-window-close type="button" aria-label="Close">✕</button>
+            </div>
+            <div class="playtest-window-body">
               <div class="playtest-setting-row">
                 <label for="playtest-setting-sensitivity">Mouse sensitivity</label>
                 <input id="playtest-setting-sensitivity" type="range" min="0.25" max="3" step="0.05" value="1" />
@@ -90,9 +103,15 @@
                 <output id="playtest-setting-fov-value" class="playtest-setting-value">74</output>
               </div>
               <p class="playtest-menu-hint">Settings are saved on this device and applied immediately.</p>
-            </section>
+            </div>
+          </div>
 
-            <section class="playtest-menu-section" data-panel="controls" data-active="false">
+          <div id="playtest-window-controls" class="playtest-window" data-window="controls" data-open="false" role="dialog" aria-label="Controls" aria-modal="false">
+            <div class="playtest-window-titlebar">
+              <span class="playtest-window-title">Controls</span>
+              <button class="playtest-window-close" data-window-close type="button" aria-label="Close">✕</button>
+            </div>
+            <div class="playtest-window-body">
               <ul class="playtest-controls-list">
                 <li><span class="playtest-control-key">WASD</span><span>Move</span></li>
                 <li><span class="playtest-control-key">Mouse</span><span>Aim</span></li>
@@ -102,11 +121,7 @@
                 <li><span class="playtest-control-key">Ctrl / C</span><span>Crouch</span></li>
                 <li><span class="playtest-control-key">`</span><span>Toggle diagnostics</span></li>
               </ul>
-            </section>
-
-            <footer class="playtest-menu-footer">
-              <span class="playtest-menu-hint">Double-click a server to join, or select one and press Connect.</span>
-            </footer>
+            </div>
           </div>
         </section>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>

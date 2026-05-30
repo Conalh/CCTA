@@ -787,105 +787,155 @@ li {
   position: absolute;
   inset: 0;
   z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background:
-    repeating-linear-gradient(rgb(0 0 0 / 0%) 0 2px, rgb(0 0 0 / 16%) 2px 3px),
-    radial-gradient(130% 130% at 50% 0%, #11181b, #070a0b 90%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
 }
 
 .playtest-menu[data-visible="false"] {
   display: none;
 }
 
-.playtest-menu-frame {
-  width: 760px;
-  max-width: 100%;
-  max-height: 100%;
-  overflow: hidden;
+/* The arena renders behind the menu (a live "map" backdrop); only a vignette and
+   faint scanlines darken it so the panels stay readable. */
+.playtest-menu-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(rgb(0 0 0 / 0%) 0 2px, rgb(0 0 0 / 12%) 2px 3px),
+    radial-gradient(120% 120% at 50% 42%, rgb(6 9 10 / 18%), rgb(4 6 7 / 78%) 100%);
+}
+
+.playtest-mainmenu {
+  position: absolute;
+  left: 7%;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.playtest-mainmenu-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playtest-menu-wordmark {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #eef2f1;
+  text-shadow: 0 3px 0 #000, 0 0 18px rgb(142 208 189 / 25%);
+}
+
+.playtest-menu-build {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #5f6f6c;
+}
+
+.playtest-mainmenu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playtest-mainmenu-item {
+  position: relative;
+  padding: 9px 14px 9px 16px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: #c2ccca;
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  text-shadow: 0 1px 0 #000;
+}
+
+.playtest-mainmenu-item:hover {
+  color: #fff;
+  border-left-color: #8ed0bd;
+  background: linear-gradient(90deg, rgb(142 208 189 / 14%), transparent 70%);
+}
+
+.playtest-mainmenu-item[data-active="true"] {
+  color: #8ed0bd;
+  border-left-color: #8ed0bd;
+}
+
+.playtest-window {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 460px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  display: none;
   flex-direction: column;
   border: 1px solid #0a0d0e;
   border-radius: 4px;
   background: #11171a;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 6%),
-    inset 0 0 0 1px rgb(58 71 70 / 60%),
-    0 18px 52px rgb(0 0 0 / 55%);
-  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+    inset 0 0 0 1px rgb(58 71 70 / 55%),
+    0 22px 60px rgb(0 0 0 / 62%);
 }
 
-.playtest-menu-header {
+.playtest-window[data-open="true"] {
   display: flex;
-  align-items: flex-end;
+}
+
+.playtest-window-wide {
+  width: 760px;
+}
+
+.playtest-window-titlebar {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px 0;
+  height: 30px;
+  padding: 0 6px 0 12px;
   border-bottom: 1px solid #0a0d0e;
-  background: linear-gradient(#161e21, #10161800);
+  background: linear-gradient(#1f2a2d, #141d1f);
 }
 
-.playtest-menu-brand {
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 8px;
-}
-
-.playtest-menu-wordmark {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: #eef2f1;
-  text-shadow: 0 2px 0 #000;
-}
-
-.playtest-menu-build {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #5f6f6c;
-}
-
-.playtest-menu-nav {
-  display: flex;
-  gap: 2px;
-}
-
-.playtest-nav-button {
-  padding: 8px 14px;
-  border: 1px solid #0a0d0e;
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  background: #0e1416;
-  color: #9fb0ac;
-  font: inherit;
+.playtest-window-title {
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #8ed0bd;
+}
+
+.playtest-window-close {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #2c3633;
+  border-radius: 3px;
+  background: #141b1d;
+  color: #c2ccca;
+  font-size: 11px;
+  line-height: 1;
   cursor: pointer;
 }
 
-.playtest-nav-button:hover {
-  color: #d6dedc;
+.playtest-window-close:hover {
+  border-color: #cf8d7f;
+  color: #ffd9d0;
 }
 
-.playtest-nav-button[data-active="true"] {
-  background: #1b2426;
-  color: #8ed0bd;
-  box-shadow: inset 0 2px 0 #8ed0bd;
-}
-
-.playtest-menu-section {
-  display: none;
+.playtest-window-body {
+  display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-}
-
-.playtest-menu-section[data-active="true"] {
-  display: flex;
+  overflow: auto;
 }
 
 .playtest-browser-tabs {
@@ -1211,11 +1261,6 @@ li {
   color: #8ed0bd;
   font-size: 12px;
   text-align: center;
-}
-
-.playtest-menu-footer {
-  padding: 10px 16px 14px;
-  border-top: 1px solid #0a0d0e;
 }
 
 .playtest-menu-status {

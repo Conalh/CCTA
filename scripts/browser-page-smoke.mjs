@@ -236,9 +236,14 @@ try {
   // Main-menu server browser ships visible by default so the page opens on the menu.
   assert.match(playtestHtml, /id="playtest-menu"[^>]*data-visible="true"/);
   assert.match(playtestHtml, /id="playtest-menu-build"/);
-  assert.match(playtestHtml, /data-panel="servers"/);
-  assert.match(playtestHtml, /data-panel="settings"/);
-  assert.match(playtestHtml, /data-panel="controls"/);
+  // The main menu is a list of items that each open a window (HL1/CS-style), not tabs.
+  assert.match(playtestHtml, /class="playtest-mainmenu-item" data-window="servers"/);
+  assert.match(playtestHtml, /class="playtest-mainmenu-item" data-window="settings"/);
+  assert.match(playtestHtml, /class="playtest-mainmenu-item" data-window="controls"/);
+  assert.match(playtestHtml, /id="playtest-window-servers"/);
+  assert.match(playtestHtml, /id="playtest-window-settings"/);
+  assert.match(playtestHtml, /id="playtest-window-controls"/);
+  assert.match(playtestHtml, /data-window-close/);
   assert.match(playtestHtml, /data-tab="internet"/);
   assert.match(playtestHtml, /data-tab="recent"/);
   assert.match(playtestHtml, /data-tab="favorites"/);

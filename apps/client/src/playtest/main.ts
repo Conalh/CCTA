@@ -230,8 +230,9 @@ const serverListEl = requireElement("playtest-server-list");
 const menuStatusEl = requireElement("playtest-menu-status");
 const manualJoinInput = requireInput("playtest-manual-join");
 const menuConnectButton = requireButton("playtest-menu-connect");
-const navButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-nav-button"));
-const menuSections = Array.from(document.querySelectorAll<HTMLElement>(".playtest-menu-section"));
+const mainMenuItems = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-mainmenu-item"));
+const menuWindows = Array.from(document.querySelectorAll<HTMLElement>(".playtest-window"));
+const windowCloseButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-window-close]"));
 const browserTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-browser-tab"));
 const sortButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-sort"));
 const settingsSensitivityInput = requireInput("playtest-setting-sensitivity");
@@ -348,7 +349,7 @@ let registryMatches: readonly RegistryMatchListing[] = [];
 let serverPings: Record<string, number> = {};
 let pingProbeGeneration = 0;
 let pendingConnect: { joinUrl: string; name: string } | undefined;
-let activeMenuPanel: MenuPanel = "servers";
+let activeMenuWindow: MenuPanel | undefined;
 let activeServerTab: ServerBrowserTab = "internet";
 let serverSortKey: ServerSortKey = "players";
 let serverSortDirection: ServerSortDirection = "desc";
@@ -384,9 +385,14 @@ registryUrlInput.addEventListener("keydown", (event) => {
   }
 });
 menuBuildEl.textContent = SERVER_BROWSER_BUILD_ID;
-for (const button of navButtons) {
-  button.addEventListener("click", () => {
-    setActiveMenuPanel(resolveMenuPanel(button.dataset.panel));
+for (const item of mainMenuItems) {
+  item.addEventListener("click", () => {
+    openMenuWindow(resolveMenuPanel(item.dataset.window));
+  });
+}
+for (const closeButton of windowCloseButtons) {
+  closeButton.addEventListener("click", () => {
+    closeMenuWindow();
   });
 }
 for (const button of browserTabButtons) {
@@ -419,7 +425,7 @@ settingsFovInput.addEventListener("input", () => {
   applyFieldOfView();
   applySettingsReadouts();
 });
-setActiveMenuPanel("servers");
+closeMenuWindow();
 applyServerSortIndicators();
 renderServerBrowser();
 void refreshServerBrowser();
@@ -503,6 +509,12 @@ try {
     pitchRadians = clamp(pitchRadians - event.movementY * step, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
   });
   document.addEventListener("keydown", (event) => {
+    if (event.code === "Escape" && menuEl.dataset.visible === "true" && activeMenuWindow !== undefined) {
+      event.preventDefault();
+      closeMenuWindow();
+      return;
+    }
+
     if (event.code === "Backquote") {
       event.preventDefault();
       toggleDiagnostics();
@@ -831,13 +843,27 @@ function updateServerTabCounts(entries: readonly ServerBrowserEntry[]): void {
   }
 }
 
-function setActiveMenuPanel(panel: MenuPanel): void {
-  activeMenuPanel = panel;
-  for (const button of navButtons) {
-    button.dataset.active = button.dataset.panel === panel ? "true" : "false";
+function openMenuWindow(window: MenuPanel): void {
+  activeMenuWindow = window;
+  for (const item of mainMenuItems) {
+    item.dataset.active = item.dataset.window === window ? "true" : "false";
   }
-  for (const section of menuSections) {
-    section.dataset.active = section.dataset.panel === panel ? "true" : "false";
+  for (const dialog of menuWindows) {
+    dialog.dataset.open = dialog.dataset.window === window ? "true" : "false";
+  }
+  // Re-query the registry each time the server browser opens, like the old browser did.
+  if (window === "servers") {
+    void refreshServerBrowser();
+  }
+}
+
+function closeMenuWindow(): void {
+  activeMenuWindow = undefined;
+  for (const item of mainMenuItems) {
+    item.dataset.active = "false";
+  }
+  for (const dialog of menuWindows) {
+    dialog.dataset.open = "false";
   }
 }
 
@@ -1138,12 +1164,21 @@ function animate(
   const deltaSeconds = Math.max(0, (timeMs - lastRenderTimeMs) / 1000);
   lastRenderTimeMs = timeMs;
   const presentation = readNetworkedPlaytestPresentation();
-  smoothedCameraPosition = smoothNetworkedPlaytestCameraPosition({
-    deltaSeconds,
-    previousPosition: smoothedCameraPosition,
-    targetPosition: presentation.localCameraPose.position
-  });
-  applyCameraPose(camera, presentation, smoothedCameraPosition);
+  const menuVisible = menuEl.dataset.visible === "true";
+  if (menuVisible) {
+    applyMenuBackdropCamera(camera, timeMs);
+    smoothedCameraPosition = presentation.localCameraPose.position;
+  } else {
+    smoothedCameraPosition = smoothNetworkedPlaytestCameraPosition({
+      deltaSeconds,
+      previousPosition: smoothedCameraPosition,
+      targetPosition: presentation.localCameraPose.position
+    });
+    applyCameraPose(camera, presentation, smoothedCameraPosition);
+  }
+  // The camera-attached gun/effects belong to the game, not the menu backdrop.
+  firstPersonShellGroup.visible = !menuVisible;
+  fireResultCameraGroup.visible = !menuVisible;
   const firstPersonShell = createFirstPersonShellPresentation({
     enabled: true,
     fireIntentActive: readFireIntentActive(timeMs),
@@ -1513,6 +1548,15 @@ function applyCameraPose(
   camera.rotation.x = presentation.localCameraPose.pitchRadians;
   camera.rotation.y = presentation.localCameraPose.yawRadians;
   camera.rotation.z = 0;
+}
+
+// While the menu is up, slowly orbit the arena so the backdrop reads as a live map
+// behind the panels (the classic main-menu-over-a-map look).
+function applyMenuBackdropCamera(camera: THREE.PerspectiveCamera, timeMs: number): void {
+  const angle = (timeMs / 1000) * 0.05;
+  const radius = 27;
+  camera.position.set(Math.sin(angle) * radius, 9, Math.cos(angle) * radius);
+  camera.lookAt(0, 1.6, 0);
 }
 
 function resizeRenderer(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera): void {
