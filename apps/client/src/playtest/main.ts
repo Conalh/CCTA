@@ -172,6 +172,7 @@ declare global {
         isLocalSession: boolean;
         sessionId: number;
         slotIndex: number;
+        teamLabel: string;
         weaponLabel: string;
       }>[];
       remoteCombatCue: string;
@@ -1898,6 +1899,7 @@ function updateReadout(
       isLocalSession: row.isLocalSession,
       sessionId: row.sessionId,
       slotIndex: row.slotIndex,
+      teamLabel: row.teamLabel,
       weaponLabel: row.weaponLabel
     })),
     weaponAmmoInMagazine: state.weaponAmmoInMagazine,
@@ -1963,6 +1965,11 @@ function renderRoster(roster: RosterPresentation): void {
       const rowEl = document.createElement("li");
       rowEl.className = "playtest-roster-row";
       rowEl.dataset.local = row.isLocalSession ? "true" : "false";
+      rowEl.dataset.team = row.teamLabel.toLowerCase();
+
+      const teamEl = document.createElement("span");
+      teamEl.className = "playtest-roster-team";
+      teamEl.textContent = row.teamLabel;
 
       const nameEl = document.createElement("span");
       nameEl.className = "playtest-roster-name";
@@ -1972,7 +1979,7 @@ function renderRoster(roster: RosterPresentation): void {
       weaponEl.className = "playtest-roster-weapon";
       weaponEl.textContent = row.weaponLabel;
 
-      rowEl.append(nameEl, weaponEl);
+      rowEl.append(teamEl, nameEl, weaponEl);
       return rowEl;
     })
   );

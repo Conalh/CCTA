@@ -1,4 +1,11 @@
-import { getPlayerCallsign, getWeaponDefinition, type MatchRosterEntry } from "@breachline/shared";
+import {
+  getPlayerCallsign,
+  getWeaponDefinition,
+  teamForSlot,
+  teamName,
+  type MatchRosterEntry,
+  type TeamId
+} from "@breachline/shared";
 
 export type RosterPresentationRow = Readonly<{
   callsign: string;
@@ -6,6 +13,8 @@ export type RosterPresentationRow = Readonly<{
   label: string;
   sessionId: number;
   slotIndex: number;
+  team: TeamId;
+  teamLabel: string;
   weaponLabel: string;
 }>;
 
@@ -41,12 +50,15 @@ export function createRosterPresentation(input: RosterPresentationInput): Roster
       localCallsign = entry.callsign;
     }
 
+    const team = teamForSlot(entry.slotIndex);
     return {
       callsign: entry.callsign,
       isLocalSession,
       label: isLocalSession ? `${entry.callsign} (you)` : entry.callsign,
       sessionId: entry.sessionId,
       slotIndex: entry.slotIndex,
+      team,
+      teamLabel: teamName(team),
       weaponLabel: entry.weaponLabel
     };
   });

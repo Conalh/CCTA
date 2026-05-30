@@ -728,8 +728,8 @@ li {
 
 .playtest-roster-row {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   padding: 5px 7px;
   border-radius: 5px;
   background: rgb(38 48 45 / 55%);
@@ -740,7 +740,46 @@ li {
   color: #eef2f1;
 }
 
+.playtest-roster-team {
+  flex: 0 0 auto;
+  min-width: 46px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  background: rgb(60 71 70 / 60%);
+  color: #c6d0cd;
+}
+
+.playtest-roster-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playtest-roster-row[data-team="cops"] {
+  box-shadow: inset 2px 0 0 #5a8fd0;
+}
+
+.playtest-roster-row[data-team="robbers"] {
+  box-shadow: inset 2px 0 0 #c9b27e;
+}
+
+.playtest-roster-row[data-team="cops"] .playtest-roster-team {
+  background: rgb(80 130 200 / 32%);
+  color: #bcd6f5;
+}
+
+.playtest-roster-row[data-team="robbers"] .playtest-roster-team {
+  background: rgb(201 178 126 / 30%);
+  color: #e6cf96;
+}
+
 .playtest-roster-weapon {
+  flex: 0 0 auto;
   color: #eef2f1;
 }
 

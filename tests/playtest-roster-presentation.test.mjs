@@ -48,6 +48,21 @@ test("roster presentation orders rows by slot index then session", () => {
   assert.equal(forbiddenLabelPattern.test(labelText(presentation)), false);
 });
 
+test("roster presentation derives each player's side from the spawn slot", () => {
+  const presentation = createRosterPresentation({
+    entries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 5 }
+    ],
+    localSessionId: 1
+  });
+
+  const cop = presentation.rows.find((row) => row.slotIndex === 0);
+  const robber = presentation.rows.find((row) => row.slotIndex === 5);
+  assert.equal(cop?.teamLabel, "Cops");
+  assert.equal(robber?.teamLabel, "Robbers");
+});
+
 test("roster presentation highlights the local session and labels an unselected weapon", () => {
   const presentation = createRosterPresentation({
     entries: [
