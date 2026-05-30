@@ -63,6 +63,24 @@ test("remote player presentation exposes hit accent state and compact diagnostic
   assert.equal(normal?.parts.find((part) => part.role === "hit-accent")?.visible, false);
 });
 
+test("remote player presentation tints the stand-in by its slot-derived side", () => {
+  const models = createRemotePlayerPresentationModels({
+    highlightedRemoteEntityId: undefined,
+    remotePlaceholders: [
+      remotePlaceholder({ entityId: 201, id: "remote-201", slotIndex: 0 }), // Cops (lower half)
+      remotePlaceholder({ entityId: 202, id: "remote-202", position: [3, 0, -2], slotIndex: 5 }) // Robbers
+    ]
+  });
+
+  const copBody = models.find((m) => m.entityId === 201)?.parts.find((p) => p.role === "body")?.color;
+  const robberBody = models.find((m) => m.entityId === 202)?.parts.find((p) => p.role === "body")?.color;
+  assert.equal(typeof copBody, "string");
+  assert.equal(typeof robberBody, "string");
+  // The two sides read as distinct tints, and the colours carry no copied faction wording.
+  assert.notEqual(copBody, robberBody);
+  assert.doesNotMatch(JSON.stringify(models), forbiddenIdentityPattern);
+});
+
 test("remote player presentation squashes the stand-in height for a crouched stance", () => {
   const models = createRemotePlayerPresentationModels({
     highlightedRemoteEntityId: undefined,

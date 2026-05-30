@@ -52,6 +52,7 @@ import {
   holdPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
   formatPlaytestMoney,
+  formatPlaytestSide,
   formatPlaytestStance,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
@@ -291,6 +292,7 @@ const hudStanceEl = requireElement("playtest-hud-stance");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
 const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
+const hudSideEl = requireElement("playtest-hud-side");
 const objectiveEl = requireElement("playtest-objective");
 const objectiveStatusEl = requireElement("playtest-objective-status");
 const objectiveDetailEl = requireElement("playtest-objective-detail");
@@ -1931,6 +1933,9 @@ function updateReadout(
   roundResetCueEl.textContent = roundCombatPresentationState.resetCueLabel;
   localHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   localLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
+  const sideView = formatPlaytestSide(state.slotIndex, state.matchCapacity);
+  hudSideEl.textContent = sideView.label;
+  hudSideEl.dataset.team = sideView.tag;
   hudMoneyEl.textContent = formatPlaytestMoney(state.localMoney);
   if (buyMenuOpen && (transport === undefined || menuEl.dataset.visible === "true")) {
     closeBuyMenu();

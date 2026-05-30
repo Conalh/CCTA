@@ -1,4 +1,13 @@
+import { TEAM, teamForSlot, type TeamId } from "@breachline/shared";
+
 import type { NetworkedPlaytestRemotePlaceholder, Vector3Tuple } from "./playtest-state.js";
+
+// Side-readable model tints: Cops (defenders) cool steel-blue, Robbers (attackers) warm
+// amber. Derived from the slot the server already owns, so this is presentation only.
+const TEAM_MODEL_COLORS: Record<TeamId, { base: string; accent: string }> = {
+  [TEAM.cops]: { base: "#5b86c4", accent: "#a9c6ea" },
+  [TEAM.robbers]: { base: "#c5853a", accent: "#e6c08a" }
+};
 
 export const REMOTE_PLAYER_PRESENTATION_HEIGHT_METERS = 1.86 as const;
 export const REMOTE_PLAYER_PRESENTATION_TARGET_CENTER_HEIGHT_METERS = 1.08 as const;
@@ -86,7 +95,7 @@ export function createRemotePlayerPresentationModels(
       highlighted,
       crouched,
       id: `remote-model-${entityId}`,
-      parts: createRemotePlayerParts(entityId, highlighted),
+      parts: createRemotePlayerParts(entityId, highlighted, teamForSlot(slotIndex)),
       position,
       sessionId,
       slotIndex,
@@ -100,10 +109,12 @@ export function createRemotePlayerPresentationModels(
 
 function createRemotePlayerParts(
   entityId: number,
-  highlighted: boolean
+  highlighted: boolean,
+  team: TeamId
 ): readonly RemotePlayerPresentationPart[] {
-  const baseColor = "#d4c182";
-  const accentColor = "#8ed0bd";
+  const palette = TEAM_MODEL_COLORS[team] ?? TEAM_MODEL_COLORS[TEAM.cops];
+  const baseColor = palette.base;
+  const accentColor = palette.accent;
   const centerColor = "#eef2f1";
   const hitColor = "#ecffd6";
 

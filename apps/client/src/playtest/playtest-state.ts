@@ -2,6 +2,7 @@ import {
   CLIENT_INPUT_BUTTONS,
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
+  TEAM,
   createClientInputPlaceholder,
   getWeaponDefinition,
   playerEyeHeightMeters,
@@ -351,6 +352,19 @@ export function formatPlaytestRoundPhase(value: RoundPhase | number | undefined)
 export function formatPlaytestStance(crouched: boolean | undefined): string {
   // Stance is server-owned (snapshot crouch flag); the client only labels the mirrored value.
   return crouched === true ? "Crouched" : "Standing";
+}
+
+// Your side, derived from the server-owned spawn slot (no client-owned team). Returns the
+// side name plus a tag the HUD colours by; "-"/"none" until a slot is assigned.
+export function formatPlaytestSide(
+  slotIndex: number | undefined,
+  capacity: number | undefined
+): { label: string; tag: "cops" | "robbers" | "none" } {
+  if (typeof slotIndex !== "number" || !Number.isInteger(slotIndex) || slotIndex < 0) {
+    return { label: "-", tag: "none" };
+  }
+  const team = teamForSlot(slotIndex, typeof capacity === "number" ? capacity : undefined);
+  return { label: teamName(team), tag: team === TEAM.cops ? "cops" : "robbers" };
 }
 
 export function formatPlaytestMoney(money: number | undefined): string {

@@ -601,6 +601,14 @@ li {
   font-variant-numeric: tabular-nums;
 }
 
+.playtest-hud-side[data-team="cops"] {
+  color: #a9c6ea;
+}
+
+.playtest-hud-side[data-team="robbers"] {
+  color: #e6c08a;
+}
+
 .playtest-buy-menu {
   position: absolute;
   inset: 0;

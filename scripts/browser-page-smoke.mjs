@@ -262,6 +262,7 @@ try {
   assert.match(playtestHtml, /id="playtest-hud-money"/);
   assert.match(playtestHtml, /id="playtest-objective"[^>]*data-visible="false"/);
   assert.match(playtestHtml, /id="playtest-objective-bar"/);
+  assert.match(playtestHtml, /id="playtest-hud-side"/);
   assert.match(playtestHtml, /apps\/client\/dist\/playtest\/main\.js/);
   assert.match(playtestHtml, /packages\/shared\/dist\/index\.js/);
   assert.match(playtestHtml, /node_modules\/three\/build\/three\.module\.js/);
