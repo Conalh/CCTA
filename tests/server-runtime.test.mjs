@@ -1030,14 +1030,14 @@ test("server runtime broadcasts an authoritative roster on join, loadout, leave,
   }
 
   // Both assigned sessions appear, sorted by slot index, each with a distinct handle and the
-  // default weapon. Callsigns never cross the wire — only numeric handle ids do.
+  // default weapon. The server-sanitized requested name (here the client id) rides the wire.
   assert.deepEqual(runtime.getMatchRoster(0), {
     kind: "server.match.roster",
     serverTick: 0,
     entryCount: 2,
     entries: [
-      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
-      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0, name: "roster-a" },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1, name: "roster-b" }
     ]
   });
 
@@ -1048,8 +1048,8 @@ test("server runtime broadcasts an authoritative roster on join, loadout, leave,
     profileId: LOADOUT_PROFILE_ID.cinder
   });
   assert.deepEqual(first.sent.filter((message) => message.kind === "server.match.roster").at(-1).entries, [
-    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.cinder, slotIndex: 0 },
-    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.cinder, slotIndex: 0, name: "roster-a" },
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1, name: "roster-b" }
   ]);
 
   // A round reset returns every player to the default weapon and rebroadcasts to all sessions.
@@ -1061,17 +1061,17 @@ test("server runtime broadcasts an authoritative roster on join, loadout, leave,
   const afterReset = first.sent.filter((message) => message.kind === "server.match.roster");
   assert.ok(afterReset.length > rosterCountBeforeReset);
   assert.deepEqual(afterReset.at(-1).entries, [
-    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
-    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+    { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0, name: "roster-a" },
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1, name: "roster-b" }
   ]);
 
   // Disconnecting frees the slot and rebroadcasts the shrunken roster to the survivor.
   first.session.close();
   assert.deepEqual(second.sent.filter((message) => message.kind === "server.match.roster").at(-1).entries, [
-    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1, name: "roster-b" }
   ]);
   assert.deepEqual(runtime.getMatchRoster(4).entries, [
-    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1 }
+    { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 1, name: "roster-b" }
   ]);
 });
 

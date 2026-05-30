@@ -2,6 +2,7 @@ import {
   DEFAULT_WEAPON_PROFILE_ID,
   PLAYER_HANDLE_POOL,
   isKnownWeaponProfileId,
+  sanitizePlayerName,
   type LoadoutProfileId,
   type MatchRosterEntry,
   type PlayerHandle,
@@ -17,12 +18,14 @@ export type PlayerRegistryEntry = Readonly<{
   sessionId: number;
   handleId: number;
   callsign: string;
+  // Final display name: the player's sanitized requested name, or the pool callsign when none.
+  name: string;
   weaponProfileId: LoadoutProfileId;
   slotIndex: number;
 }>;
 
 export type PlayerRegistry = Readonly<{
-  assignSession(sessionId: number, slotIndex: number): PlayerRegistryEntry;
+  assignSession(sessionId: number, slotIndex: number, requestedName?: string): PlayerRegistryEntry;
   removeSession(sessionId: number): PlayerRegistryEntry | undefined;
   setWeapon(sessionId: number, profileId: number): PlayerRegistryEntry | undefined;
   resetWeapons(): readonly PlayerRegistryEntry[];
@@ -35,6 +38,7 @@ type MutablePlayerRegistryEntry = {
   sessionId: number;
   handleId: number;
   callsign: string;
+  name: string;
   weaponProfileId: LoadoutProfileId;
   slotIndex: number;
 };
@@ -62,7 +66,11 @@ export function createPlayerRegistry(config: PlayerRegistryConfig = {}): PlayerR
     return handle;
   }
 
-  function assignSession(sessionIdValue: number, slotIndexValue: number): PlayerRegistryEntry {
+  function assignSession(
+    sessionIdValue: number,
+    slotIndexValue: number,
+    requestedName?: string
+  ): PlayerRegistryEntry {
     const sessionId = readPositiveUint32(sessionIdValue, "sessionId");
     const slotIndex = readUint16(slotIndexValue, "slotIndex");
     const existing = sessions.get(sessionId);
@@ -70,10 +78,14 @@ export function createPlayerRegistry(config: PlayerRegistryConfig = {}): PlayerR
       return toReadonlyEntry(existing);
     }
     const handle = nextFreeHandle();
+    // The requested name is untrusted: sanitize it and fall back to the assigned pool
+    // callsign when nothing usable remains. The server owns the display identity.
+    const sanitized = sanitizePlayerName(requestedName);
     const entry: MutablePlayerRegistryEntry = {
       sessionId,
       handleId: handle.handleId,
       callsign: handle.callsign,
+      name: sanitized.length > 0 ? sanitized : handle.callsign,
       weaponProfileId: defaultWeaponProfileId,
       slotIndex
     };
@@ -128,7 +140,8 @@ export function createPlayerRegistry(config: PlayerRegistryConfig = {}): PlayerR
       sessionId: entry.sessionId,
       handleId: entry.handleId,
       weaponProfileId: entry.weaponProfileId,
-      slotIndex: entry.slotIndex
+      slotIndex: entry.slotIndex,
+      name: entry.name
     }));
     return {
       kind: "server.match.roster",
@@ -154,6 +167,7 @@ function toReadonlyEntry(entry: MutablePlayerRegistryEntry): PlayerRegistryEntry
     sessionId: entry.sessionId,
     handleId: entry.handleId,
     callsign: entry.callsign,
+    name: entry.name,
     weaponProfileId: entry.weaponProfileId,
     slotIndex: entry.slotIndex
   };

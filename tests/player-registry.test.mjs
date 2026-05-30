@@ -102,9 +102,24 @@ test("createRosterMessage projects the numeric protocol shape", () => {
       sessionId: 10,
       handleId: 1,
       weaponProfileId: LOADOUT_PROFILE_ID.cinder,
-      slotIndex: 0
+      slotIndex: 0,
+      // No requested name, so the roster falls back to the assigned pool callsign.
+      name: "Vesper"
     }
   ]);
+});
+
+test("assignSession adopts a sanitized requested name and falls back to the callsign", () => {
+  const registry = createPlayerRegistry();
+  const named = registry.assignSession(10, 0, "  Night  Owl  ");
+  assert.equal(named.name, "Night Owl");
+  assert.equal(named.callsign, "Vesper");
+
+  const blank = registry.assignSession(20, 1, "   ");
+  assert.equal(blank.name, blank.callsign);
+
+  const clipped = registry.assignSession(30, 2, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  assert.equal(clipped.name.length, 16);
 });
 
 test("assignSession throws once the handle pool is exhausted", () => {

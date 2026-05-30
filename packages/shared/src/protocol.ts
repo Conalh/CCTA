@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
 export const SERVER_TICK_RATE_HZ = 60 as const;
 
 export const PACKET_MAGIC_BYTES = [0x42, 0x4c] as const;
@@ -372,7 +372,13 @@ export type MatchRosterEntry = Readonly<{
   handleId: number;
   weaponProfileId: LoadoutProfileId | 0;
   slotIndex: number;
+  // Server-authoritative display name (sanitized). Empty means "fall back to pool callsign".
+  name: string;
 }>;
+
+// Roster wire layout: 12 fixed bytes + a fixed 16-byte UTF-8 name field per entry.
+export const ROSTER_NAME_FIELD_BYTES = 16 as const;
+export const ROSTER_ENTRY_BYTES = 28 as const;
 
 export type ServerMatchRosterMessage = Readonly<{
   kind: "server.match.roster";
@@ -1439,7 +1445,7 @@ function encodeServerMatchRosterPayload(message: ServerMatchRosterMessage): Uint
     throw new Error(`server.match.roster entry count ${entryCount} does not match ${message.entries.length} entries.`);
   }
 
-  const payload = new Uint8Array(4 + message.entries.length * 12);
+  const payload = new Uint8Array(4 + message.entries.length * ROSTER_ENTRY_BYTES);
   const view = new DataView(payload.buffer);
   view.setUint16(0, entryCount, true);
   view.setUint16(2, 0, true);
@@ -1451,7 +1457,8 @@ function encodeServerMatchRosterPayload(message: ServerMatchRosterMessage): Uint
     view.setUint16(offset + 6, readLoadoutProfileId(entry.weaponProfileId, true), true);
     view.setUint16(offset + 8, readUint16(entry.slotIndex, "slotIndex"), true);
     view.setUint16(offset + 10, 0, true);
-    offset += 12;
+    writeFixedUtf8Field(payload, offset + 12, ROSTER_NAME_FIELD_BYTES, entry.name);
+    offset += ROSTER_ENTRY_BYTES;
   }
 
   return payload;
@@ -1495,6 +1502,34 @@ function encodeServerObjectiveStatePayload(message: ServerObjectiveStateMessage)
 
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
+}
+
+// Write a UTF-8 string into a fixed-width, null-padded field. The value is truncated on a
+// UTF-8 boundary if it would exceed fieldBytes, so the field always decodes cleanly.
+function writeFixedUtf8Field(target: Uint8Array, offset: number, fieldBytes: number, value: string): void {
+  target.fill(0, offset, offset + fieldBytes);
+  const encoded = textEncoder.encode(value);
+  let count = Math.min(encoded.length, fieldBytes);
+  // Never split a multi-byte sequence at the boundary: drop back while the next byte is a
+  // UTF-8 continuation byte (0b10xxxxxx).
+  while (count > 0 && count < encoded.length && (encoded[count] & 0b1100_0000) === 0b1000_0000) {
+    count -= 1;
+  }
+  target.set(encoded.subarray(0, count), offset);
+}
+
+// Read a null-padded fixed-width UTF-8 field back into a string.
+function readFixedUtf8Field(view: DataView, offset: number, fieldBytes: number): string {
+  let end = offset;
+  const limit = offset + fieldBytes;
+  while (end < limit && view.getUint8(end) !== 0) {
+    end += 1;
+  }
+  if (end === offset) {
+    return "";
+  }
+  const bytes = new Uint8Array(view.buffer, view.byteOffset + offset, end - offset);
+  return decodeStringPayload(bytes);
 }
 
 function encodeServerPlayerArmorPayload(message: ServerPlayerArmorMessage): Uint8Array {
@@ -1676,14 +1711,14 @@ function requireServerMatchRosterPayloadLength(payloadLength: number): void {
   }
 
   const entryPayloadLength = payloadLength - 4;
-  if (entryPayloadLength % 12 !== 0) {
-    throw new Error("server.match.roster entry payload length must be a multiple of 12 bytes.");
+  if (entryPayloadLength % ROSTER_ENTRY_BYTES !== 0) {
+    throw new Error(`server.match.roster entry payload length must be a multiple of ${ROSTER_ENTRY_BYTES} bytes.`);
   }
 }
 
 function decodeMatchRosterEntries(payload: DataView, payloadLength: number): readonly MatchRosterEntry[] {
   const entryCount = payload.getUint16(0, true);
-  const recordCount = (payloadLength - 4) / 12;
+  const recordCount = (payloadLength - 4) / ROSTER_ENTRY_BYTES;
   if (entryCount !== recordCount) {
     throw new Error(`server.match.roster entry count ${entryCount} does not match ${recordCount} entry records.`);
   }
@@ -1695,9 +1730,10 @@ function decodeMatchRosterEntries(payload: DataView, payloadLength: number): rea
       sessionId: payload.getUint32(offset, true),
       handleId: payload.getUint16(offset + 4, true),
       weaponProfileId: readLoadoutProfileId(payload.getUint16(offset + 6, true), true),
-      slotIndex: payload.getUint16(offset + 8, true)
+      slotIndex: payload.getUint16(offset + 8, true),
+      name: readFixedUtf8Field(payload, offset + 12, ROSTER_NAME_FIELD_BYTES)
     });
-    offset += 12;
+    offset += ROSTER_ENTRY_BYTES;
   }
   return entries;
 }

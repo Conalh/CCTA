@@ -1840,6 +1840,11 @@ body[data-menu-open="true"] .playtest-match-banner {
   accent-color: #8ed0bd;
 }
 
+.playtest-setting-name {
+  grid-column: 2 / 4;
+  width: 100%;
+}
+
 .playtest-setting-value {
   font-variant-numeric: tabular-nums;
   text-align: right;

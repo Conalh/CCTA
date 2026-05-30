@@ -91,13 +91,15 @@ function readUsableEntries(
   for (const entry of entries) {
     const sessionId = readPositiveInteger(entry?.sessionId);
     const slotIndex = readNonNegativeInteger(entry?.slotIndex);
-    const callsign = typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
-    if (sessionId === undefined || slotIndex === undefined || callsign === undefined) {
+    const poolCallsign = typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+    if (sessionId === undefined || slotIndex === undefined || poolCallsign === undefined) {
       continue;
     }
 
+    // Prefer the server-authoritative display name; fall back to the assigned pool callsign.
+    const requestedName = typeof entry?.name === "string" ? entry.name.trim() : "";
     usable.push({
-      callsign,
+      callsign: requestedName.length > 0 ? requestedName : poolCallsign,
       sessionId,
       slotIndex,
       weaponLabel: getWeaponDefinition(entry.weaponProfileId)?.name ?? UNSELECTED_WEAPON_LABEL

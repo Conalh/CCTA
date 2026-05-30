@@ -48,6 +48,23 @@ test("roster presentation orders rows by slot index then session", () => {
   assert.equal(forbiddenLabelPattern.test(labelText(presentation)), false);
 });
 
+test("roster presentation prefers the server-authoritative name over the pool callsign", () => {
+  const presentation = createRosterPresentation({
+    entries: [
+      { sessionId: 10, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0, name: "Night Owl" },
+      // A blank name falls back to the assigned pool callsign (handle 2 -> Quill).
+      { sessionId: 20, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1, name: "" }
+    ],
+    localSessionId: 10
+  });
+
+  assert.deepEqual(
+    presentation.rows.map((row) => row.callsign),
+    ["Night Owl", "Quill"]
+  );
+  assert.equal(presentation.rows[0]?.label, "Night Owl (you)");
+});
+
 test("roster presentation derives each player's side from the spawn slot", () => {
   const presentation = createRosterPresentation({
     entries: [

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MAX_PLAYER_NAME_BYTES,
   PLAYER_HANDLE_CAPACITY,
   PLAYER_HANDLE_POOL,
   getPlayerCallsign,
   getPlayerHandle,
   isKnownPlayerHandleId,
-  listPlayerHandleIds
+  listPlayerHandleIds,
+  sanitizePlayerName
 } from "../packages/shared/dist/index.js";
 
 test("player handle pool exposes eight original callsigns keyed by sequential id", () => {
@@ -51,4 +53,33 @@ test("isKnownPlayerHandleId accepts the pool and rejects out-of-range ids", () =
 
 test("listPlayerHandleIds enumerates the full pool in order", () => {
   assert.deepEqual(listPlayerHandleIds(), [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
+const TAB = String.fromCharCode(9);
+const NEWLINE = String.fromCharCode(10);
+const DEL = String.fromCharCode(127);
+
+test("sanitizePlayerName trims, collapses whitespace, and drops control characters", () => {
+  assert.equal(sanitizePlayerName("  Night  Owl  "), "Night Owl");
+  assert.equal(sanitizePlayerName("Tab" + TAB + "Here"), "Tab Here");
+  assert.equal(sanitizePlayerName("line" + NEWLINE + "break"), "line break");
+  assert.equal(sanitizePlayerName("a" + DEL + "b"), "a b");
+});
+
+test("sanitizePlayerName returns empty for non-strings and blank input", () => {
+  assert.equal(sanitizePlayerName(undefined), "");
+  assert.equal(sanitizePlayerName(42), "");
+  assert.equal(sanitizePlayerName("   "), "");
+  assert.equal(sanitizePlayerName(""), "");
+});
+
+test("sanitizePlayerName caps to the wire budget on a UTF-8 boundary", () => {
+  const long = sanitizePlayerName("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  assert.equal(long, "ABCDEFGHIJKLMNOP");
+  assert.equal(long.length, MAX_PLAYER_NAME_BYTES);
+
+  // A multi-byte name is never split mid-code-point: every kept character survives intact.
+  const emoji = sanitizePlayerName("🎯🎯🎯🎯🎯");
+  assert.ok(new TextEncoder().encode(emoji).length <= MAX_PLAYER_NAME_BYTES);
+  assert.equal([...emoji].length, 4);
 });

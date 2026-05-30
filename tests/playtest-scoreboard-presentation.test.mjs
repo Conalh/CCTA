@@ -135,6 +135,25 @@ test("scoreboard presentation labels rows with roster-resolved callsigns", () =>
   assert.equal(forbiddenLabelPattern.test(labelText(presentation)), false);
 });
 
+test("scoreboard presentation prefers a server-authoritative name over the pool callsign", () => {
+  const presentation = createScoreboardPresentation({
+    entries: [
+      { sessionId: 1, kills: 2, deaths: 1 },
+      { sessionId: 2, kills: 1, deaths: 3 }
+    ],
+    localSessionId: 1,
+    rosterEntries: [
+      { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0, name: "Night Owl" },
+      // Blank name falls back to the assigned pool callsign (handle 2 -> Quill).
+      { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1, name: "" }
+    ]
+  });
+
+  assert.equal(presentation.rows.find((row) => row.sessionId === 1)?.label, "Night Owl (you)");
+  assert.equal(presentation.rows.find((row) => row.sessionId === 2)?.callsign, "Quill");
+  assert.equal(presentation.summaryLabel, "Night Owl: 2 kills / 1 deaths");
+});
+
 test("scoreboard presentation falls back to a neutral label without a roster entry", () => {
   const presentation = createScoreboardPresentation({
     entries: [

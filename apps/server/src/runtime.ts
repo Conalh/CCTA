@@ -367,7 +367,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     });
     matchStats.assignSession(assignment.sessionId);
     economy.assignSession(assignment.sessionId);
-    playerRegistry.assignSession(assignment.sessionId, assignment.slotIndex);
+    playerRegistry.assignSession(assignment.sessionId, assignment.slotIndex, message.clientName);
     session.transport.send(response);
     session.transport.send(createMatchAssignedMessage(assignment));
     sendCombatStateToSession(assignment.sessionId);

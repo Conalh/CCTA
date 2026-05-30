@@ -584,15 +584,15 @@ test("protocol helpers round-trip match roster messages", () => {
     serverTick: 90,
     entryCount: 2,
     entries: [
-      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
-      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1 }
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0, name: "Night Owl" },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1, name: "Ada" }
     ]
   };
 
   const encoded = encodeProtocolMessage(message);
   const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength);
   assert.equal(encoded[3], PACKET_KIND.serverMatchRoster);
-  assert.equal(view.getUint32(8, true), 4 + 2 * 12);
+  assert.equal(view.getUint32(8, true), 4 + 2 * 28);
   assert.deepEqual(decodeProtocolMessage(encoded), message);
 
   const empty = {
@@ -607,7 +607,7 @@ test("protocol helpers round-trip match roster messages", () => {
     kind: "server.match.roster",
     serverTick: 12,
     entryCount: 1,
-    entries: [{ sessionId: 7, handleId: 3, weaponProfileId: 0, slotIndex: 4 }]
+    entries: [{ sessionId: 7, handleId: 3, weaponProfileId: 0, slotIndex: 4, name: "" }]
   };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(unequipped)), unequipped);
 });
@@ -618,8 +618,8 @@ test("decodeProtocolMessage rejects malformed match roster packets", () => {
     serverTick: 90,
     entryCount: 2,
     entries: [
-      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0 },
-      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1 }
+      { sessionId: 1, handleId: 1, weaponProfileId: LOADOUT_PROFILE_ID.halcyon, slotIndex: 0, name: "" },
+      { sessionId: 2, handleId: 2, weaponProfileId: LOADOUT_PROFILE_ID.ridgeline, slotIndex: 1, name: "" }
     ]
   });
 

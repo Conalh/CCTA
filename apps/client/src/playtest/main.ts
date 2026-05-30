@@ -26,6 +26,7 @@ import {
   createClientWeaponReload,
   getArenaMetadataById,
   getPlayerCallsign,
+  sanitizePlayerName,
   teamForSlot,
   type ArenaMapMetadata,
   type GrenadeStateEntry,
@@ -274,6 +275,7 @@ const menuWindows = Array.from(document.querySelectorAll<HTMLElement>(".playtest
 const windowCloseButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-window-close]"));
 const browserTabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-browser-tab"));
 const sortButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".playtest-sort"));
+const settingsNameInput = requireInput("playtest-setting-name");
 const settingsSensitivityInput = requireInput("playtest-setting-sensitivity");
 const settingsSensitivityValueEl = requireElement("playtest-setting-sensitivity-value");
 const settingsFovInput = requireInput("playtest-setting-fov");
@@ -425,6 +427,7 @@ const REGISTRY_URL_STORAGE_KEY = "breachline.registryUrl";
 const FAVORITE_SERVERS_STORAGE_KEY = "breachline.favoriteServers";
 const SENSITIVITY_STORAGE_KEY = "breachline.sensitivity";
 const FOV_STORAGE_KEY = "breachline.fov";
+const PLAYER_NAME_STORAGE_KEY = "breachline.playerName";
 const BASE_LOOK_RADIANS_PER_PIXEL = 0.0025;
 const DEFAULT_FIELD_OF_VIEW = 74;
 let recentServers: readonly RecentServerEntry[] = loadRecentServers();
@@ -446,6 +449,7 @@ let serverSortDirection: ServerSortDirection = "desc";
 let selectedJoinUrl: string | undefined;
 let lookSensitivity = loadSensitivity();
 let fieldOfView = loadFieldOfView();
+let playerName = loadPlayerName();
 let activeCamera: THREE.PerspectiveCamera | undefined;
 
 // First-person weapon model. The mesh is a LOCAL-ONLY private prototype placeholder
@@ -511,9 +515,19 @@ for (const button of sortButtons) {
     }
   });
 }
+settingsNameInput.value = playerName;
 settingsSensitivityInput.value = lookSensitivity.toFixed(2);
 settingsFovInput.value = String(fieldOfView);
 applySettingsReadouts();
+settingsNameInput.addEventListener("input", () => {
+  // Sanitize as the player types so the field shows exactly what the server will accept.
+  playerName = sanitizePlayerName(settingsNameInput.value);
+  writeStored(PLAYER_NAME_STORAGE_KEY, playerName);
+});
+settingsNameInput.addEventListener("change", () => {
+  // On commit, normalize the visible value to the sanitized form (collapsed spaces, capped).
+  settingsNameInput.value = playerName;
+});
 settingsSensitivityInput.addEventListener("input", () => {
   lookSensitivity = clampSensitivity(Number(settingsSensitivityInput.value));
   persistSetting(SENSITIVITY_STORAGE_KEY, lookSensitivity);
@@ -832,7 +846,9 @@ async function connect(): Promise<void> {
     nextTransport.send({
       kind: "protocol.hello",
       protocolVersion: PROTOCOL_VERSION,
-      clientName: "browser-networked-playtest"
+      // The chosen name rides as the client name; the server sanitizes it and falls back to a
+      // pool callsign when it is blank. Empty is allowed and means "assign me a callsign".
+      clientName: playerName
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1430,8 +1446,12 @@ function updateChargeDevice(): void {
 
 function resolveFeedCallsign(sessionId: number): string {
   const entry = state.matchRoster.find((row) => row.sessionId === sessionId);
-  const callsign = entry !== undefined ? getPlayerCallsign(entry.handleId) : undefined;
-  return callsign ?? `Player ${sessionId}`;
+  if (entry === undefined) {
+    return `Player ${sessionId}`;
+  }
+  // Prefer the server-authoritative display name; fall back to the pool callsign.
+  const name = entry.name.trim();
+  return name.length > 0 ? name : getPlayerCallsign(entry.handleId) ?? `Player ${sessionId}`;
 }
 
 function updateCombatFeedback(presentation: NetworkedPlaytestPresentation): void {
@@ -1547,6 +1567,11 @@ function loadSensitivity(): number {
 function loadFieldOfView(): number {
   const raw = readStored(FOV_STORAGE_KEY);
   return raw === undefined ? DEFAULT_FIELD_OF_VIEW : clampFieldOfView(Number(raw));
+}
+
+function loadPlayerName(): string {
+  // The same sanitizer the server applies, so the menu shows exactly what will be used.
+  return sanitizePlayerName(readStored(PLAYER_NAME_STORAGE_KEY) ?? "");
 }
 
 function persistSetting(key: string, value: number): void {
