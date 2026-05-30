@@ -37,7 +37,8 @@ export const PACKET_KIND = {
   serverWeaponState: 20,
   serverMatchRoster: 21,
   serverMatchResult: 22,
-  serverPlayerEconomy: 23
+  serverPlayerEconomy: 23,
+  clientWeaponBuy: 24
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -148,7 +149,8 @@ export type ClientProtocolMessage =
   | ClientInputMessage
   | ClientFireIntentMessage
   | ClientLoadoutSelectMessage
-  | ClientWeaponReloadMessage;
+  | ClientWeaponReloadMessage
+  | ClientWeaponBuyMessage;
 
 export type ServerProtocolMessage =
   | ProtocolAcceptMessage
@@ -240,6 +242,14 @@ export type ClientLoadoutSelectMessage = Readonly<{
 export type ClientWeaponReloadMessage = Readonly<{
   kind: "client.weapon.reload";
   sequence: number;
+}>;
+
+// A buy-menu purchase request. The server validates the buy window, the weapon, and
+// affordability against the server-owned economy before granting it.
+export type ClientWeaponBuyMessage = Readonly<{
+  kind: "client.weapon.buy";
+  sequence: number;
+  profileId: LoadoutProfileId;
 }>;
 
 export type ServerFireResultMessage = Readonly<{
@@ -456,6 +466,14 @@ export function createClientWeaponReload(input: Omit<ClientWeaponReloadMessage, 
   };
 }
 
+export function createClientWeaponBuy(input: Omit<ClientWeaponBuyMessage, "kind">): ClientWeaponBuyMessage {
+  return {
+    kind: "client.weapon.buy",
+    sequence: readUint32(input.sequence, "sequence"),
+    profileId: readRequiredLoadoutProfileId(input.profileId)
+  };
+}
+
 export function createServerSnapshotPlaceholder(
   tick: number,
   serverTimeMs: number,
@@ -518,6 +536,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.sequence, "sequence"),
         new Uint8Array(0)
+      );
+    case "client.weapon.buy":
+      return writePacket(
+        PACKET_KIND.clientWeaponBuy,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        encodeClientWeaponBuyPayload(message)
       );
     case "server.tick":
       return writePacket(
@@ -703,6 +728,13 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
       return {
         kind: "client.weapon.reload",
         sequence: sequenceOrTick
+      };
+    case PACKET_KIND.clientWeaponBuy:
+      requirePayloadLength(payloadLength, 4, "client.weapon.buy");
+      return {
+        kind: "client.weapon.buy",
+        sequence: sequenceOrTick,
+        profileId: readRequiredLoadoutProfileId(payload.getUint16(0, true))
       };
     case PACKET_KIND.serverTick:
       requirePayloadLength(payloadLength, 8, "server.tick");
@@ -1129,6 +1161,13 @@ function encodeServerPlayerEconomyPayload(message: ServerPlayerEconomyMessage): 
   const view = new DataView(payload.buffer);
   view.setUint32(0, readUint32(message.sessionId, "sessionId"), true);
   view.setUint32(4, readUint32(message.money, "money"), true);
+  return payload;
+}
+
+function encodeClientWeaponBuyPayload(message: ClientWeaponBuyMessage): Uint8Array {
+  const payload = new Uint8Array(4);
+  const view = new DataView(payload.buffer);
+  view.setUint16(0, readRequiredLoadoutProfileId(message.profileId), true);
   return payload;
 }
 

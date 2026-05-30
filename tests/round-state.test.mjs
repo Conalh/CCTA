@@ -169,6 +169,24 @@ test("round state awards a timeout round to the defending Cops", () => {
   assert.equal(round.createStateMessage(4).winnerSessionId, 1);
 });
 
+test("round state opens the buy window through setup and the early active round", () => {
+  const round = createRoundState({
+    setupDurationTicks: 2,
+    activeDurationTicks: 100,
+    resetDurationTicks: 3,
+    buyGraceTicks: 5
+  });
+
+  // Setup: the buy window is open regardless of tick.
+  assert.equal(round.allowsBuy(0), true);
+
+  round.advance({ serverTick: 2, participants: [cop(1), robber(2)] });
+  // Active started at tick 2; the buy grace keeps the window open for buyGraceTicks.
+  assert.equal(round.allowsBuy(2), true);
+  assert.equal(round.allowsBuy(7), true);
+  assert.equal(round.allowsBuy(8), false);
+});
+
 test("round state emits reset and starts the next setup round", () => {
   const round = createRoundState({
     setupDurationTicks: 1,

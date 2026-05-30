@@ -31,6 +31,11 @@ test("weapon catalog exposes the original arsenal keyed by loadout profile id", 
     WEAPON_CATALOG.map((weapon) => weapon.role),
     ["sniper", "revolver", "smg", "shotgun", "rifle"]
   );
+  // Buy-menu prices: the starter pistol is free, the rest cost money.
+  assert.deepEqual(
+    WEAPON_CATALOG.map((weapon) => weapon.price),
+    [4750, 0, 1050, 1800, 2700]
+  );
 });
 
 test("weapon catalog stats are bounded positive integers with non-empty identity", () => {

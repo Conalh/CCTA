@@ -13,6 +13,10 @@ import {
 export const DEFAULT_ROUND_SETUP_DURATION_TICKS = 0 as const;
 export const DEFAULT_ROUND_ACTIVE_DURATION_TICKS = 18_000 as const;
 export const DEFAULT_ROUND_RESET_DURATION_TICKS = 90 as const;
+// Buy window: the buy menu stays open through setup and the first few seconds of the
+// active round (so a fresh spawn can shop even with no freeze time). At 60 Hz this is
+// six seconds.
+export const DEFAULT_ROUND_BUY_GRACE_TICKS = 360 as const;
 export const DEFAULT_FIRST_ROUND_ID = 1 as const;
 
 export type RoundStateConfig = Readonly<{
@@ -20,6 +24,7 @@ export type RoundStateConfig = Readonly<{
   setupDurationTicks?: number;
   activeDurationTicks?: number;
   resetDurationTicks?: number;
+  buyGraceTicks?: number;
 }>;
 
 export type RoundParticipant = Readonly<{
@@ -48,6 +53,7 @@ export type RoundState = Readonly<{
   allowsFire(): boolean;
   allowsRespawn(): boolean;
   allowsLoadoutSelection(): boolean;
+  allowsBuy(serverTick: number): boolean;
   advance(input: RoundAdvanceInput): RoundAdvanceResult;
   createStateMessage(serverTick: number): ServerRoundStateMessage;
 }>;
@@ -79,6 +85,7 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     config.resetDurationTicks ?? DEFAULT_ROUND_RESET_DURATION_TICKS,
     "resetDurationTicks"
   );
+  const buyGraceTicks = readUint32(config.buyGraceTicks ?? DEFAULT_ROUND_BUY_GRACE_TICKS, "buyGraceTicks");
 
   const state: MutableRoundState = {
     roundId: firstRoundId,
@@ -216,6 +223,11 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     allowsFire: () => state.phase === ROUND_PHASE.active,
     allowsRespawn: () => state.phase === ROUND_PHASE.active,
     allowsLoadoutSelection: () => state.phase === ROUND_PHASE.setup,
+    // The buy window: all of setup, plus the buy-grace window into the active round.
+    allowsBuy: (serverTick) =>
+      state.phase === ROUND_PHASE.setup ||
+      (state.phase === ROUND_PHASE.active &&
+        readUint32(serverTick, "serverTick") - state.phaseStartedTick <= buyGraceTicks),
     advance,
     createStateMessage
   };

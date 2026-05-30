@@ -3,6 +3,7 @@ import {
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
   createServerSnapshotPlaceholder,
+  getWeaponDefinition,
   teamForSlot,
   FIRE_REJECT_REASON,
   LOADOUT_REJECT_REASON,
@@ -10,6 +11,7 @@ import {
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type ClientLoadoutSelectMessage,
+  type ClientWeaponBuyMessage,
   type ClientWeaponReloadMessage,
   type InputAckMessage,
   type MatchAssignedMessage,
@@ -217,6 +219,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         break;
       case "client.weapon.reload":
         recordClientWeaponReload(session, message);
+        break;
+      case "client.weapon.buy":
+        recordClientBuy(session, message);
         break;
       default:
         break;
@@ -599,6 +604,31 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         sequence: message.sequence
       })
     );
+  }
+
+  function recordClientBuy(session: MutableServerRuntimeSession, message: ClientWeaponBuyMessage): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+    const sessionId = session.matchAssignment.sessionId;
+    // Buy only inside the buy window and only while alive.
+    if (!roundState.allowsBuy(lastServerTick) || !combatState.isAlive(sessionId)) {
+      return;
+    }
+    const definition = getWeaponDefinition(message.profileId);
+    if (definition === undefined) {
+      return;
+    }
+    // Already holding it: no charge, no change.
+    if (weaponState.createStateMessage(sessionId, lastServerTick)?.weaponProfileId === message.profileId) {
+      return;
+    }
+    // Charge the server-owned economy first; grant the weapon only if it was affordable.
+    if (!economy.spend(sessionId, definition.price ?? 0)) {
+      return;
+    }
+    sendWeaponStateToSession(weaponState.setWeapon(sessionId, message.profileId));
+    sendEconomyToSession(sessionId);
   }
 
   function sendCombatStateToSession(sessionId: number): void {

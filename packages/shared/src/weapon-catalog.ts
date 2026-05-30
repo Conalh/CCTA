@@ -8,6 +8,10 @@ export type WeaponDefinition = Readonly<{
   fireIntervalTicks: number;
   magazineSize: number;
   reloadTicks: number;
+  // Buy-menu cost. The starter pistol is free; everything else is purchased with the
+  // round economy. Optional in input so existing test weapon definitions stay valid;
+  // the validated catalog always carries a number.
+  price?: number;
 }>;
 
 export const DEFAULT_WEAPON_PROFILE_ID: LoadoutProfileId = LOADOUT_PROFILE_ID.halcyon;
@@ -22,7 +26,8 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     damagePerHit: 100,
     fireIntervalTicks: 50,
     magazineSize: 5,
-    reloadTicks: 180
+    reloadTicks: 180,
+    price: 4750
   },
   {
     // Starter sidearm: a hard-hitting six-shot revolver. Low capacity and a slow,
@@ -33,7 +38,8 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     damagePerHit: 50,
     fireIntervalTicks: 20,
     magazineSize: 6,
-    reloadTicks: 165
+    reloadTicks: 165,
+    price: 0
   },
   {
     // SMG: fast, low per-hit damage, a deep magazine. Run-and-gun close pressure.
@@ -43,7 +49,8 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     damagePerHit: 20,
     fireIntervalTicks: 5,
     magazineSize: 25,
-    reloadTicks: 120
+    reloadTicks: 120,
+    price: 1050
   },
   {
     // Shotgun: a brutal close-range hit, slow pump, small magazine. (Pellet spread
@@ -55,7 +62,8 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     damagePerHit: 85,
     fireIntervalTicks: 40,
     magazineSize: 8,
-    reloadTicks: 180
+    reloadTicks: 180,
+    price: 1800
   },
   {
     // Rifle: the versatile mainstay. Medium damage, medium cadence, a full magazine.
@@ -65,7 +73,8 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     damagePerHit: 30,
     fireIntervalTicks: 8,
     magazineSize: 30,
-    reloadTicks: 135
+    reloadTicks: 135,
+    price: 2700
   }
 ].map(validateWeaponDefinition);
 
@@ -99,8 +108,16 @@ function validateWeaponDefinition(weapon: WeaponDefinition): WeaponDefinition {
     damagePerHit: readPositiveUint16(weapon.damagePerHit, "damagePerHit"),
     fireIntervalTicks: readPositiveUint16(weapon.fireIntervalTicks, "fireIntervalTicks"),
     magazineSize: readPositiveUint16(weapon.magazineSize, "magazineSize"),
-    reloadTicks: readPositiveUint16(weapon.reloadTicks, "reloadTicks")
+    reloadTicks: readPositiveUint16(weapon.reloadTicks, "reloadTicks"),
+    price: readNonNegativeUint16(weapon.price ?? 0, "price")
   };
+}
+
+function readNonNegativeUint16(value: number, field: string): number {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff) {
+    throw new Error(`weapon ${field} must be a non-negative unsigned 16-bit integer, got ${value}.`);
+  }
+  return value;
 }
 
 function readNonEmpty(value: string, field: string): string {

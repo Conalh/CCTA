@@ -12,7 +12,8 @@ import {
   ROUND_OUTCOME,
   ROUND_PHASE,
   WEAPON_EVENT_KIND,
-  createClientFireIntent
+  createClientFireIntent,
+  createClientWeaponBuy
 } from "../packages/shared/dist/index.js";
 import {
   DEFAULT_KILL_REWARD,
@@ -921,6 +922,34 @@ test("server runtime pays the server-owned economy from kills and round results"
   runtime.step(7, 1024);
   assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY + DEFAULT_KILL_REWARD + DEFAULT_ROUND_WIN_BONUS);
   assert.equal(runtime.getEconomy(2)?.money, DEFAULT_STARTING_MONEY + DEFAULT_ROUND_LOSS_BONUS);
+});
+
+test("server runtime sells a buy-menu weapon against the server-owned economy", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    economy: { startingMoney: 1100 },
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("buy-a");
+  const second = createFakeTransportSession("buy-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  runtime.step(5, 1016); // round active; the buy window is open during the buy grace.
+
+  // Buy the SMG (Cinder, catalog price 1050) — affordable with 1100.
+  first.receive(createClientWeaponBuy({ sequence: 1, profileId: LOADOUT_PROFILE_ID.cinder }));
+  assert.equal(runtime.getEconomy(1)?.money, 1100 - 1050);
+  assert.equal(runtime.getWeaponState(1)?.weaponProfileId, LOADOUT_PROFILE_ID.cinder);
+
+  // With 50 left, the sniper (4750) is unaffordable: no charge, no weapon change.
+  first.receive(createClientWeaponBuy({ sequence: 2, profileId: LOADOUT_PROFILE_ID.ridgeline }));
+  assert.equal(runtime.getEconomy(1)?.money, 50);
+  assert.equal(runtime.getWeaponState(1)?.weaponProfileId, LOADOUT_PROFILE_ID.cinder);
 });
 
 test("server runtime broadcasts an authoritative roster on join, loadout, leave, and round reset", () => {

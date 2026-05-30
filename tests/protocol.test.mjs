@@ -19,6 +19,7 @@ import {
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
+  createClientWeaponBuy,
   createServerSnapshotPlaceholder,
   decodeProtocolMessage,
   encodeProtocolMessage
@@ -671,6 +672,14 @@ test("protocol helpers round-trip a server player economy message", () => {
 
   const empty = { kind: "server.player.economy", serverTick: 1, sessionId: 1, money: 0 };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(empty)), empty);
+});
+
+test("protocol helpers round-trip a client weapon buy request", () => {
+  assert.equal(PACKET_KIND.clientWeaponBuy, 24);
+
+  const buy = createClientWeaponBuy({ sequence: 9, profileId: LOADOUT_PROFILE_ID.vantage });
+  assert.deepEqual(buy, { kind: "client.weapon.buy", sequence: 9, profileId: LOADOUT_PROFILE_ID.vantage });
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(buy)), buy);
 });
 
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {
