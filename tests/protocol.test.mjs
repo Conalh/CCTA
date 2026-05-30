@@ -18,6 +18,7 @@ import {
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
   createClientAdminCommand,
+  createClientArmorBuy,
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
@@ -724,6 +725,18 @@ test("protocol helpers round-trip admin console messages", () => {
     const result = { kind: "server.admin.result", serverTick: 120, ok, text: "buy time set to 3s." };
     assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(result)), result);
   }
+});
+
+test("protocol helpers round-trip armor messages", () => {
+  assert.equal(PACKET_KIND.clientArmorBuy, 28);
+  assert.equal(PACKET_KIND.serverPlayerArmor, 29);
+
+  const buy = createClientArmorBuy({ sequence: 4 });
+  assert.deepEqual(buy, { kind: "client.armor.buy", sequence: 4 });
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(buy)), buy);
+
+  const armor = { kind: "server.player.armor", serverTick: 50, sessionId: 3, armor: 75, maxArmor: 100 };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(armor)), armor);
 });
 
 test("decodeProtocolMessage rejects an unknown charge phase", () => {

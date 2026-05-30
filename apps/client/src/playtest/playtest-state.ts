@@ -463,6 +463,11 @@ function formatRemainingClock(
   return `${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
+// The player's own armor (server-owned, private). 0 / unknown reads as "0".
+export function formatPlaytestArmor(armor: number | undefined): string {
+  return typeof armor === "number" && Number.isFinite(armor) && armor > 0 ? String(Math.trunc(armor)) : "0";
+}
+
 export function formatPlaytestMoney(money: number | undefined): string {
   // Money is server-owned (server.player.economy); the client only formats the mirrored
   // value of its own cash and never sets it.

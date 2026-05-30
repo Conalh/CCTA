@@ -42,7 +42,9 @@ export const PACKET_KIND = {
   clientWeaponBuy: 24,
   serverObjectiveState: 25,
   clientAdminCommand: 26,
-  serverAdminResult: 27
+  serverAdminResult: 27,
+  clientArmorBuy: 28,
+  serverPlayerArmor: 29
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -167,6 +169,7 @@ export type ClientProtocolMessage =
   | ClientLoadoutSelectMessage
   | ClientWeaponReloadMessage
   | ClientWeaponBuyMessage
+  | ClientArmorBuyMessage
   | ClientAdminCommandMessage;
 
 export type ServerProtocolMessage =
@@ -188,7 +191,8 @@ export type ServerProtocolMessage =
   | ServerMatchResultMessage
   | ServerPlayerEconomyMessage
   | ServerObjectiveStateMessage
-  | ServerAdminResultMessage;
+  | ServerAdminResultMessage
+  | ServerPlayerArmorMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -413,6 +417,22 @@ export type ServerAdminResultMessage = Readonly<{
   text: string;
 }>;
 
+// A player's request to buy armor. Server-validated like a weapon buy (buy window, alive,
+// affordable, not already full).
+export type ClientArmorBuyMessage = Readonly<{
+  kind: "client.armor.buy";
+  sequence: number;
+}>;
+
+// A player's own armor, sent only to the owning session (private, like money).
+export type ServerPlayerArmorMessage = Readonly<{
+  kind: "server.player.armor";
+  serverTick: number;
+  sessionId: number;
+  armor: number;
+  maxArmor: number;
+}>;
+
 export type ServerSnapshotMessage = Readonly<{
   kind: "server.snapshot";
   tick: number;
@@ -530,6 +550,13 @@ export function createClientAdminCommand(input: Omit<ClientAdminCommandMessage, 
     kind: "client.admin.command",
     sequence: readUint32(input.sequence, "sequence"),
     text: String(input.text ?? "").slice(0, MAX_ADMIN_COMMAND_LENGTH)
+  };
+}
+
+export function createClientArmorBuy(input: Omit<ClientArmorBuyMessage, "kind">): ClientArmorBuyMessage {
+  return {
+    kind: "client.armor.buy",
+    sequence: readUint32(input.sequence, "sequence")
   };
 }
 
@@ -706,6 +733,20 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerAdminResultPayload(message)
+      );
+    case "client.armor.buy":
+      return writePacket(
+        PACKET_KIND.clientArmorBuy,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        new Uint8Array(0)
+      );
+    case "server.player.armor":
+      return writePacket(
+        PACKET_KIND.serverPlayerArmor,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerPlayerArmorPayload(message)
       );
   }
 }
@@ -994,6 +1035,21 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         serverTick: sequenceOrTick,
         ok: payload.getUint8(0) !== 0,
         text: decodeStringPayload(payloadBytes.subarray(1))
+      };
+    case PACKET_KIND.clientArmorBuy:
+      requirePayloadLength(payloadLength, 0, "client.armor.buy");
+      return {
+        kind: "client.armor.buy",
+        sequence: sequenceOrTick
+      };
+    case PACKET_KIND.serverPlayerArmor:
+      requirePayloadLength(payloadLength, 8, "server.player.armor");
+      return {
+        kind: "server.player.armor",
+        serverTick: sequenceOrTick,
+        sessionId: payload.getUint32(0, true),
+        armor: payload.getUint16(4, true),
+        maxArmor: payload.getUint16(6, true)
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1293,6 +1349,15 @@ function encodeServerObjectiveStatePayload(message: ServerObjectiveStateMessage)
 
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
+}
+
+function encodeServerPlayerArmorPayload(message: ServerPlayerArmorMessage): Uint8Array {
+  const payload = new Uint8Array(8);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, readUint32(message.sessionId, "sessionId"), true);
+  view.setUint16(4, readUint16(message.armor, "armor"), true);
+  view.setUint16(6, readUint16(message.maxArmor, "maxArmor"), true);
+  return payload;
 }
 
 function encodeServerAdminResultPayload(message: ServerAdminResultMessage): Uint8Array {

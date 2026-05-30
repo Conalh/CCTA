@@ -1,6 +1,8 @@
 import {
+  ARMOR_PRICE,
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
+  DEFAULT_ARMOR_VALUE,
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
   TEAM,
@@ -14,6 +16,7 @@ import {
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS,
   type ClientAdminCommandMessage,
+  type ClientArmorBuyMessage,
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type ClientLoadoutSelectMessage,
@@ -36,6 +39,7 @@ import {
   type ServerAdminResultMessage,
   type ServerMatchStatsMessage,
   type ServerObjectiveStateMessage,
+  type ServerPlayerArmorMessage,
   type ServerPlayerEconomyMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
@@ -150,6 +154,7 @@ export type ServerRuntime = Readonly<{
   getLoadoutState(sessionId: number, serverTick?: number): ServerLoadoutStateMessage | undefined;
   getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
   getEconomy(sessionId: number, serverTick?: number): ServerPlayerEconomyMessage | undefined;
+  getArmor(sessionId: number, serverTick?: number): ServerPlayerArmorMessage | undefined;
   getObjectiveState(serverTick?: number): ServerObjectiveStateMessage;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
@@ -269,6 +274,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       case "client.weapon.buy":
         recordClientBuy(session, message);
         break;
+      case "client.armor.buy":
+        recordClientArmorBuy(session, message);
+        break;
       case "client.admin.command":
         recordClientAdminCommand(session, message);
         break;
@@ -325,6 +333,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     sendCombatStateToSession(assignment.sessionId);
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     sendEconomyToSession(assignment.sessionId);
+    sendArmorToSession(assignment.sessionId);
     session.transport.send(objective.createStateMessage(lastServerTick));
     broadcastMatchUpdate();
     broadcastMatchRoster();
@@ -435,6 +444,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     }
     for (const state of [...resetCombatStates, ...respawned]) {
       sendCombatStateToSession(state.sessionId);
+    }
+    for (const state of resetCombatStates) {
+      sendArmorToSession(state.sessionId); // armor cleared on round reset
     }
     if (roundAdvance.resetRound) {
       broadcastMatchRoster();
@@ -628,6 +640,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       : combatState.applyFireResult(validation.result);
     if (combatResult.applied && combatResult.state !== undefined) {
       sendCombatStateToSession(combatResult.state.targetSessionId);
+      sendArmorToSession(combatResult.state.targetSessionId);
       if (combatResult.state.lastEventKind === COMBAT_EVENT_KIND.death) {
         matchStats.recordKill({
           killerSessionId: combatResult.state.sourceSessionId,
@@ -727,6 +740,52 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     }
     sendWeaponStateToSession(weaponState.setWeapon(sessionId, message.profileId));
     sendEconomyToSession(sessionId);
+  }
+
+  function recordClientArmorBuy(session: MutableServerRuntimeSession, _message: ClientArmorBuyMessage): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+    const sessionId = session.matchAssignment.sessionId;
+    // Same gate as a weapon buy: buy window, alive, affordable, and not already full.
+    if (
+      !roundState.allowsBuy(lastServerTick) ||
+      !combatState.isAlive(sessionId) ||
+      combatState.getArmor(sessionId) >= DEFAULT_ARMOR_VALUE ||
+      !economy.spend(sessionId, ARMOR_PRICE)
+    ) {
+      return;
+    }
+    combatState.setArmor(sessionId, DEFAULT_ARMOR_VALUE);
+    sendArmorToSession(sessionId);
+    sendEconomyToSession(sessionId);
+  }
+
+  // Armor is private: the armor message goes only to the owning session.
+  function sendArmorToSession(sessionId: number): void {
+    const message = getArmor(sessionId);
+    if (message === undefined) {
+      return;
+    }
+    for (const runtimeSession of sessions.values()) {
+      if (runtimeSession.accepted && runtimeSession.matchAssignment?.sessionId === sessionId) {
+        runtimeSession.transport.send(message);
+        return;
+      }
+    }
+  }
+
+  function getArmor(sessionId: number, serverTick = lastServerTick): ServerPlayerArmorMessage | undefined {
+    if (combatState.getSessionState(sessionId) === undefined) {
+      return undefined;
+    }
+    return {
+      kind: "server.player.armor",
+      serverTick,
+      sessionId,
+      armor: combatState.getArmor(sessionId),
+      maxArmor: DEFAULT_ARMOR_VALUE
+    };
   }
 
   function sendCombatStateToSession(sessionId: number): void {
@@ -1025,6 +1084,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getLoadoutState,
     getWeaponState,
     getEconomy,
+    getArmor,
     getObjectiveState,
     applyAdminCommand,
     getAdminStatus,

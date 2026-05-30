@@ -1,5 +1,10 @@
 import { LOADOUT_PROFILE_ID, type LoadoutProfileId } from "./protocol.js";
 
+// Buyable armor: a full set absorbs part of incoming damage until it depletes. Balance
+// knobs, not copied content.
+export const DEFAULT_ARMOR_VALUE = 100 as const;
+export const ARMOR_PRICE = 650 as const;
+
 export type WeaponDefinition = Readonly<{
   profileId: LoadoutProfileId;
   name: string;

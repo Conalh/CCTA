@@ -13,6 +13,7 @@ import {
   ROUND_OUTCOME,
   ROUND_PHASE,
   WEAPON_EVENT_KIND,
+  createClientArmorBuy,
   createClientFireIntent,
   createClientWeaponBuy
 } from "../packages/shared/dist/index.js";
@@ -120,6 +121,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "server.combat.state",
       "server.weapon.state",
       "server.player.economy",
+      "server.player.armor",
       "server.objective.state",
       "match.update",
       "server.match.roster",
@@ -310,6 +312,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.combat.state",
     "server.weapon.state",
     "server.player.economy",
+    "server.player.armor",
     "server.objective.state",
     "match.update",
     "server.match.roster",
@@ -322,6 +325,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.combat.state",
     "server.weapon.state",
     "server.player.economy",
+    "server.player.armor",
     "server.objective.state",
     "match.update",
     "server.match.roster"
@@ -1689,6 +1693,35 @@ test("admin console restarts the round and resets a decided match", () => {
   assert.equal(runtime.applyAdminCommand(parseAdminCommand("matchreset")).ok, true);
   assert.equal(runtime.getMatchResult(9).matchOver, false);
   assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY); // economy reset
+});
+
+test("server runtime sells armor against the economy and it reduces damage", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    economy: { startingMoney: 1000 },
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("armor-a");
+  const second = createFakeTransportSession("armor-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  runtime.step(5, 1016); // active; buy window open
+
+  // Session 2 (Robbers, slot 1) buys armor.
+  second.receive(createClientArmorBuy({ sequence: 1 }));
+  assert.equal(runtime.getArmor(2)?.armor, 100);
+  assert.equal(runtime.getArmor(2)?.maxArmor, 100);
+  assert.equal(runtime.getEconomy(2)?.money, 1000 - 650);
+
+  // Session 1 shoots session 2: 50 damage, armor absorbs 25, health takes 25.
+  first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 }));
+  assert.equal(runtime.getCombatState(2, 5).health, 75);
+  assert.equal(runtime.getArmor(2)?.armor, 75);
 });
 
 test("in-game admin console only works for host-granted sessions", () => {

@@ -4,10 +4,17 @@ import test from "node:test";
 import { ROUND_PHASE, SERVER_TICK_RATE_HZ } from "../packages/shared/dist/index.js";
 import {
   createPlaytestRoundTimerView,
+  formatPlaytestArmor,
   formatPlaytestRoundScore,
   formatPlaytestSide,
   parsePlaytestConsoleCommand
 } from "../apps/client/dist/playtest/playtest-state.js";
+
+test("formatPlaytestArmor shows the armor value, zero when none", () => {
+  assert.equal(formatPlaytestArmor(75), "75");
+  assert.equal(formatPlaytestArmor(0), "0");
+  assert.equal(formatPlaytestArmor(undefined), "0");
+});
 
 test("formatPlaytestSide labels the local side from the server-owned slot", () => {
   assert.deepEqual(formatPlaytestSide(0, 8), { label: "Cops", tag: "cops" });

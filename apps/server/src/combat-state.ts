@@ -10,6 +10,8 @@ import {
 export const DEFAULT_COMBAT_MAX_HEALTH = 100 as const;
 export const DEFAULT_COMBAT_DAMAGE_PER_HIT = 50 as const;
 export const DEFAULT_RESPAWN_DELAY_TICKS = 3 as const;
+// Fraction of each incoming hit that armor absorbs (until the armor pool depletes).
+export const ARMOR_ABSORB_FRACTION = 0.5 as const;
 
 export const COMBAT_APPLY_REJECT_REASON = {
   notAccepted: "not-accepted",
@@ -41,6 +43,8 @@ export type CombatApplyResult = Readonly<{
   applied: boolean;
   rejectReason?: CombatApplyRejectReason;
   state?: CombatSessionState;
+  // The target's armor after this hit (when applied), so the runtime can broadcast it.
+  armor?: number;
 }>;
 
 export type CombatState = Readonly<{
@@ -49,6 +53,9 @@ export type CombatState = Readonly<{
   isAlive(sessionId: number): boolean;
   getSessionState(sessionId: number): CombatSessionState | undefined;
   applyFireResult(result: ServerFireResultMessage): CombatApplyResult;
+  // Armor is a server-owned damage buffer, separate from the broadcast combat state.
+  setArmor(sessionId: number, amount: number): boolean;
+  getArmor(sessionId: number): number;
   advanceRespawns(serverTick: number): readonly CombatSessionState[];
   resetAll(serverTick: number): readonly CombatSessionState[];
   createCombatEligibleWorldSnapshot(worldSnapshot: WorldSnapshotMetadata): WorldSnapshotMetadata;
@@ -69,6 +76,7 @@ type MutableCombatSessionState = {
   sourceSessionId: number;
   targetSessionId: number;
   damage: number;
+  armor: number;
 };
 
 export function createCombatState(config: CombatStateConfig = {}): CombatState {
@@ -94,7 +102,8 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
       lastEventSequence: 0,
       sourceSessionId: 0,
       targetSessionId: 0,
-      damage: 0
+      damage: 0,
+      armor: 0
     };
     sessions.set(sessionId, state);
     return toReadonlyState(state);
@@ -172,7 +181,11 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
       getDamagePerHit?.(source.sessionId) ?? damagePerHit,
       "damagePerHit"
     );
-    const nextHealth = Math.max(0, target.health - resolvedDamagePerHit);
+    // Armor absorbs a fraction of the hit (capped by the pool) before it reaches health.
+    const absorbed = target.armor > 0 ? Math.min(target.armor, Math.floor(resolvedDamagePerHit * ARMOR_ABSORB_FRACTION)) : 0;
+    target.armor -= absorbed;
+    const healthDamage = resolvedDamagePerHit - absorbed;
+    const nextHealth = Math.max(0, target.health - healthDamage);
     const died = nextHealth === 0;
     target.health = nextHealth;
     target.alive = !died;
@@ -183,12 +196,27 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
     target.lastEventSequence = result.sequence;
     target.sourceSessionId = result.sessionId;
     target.targetSessionId = result.targetSessionId;
-    target.damage = resolvedDamagePerHit;
+    target.damage = healthDamage;
 
     return {
       applied: true,
-      state: toReadonlyState(target)
+      state: toReadonlyState(target),
+      armor: target.armor
     };
+  }
+
+  function setArmor(sessionIdValue: number, amount: number): boolean {
+    const sessionId = readPositiveUint32(sessionIdValue, "sessionId");
+    const state = sessions.get(sessionId);
+    if (state === undefined) {
+      return false;
+    }
+    state.armor = Math.max(0, Math.min(0xffff, Math.trunc(amount)));
+    return true;
+  }
+
+  function getArmor(sessionIdValue: number): number {
+    return sessions.get(readPositiveUint32(sessionIdValue, "sessionId"))?.armor ?? 0;
   }
 
   function advanceRespawns(serverTick: number): readonly CombatSessionState[] {
@@ -226,6 +254,8 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
       state.sourceSessionId = 0;
       state.targetSessionId = state.sessionId;
       state.damage = 0;
+      // Armor does not carry between rounds: re-buy it each round.
+      state.armor = 0;
       resetStates.push(toReadonlyState(state));
     }
     return resetStates;
@@ -260,6 +290,8 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
     isAlive,
     getSessionState,
     applyFireResult,
+    setArmor,
+    getArmor,
     advanceRespawns,
     resetAll,
     createCombatEligibleWorldSnapshot,

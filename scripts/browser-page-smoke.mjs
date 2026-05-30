@@ -260,6 +260,7 @@ try {
   assert.match(playtestHtml, /id="playtest-buy-menu"[^>]*data-open="false"/);
   assert.match(playtestHtml, /id="playtest-buy-list"/);
   assert.match(playtestHtml, /id="playtest-hud-money"/);
+  assert.match(playtestHtml, /id="playtest-hud-armor"/);
   assert.match(playtestHtml, /id="playtest-objective"[^>]*data-visible="false"/);
   assert.match(playtestHtml, /id="playtest-objective-bar"/);
   assert.match(playtestHtml, /id="playtest-hud-side"/);

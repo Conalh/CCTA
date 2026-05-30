@@ -127,6 +127,8 @@ export type ConnectionViewState = Readonly<{
   lastWeaponEventSequence: number | undefined;
   lastWeaponServerTick: number | undefined;
   localMoney: number | undefined;
+  localArmor: number | undefined;
+  localMaxArmor: number | undefined;
   chargePhase: ChargePhase | undefined;
   chargePlantProgress: number | undefined;
   chargeDefuseProgress: number | undefined;
@@ -292,6 +294,8 @@ export function createInitialConnectionViewState(
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
     localMoney: undefined,
+    localArmor: undefined,
+    localMaxArmor: undefined,
     chargePhase: undefined,
     chargePlantProgress: undefined,
     chargeDefuseProgress: undefined,
@@ -546,6 +550,13 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
         localMoney: message.money
       };
+    case "server.player.armor":
+      return {
+        ...baseState,
+        sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
+        localArmor: message.armor,
+        localMaxArmor: message.maxArmor
+      };
     case "server.objective.state":
       return {
         ...baseState,
@@ -750,6 +761,8 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
     localMoney: undefined,
+    localArmor: undefined,
+    localMaxArmor: undefined,
     chargePhase: undefined,
     chargePlantProgress: undefined,
     chargeDefuseProgress: undefined,

@@ -1044,6 +1044,23 @@ test("connection state reducer mirrors the server-owned player money", () => {
   assert.equal(state.localMoney, undefined);
 });
 
+test("connection state reducer mirrors the player's own armor", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.localArmor, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: { kind: "server.player.armor", serverTick: 42, sessionId: 7, armor: 75, maxArmor: 100 }
+  });
+  assert.equal(state.localArmor, 75);
+  assert.equal(state.localMaxArmor, 100);
+  assert.equal(state.sessionId, 7);
+
+  state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
+  assert.equal(state.localArmor, undefined);
+});
+
 test("connection state reducer mirrors the broadcast breach-charge state", () => {
   let state = createInitialConnectionViewState(0);
   assert.equal(state.chargePhase, undefined);

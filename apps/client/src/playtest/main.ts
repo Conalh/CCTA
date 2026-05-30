@@ -3,14 +3,17 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 
 import {
+  ARMOR_PRICE,
   CHARGE_PHASE,
   COMBAT_EVENT_KIND,
+  DEFAULT_ARMOR_VALUE,
   DEFAULT_WEAPON_PROFILE_ID,
   PLANT_SITE,
   PROTOCOL_VERSION,
   ROUND_PHASE,
   WEAPON_CATALOG,
   createClientAdminCommand,
+  createClientArmorBuy,
   createClientFireIntent,
   createClientLoadoutSelect,
   createClientWeaponBuy,
@@ -57,6 +60,7 @@ import {
   createPlaytestRoundTimerView,
   classifyNetworkedPlaytestMotionContact,
   holdPlaytestMotionContact,
+  formatPlaytestArmor,
   formatPlaytestMatchOccupancy,
   formatPlaytestMoney,
   formatPlaytestRoundScore,
@@ -301,6 +305,7 @@ const localHealthEl = requireElement("playtest-local-health");
 const localLifeEl = requireElement("playtest-local-life");
 const hudMoneyEl = requireElement("playtest-hud-money");
 const hudHealthEl = requireElement("playtest-hud-health");
+const hudArmorEl = requireElement("playtest-hud-armor");
 const hudLifeEl = requireElement("playtest-hud-life");
 const hudStanceEl = requireElement("playtest-hud-stance");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
@@ -1132,11 +1137,14 @@ function refreshBuyMenuIfOpen(): void {
   if (!buyMenuOpen) {
     return;
   }
-  // Re-render only when the money or current weapon changed, so clicking stays stable.
-  const key = `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}`;
-  if (key !== lastBuyRenderKey) {
+  // Re-render only when the money, weapon, or armor changed, so clicking stays stable.
+  if (buyMenuRenderKey() !== lastBuyRenderKey) {
     renderBuyMenu();
   }
+}
+
+function buyMenuRenderKey(): string {
+  return `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}:${state.localArmor ?? "-"}`;
 }
 
 function renderBuyMenu(): void {
@@ -1145,9 +1153,47 @@ function renderBuyMenu(): void {
     currentWeaponProfileId: state.weaponProfileId,
     weapons: WEAPON_CATALOG
   });
-  lastBuyRenderKey = `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}`;
+  lastBuyRenderKey = buyMenuRenderKey();
   buyCashEl.textContent = formatPlaytestMoney(view.money);
-  buyListEl.replaceChildren(...view.rows.map((row) => createBuyRow(row)));
+  const rows = view.rows.map((row) => createBuyRow(row));
+  rows.push(createArmorBuyRow());
+  buyListEl.replaceChildren(...rows);
+}
+
+function createArmorBuyRow(): HTMLLIElement {
+  const owned = (state.localArmor ?? 0) >= DEFAULT_ARMOR_VALUE;
+  const affordable = !owned && state.localMoney !== undefined && state.localMoney >= ARMOR_PRICE;
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "playtest-buy-row";
+  button.dataset.state = owned ? "owned" : affordable ? "affordable" : "locked";
+  button.disabled = owned || !affordable;
+
+  const name = document.createElement("span");
+  name.className = "playtest-buy-name";
+  name.textContent = "Armor";
+  const role = document.createElement("span");
+  role.className = "playtest-buy-role";
+  role.textContent = "gear";
+  const price = document.createElement("span");
+  price.className = "playtest-buy-price";
+  price.textContent = owned ? "Owned" : formatBuyMenuPrice(ARMOR_PRICE);
+
+  button.append(name, role, price);
+  button.addEventListener("click", () => {
+    sendArmorBuyIntent();
+  });
+  item.append(button);
+  return item;
+}
+
+function sendArmorBuyIntent(): void {
+  if (transport === undefined) {
+    return;
+  }
+  buySequence += 1;
+  transport.send(createClientArmorBuy({ sequence: buySequence }));
 }
 
 function createBuyRow(row: BuyMenuRow): HTMLLIElement {
@@ -2169,6 +2215,7 @@ function updateReadout(
   updateChargeDevice();
   updateCombatFeedback(presentation);
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
+  hudArmorEl.textContent = formatPlaytestArmor(state.localArmor);
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =
     roundCombatPresentationState.localLifeLabel === "alive"

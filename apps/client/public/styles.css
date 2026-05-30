@@ -601,6 +601,10 @@ li {
   font-variant-numeric: tabular-nums;
 }
 
+.playtest-hud-armor {
+  color: #a9c6ea;
+}
+
 .playtest-hud-side[data-team="cops"] {
   color: #a9c6ea;
 }

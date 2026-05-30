@@ -120,3 +120,32 @@ test("combat state ignores rejected, missed, unknown-target, and client-shaped f
   assert.equal(combat.getSessionState(2)?.health, 50);
   assert.equal(combat.getSessionState(2)?.lastEventKind, COMBAT_EVENT_KIND.damage);
 });
+
+test("armor absorbs part of each hit until the pool depletes", () => {
+  const combat = createCombatState({ damagePerHit: 50, respawnDelayTicks: 3 });
+  combat.assignEntity({ sessionId: 1, entityId: 1 });
+  combat.assignEntity({ sessionId: 2, entityId: 2 });
+  assert.equal(combat.setArmor(2, 100), true);
+  assert.equal(combat.getArmor(2), 100);
+
+  // 50 incoming: armor absorbs floor(50*0.5)=25, health takes 25.
+  const first = combat.applyFireResult(fireResult({ sequence: 1, serverTick: 10 }));
+  assert.equal(first.state.health, 75);
+  assert.equal(first.state.damage, 25); // damage to health, not the raw weapon damage
+  assert.equal(first.armor, 75);
+  assert.equal(combat.getArmor(2), 75);
+
+  // Three more hits drain the armor (25 each) and then full damage lands.
+  combat.applyFireResult(fireResult({ sequence: 2, serverTick: 11 }));
+  combat.applyFireResult(fireResult({ sequence: 3, serverTick: 12 }));
+  assert.equal(combat.getArmor(2), 25);
+  assert.equal(combat.getSessionState(2)?.health, 25);
+  // 4th hit: armor only has 25, absorbs floor(min(25,25))=25, health takes 25 → 0 (death).
+  const lethal = combat.applyFireResult(fireResult({ sequence: 4, serverTick: 13 }));
+  assert.equal(combat.getArmor(2), 0);
+  assert.equal(lethal.state.health, 0);
+
+  // Armor clears on round reset.
+  combat.resetAll(20);
+  assert.equal(combat.getArmor(2), 0);
+});
