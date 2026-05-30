@@ -16,6 +16,7 @@
     "dev:client": "npm run typecheck && node apps/client/dist/dev-client.js",
     "dev:server": "npm run typecheck && node apps/server/dist/dev-server.js",
     "host:match": "npm run typecheck && node scripts/host-match.mjs",
+    "import:arena": "npm run typecheck && node scripts/import-arena-glb.mjs",
     "registry:serve": "npm run typecheck && node apps/registry/dist/main.js",
     "audit:private-assets": "npm run typecheck && node scripts/private-asset-audit.mjs",
     "playtest:harness": "node scripts/playtest-harness.mjs",
