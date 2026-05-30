@@ -14,13 +14,15 @@ export const DEFAULT_WEAPON_PROFILE_ID: LoadoutProfileId = LOADOUT_PROFILE_ID.ha
 
 const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
   {
+    // Sniper: a one-shot-to-the-body bolt rifle. Very high damage, a tiny magazine,
+    // and a punishing cadence.
     profileId: LOADOUT_PROFILE_ID.ridgeline,
     name: "Ridgeline",
-    role: "precision",
-    damagePerHit: 60,
-    fireIntervalTicks: 36,
+    role: "sniper",
+    damagePerHit: 100,
+    fireIntervalTicks: 50,
     magazineSize: 5,
-    reloadTicks: 150
+    reloadTicks: 180
   },
   {
     // Starter sidearm: a hard-hitting six-shot revolver. Low capacity and a slow,
@@ -34,13 +36,36 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     reloadTicks: 165
   },
   {
+    // SMG: fast, low per-hit damage, a deep magazine. Run-and-gun close pressure.
     profileId: LOADOUT_PROFILE_ID.cinder,
     name: "Cinder",
-    role: "close",
-    damagePerHit: 16,
+    role: "smg",
+    damagePerHit: 20,
     fireIntervalTicks: 5,
+    magazineSize: 25,
+    reloadTicks: 120
+  },
+  {
+    // Shotgun: a brutal close-range hit, slow pump, small magazine. (Pellet spread
+    // and range falloff land with the hitscan-range milestone; for now it is a
+    // single high-damage ray.)
+    profileId: LOADOUT_PROFILE_ID.maul,
+    name: "Maul",
+    role: "shotgun",
+    damagePerHit: 85,
+    fireIntervalTicks: 40,
+    magazineSize: 8,
+    reloadTicks: 180
+  },
+  {
+    // Rifle: the versatile mainstay. Medium damage, medium cadence, a full magazine.
+    profileId: LOADOUT_PROFILE_ID.vantage,
+    name: "Vantage",
+    role: "rifle",
+    damagePerHit: 30,
+    fireIntervalTicks: 8,
     magazineSize: 30,
-    reloadTicks: 90
+    reloadTicks: 135
   }
 ].map(validateWeaponDefinition);
 

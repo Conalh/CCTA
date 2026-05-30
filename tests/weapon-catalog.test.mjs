@@ -10,15 +10,26 @@ import {
   listWeaponProfileIds
 } from "../packages/shared/dist/index.js";
 
-test("weapon catalog exposes the three original weapons keyed by loadout profile id", () => {
-  assert.equal(WEAPON_CATALOG.length, 3);
+test("weapon catalog exposes the original arsenal keyed by loadout profile id", () => {
+  assert.equal(WEAPON_CATALOG.length, 5);
   assert.deepEqual(
     WEAPON_CATALOG.map((weapon) => weapon.profileId),
-    [LOADOUT_PROFILE_ID.ridgeline, LOADOUT_PROFILE_ID.halcyon, LOADOUT_PROFILE_ID.cinder]
+    [
+      LOADOUT_PROFILE_ID.ridgeline,
+      LOADOUT_PROFILE_ID.halcyon,
+      LOADOUT_PROFILE_ID.cinder,
+      LOADOUT_PROFILE_ID.maul,
+      LOADOUT_PROFILE_ID.vantage
+    ]
   );
   assert.deepEqual(
     WEAPON_CATALOG.map((weapon) => weapon.name),
-    ["Ridgeline", "Halcyon", "Cinder"]
+    ["Ridgeline", "Halcyon", "Cinder", "Maul", "Vantage"]
+  );
+  // One of each class: sniper, revolver (pistol), smg, shotgun, rifle.
+  assert.deepEqual(
+    WEAPON_CATALOG.map((weapon) => weapon.role),
+    ["sniper", "revolver", "smg", "shotgun", "rifle"]
   );
 });
 
@@ -62,6 +73,8 @@ test("weapon lookup resolves known profiles and rejects unknown ids", () => {
   assert.deepEqual(listWeaponProfileIds(), [
     LOADOUT_PROFILE_ID.ridgeline,
     LOADOUT_PROFILE_ID.halcyon,
-    LOADOUT_PROFILE_ID.cinder
+    LOADOUT_PROFILE_ID.cinder,
+    LOADOUT_PROFILE_ID.maul,
+    LOADOUT_PROFILE_ID.vantage
   ]);
 });

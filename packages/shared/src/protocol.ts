@@ -74,7 +74,9 @@ export const COMBAT_EVENT_KIND = {
 export const LOADOUT_PROFILE_ID = {
   ridgeline: 1,
   halcyon: 2,
-  cinder: 3
+  cinder: 3,
+  maul: 4,
+  vantage: 5
 } as const;
 
 export const LOADOUT_STATUS = {
