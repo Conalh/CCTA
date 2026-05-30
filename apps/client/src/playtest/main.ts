@@ -5,8 +5,10 @@ import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 import {
   DEFAULT_WEAPON_PROFILE_ID,
   PROTOCOL_VERSION,
+  WEAPON_CATALOG,
   createClientFireIntent,
   createClientLoadoutSelect,
+  createClientWeaponBuy,
   createClientWeaponReload,
   type MessageTransport
 } from "@breachline/shared";
@@ -81,6 +83,7 @@ import {
   createScoreboardPresentation,
   type ScoreboardPresentation
 } from "./scoreboard-presentation.js";
+import { createBuyMenuView, formatBuyMenuPrice, type BuyMenuRow } from "./buy-menu.js";
 import {
   SERVER_BROWSER_BUILD_ID,
   SERVER_BROWSER_TABS,
@@ -244,6 +247,10 @@ const settingsSensitivityInput = requireInput("playtest-setting-sensitivity");
 const settingsSensitivityValueEl = requireElement("playtest-setting-sensitivity-value");
 const settingsFovInput = requireInput("playtest-setting-fov");
 const settingsFovValueEl = requireElement("playtest-setting-fov-value");
+const buyMenuEl = requireElement("playtest-buy-menu");
+const buyCashEl = requireElement("playtest-buy-cash");
+const buyListEl = requireElement("playtest-buy-list");
+const buyCloseButton = requireButton("playtest-buy-close");
 const localEntityEl = requireElement("playtest-local-entity");
 const serverPositionEl = requireElement("playtest-server-position");
 const predictedPositionEl = requireElement("playtest-predicted-position");
@@ -354,6 +361,9 @@ let favoriteServers: readonly FavoriteServerEntry[] = loadFavoriteServers();
 let registryMatches: readonly RegistryMatchListing[] = [];
 let serverPings: Record<string, number> = {};
 let pingProbeGeneration = 0;
+let buyMenuOpen = false;
+let buySequence = 0;
+let lastBuyRenderKey: string | undefined;
 let pendingConnect: { joinUrl: string; name: string } | undefined;
 let activeMenuWindow: MenuPanel | undefined;
 let activeServerTab: ServerBrowserTab = "internet";
@@ -440,6 +450,15 @@ settingsFovInput.addEventListener("input", () => {
   persistSetting(FOV_STORAGE_KEY, fieldOfView);
   applyFieldOfView();
   applySettingsReadouts();
+});
+buyCloseButton.addEventListener("click", () => {
+  closeBuyMenu();
+});
+buyMenuEl.addEventListener("click", (event) => {
+  // Clicking the dimmed backdrop (outside the panel) closes the buy menu.
+  if (event.target === buyMenuEl) {
+    closeBuyMenu();
+  }
 });
 closeMenuWindow();
 applyServerSortIndicators();
@@ -537,6 +556,18 @@ try {
     if (event.code === "Escape" && menuEl.dataset.visible === "true" && activeMenuWindow !== undefined) {
       event.preventDefault();
       closeMenuWindow();
+      return;
+    }
+
+    if (event.code === "Escape" && buyMenuOpen) {
+      event.preventDefault();
+      closeBuyMenu();
+      return;
+    }
+
+    if (event.code === "KeyB" && menuEl.dataset.visible !== "true") {
+      event.preventDefault();
+      toggleBuyMenu();
       return;
     }
 
@@ -947,6 +978,89 @@ function updateMenuVisibility(connectionStatus: string): void {
 
 function setMenuStatus(text: string): void {
   menuStatusEl.textContent = text;
+}
+
+function toggleBuyMenu(): void {
+  if (buyMenuOpen) {
+    closeBuyMenu();
+  } else {
+    openBuyMenu();
+  }
+}
+
+function openBuyMenu(): void {
+  if (transport === undefined) {
+    return;
+  }
+  buyMenuOpen = true;
+  buyMenuEl.dataset.open = "true";
+  // Free the cursor so weapons can be clicked.
+  if (document.pointerLockElement === canvas) {
+    document.exitPointerLock();
+  }
+  renderBuyMenu();
+}
+
+function closeBuyMenu(): void {
+  buyMenuOpen = false;
+  buyMenuEl.dataset.open = "false";
+  lastBuyRenderKey = undefined;
+}
+
+function refreshBuyMenuIfOpen(): void {
+  if (!buyMenuOpen) {
+    return;
+  }
+  // Re-render only when the money or current weapon changed, so clicking stays stable.
+  const key = `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}`;
+  if (key !== lastBuyRenderKey) {
+    renderBuyMenu();
+  }
+}
+
+function renderBuyMenu(): void {
+  const view = createBuyMenuView({
+    money: state.localMoney,
+    currentWeaponProfileId: state.weaponProfileId,
+    weapons: WEAPON_CATALOG
+  });
+  lastBuyRenderKey = `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}`;
+  buyCashEl.textContent = formatPlaytestMoney(view.money);
+  buyListEl.replaceChildren(...view.rows.map((row) => createBuyRow(row)));
+}
+
+function createBuyRow(row: BuyMenuRow): HTMLLIElement {
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "playtest-buy-row";
+  button.dataset.state = row.owned ? "owned" : row.affordable ? "affordable" : "locked";
+  button.disabled = row.owned || !row.affordable;
+
+  const name = document.createElement("span");
+  name.className = "playtest-buy-name";
+  name.textContent = row.name;
+  const role = document.createElement("span");
+  role.className = "playtest-buy-role";
+  role.textContent = row.role;
+  const price = document.createElement("span");
+  price.className = "playtest-buy-price";
+  price.textContent = row.owned ? "Owned" : formatBuyMenuPrice(row.price);
+
+  button.append(name, role, price);
+  button.addEventListener("click", () => {
+    sendBuyIntent(row.profileId);
+  });
+  item.append(button);
+  return item;
+}
+
+function sendBuyIntent(profileId: BuyMenuRow["profileId"]): void {
+  if (transport === undefined) {
+    return;
+  }
+  buySequence += 1;
+  transport.send(createClientWeaponBuy({ sequence: buySequence, profileId }));
 }
 
 function applySettingsReadouts(): void {
@@ -1783,6 +1897,10 @@ function updateReadout(
   localHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   localLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudMoneyEl.textContent = formatPlaytestMoney(state.localMoney);
+  if (buyMenuOpen && (transport === undefined || menuEl.dataset.visible === "true")) {
+    closeBuyMenu();
+  }
+  refreshBuyMenuIfOpen();
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =

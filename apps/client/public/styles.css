@@ -601,6 +601,132 @@ li {
   font-variant-numeric: tabular-nums;
 }
 
+.playtest-buy-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgb(6 9 10 / 55%);
+}
+
+.playtest-buy-menu[data-open="true"] {
+  display: flex;
+}
+
+.playtest-buy-panel {
+  width: 420px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #0a0d0e;
+  border-radius: 4px;
+  background: #11171a;
+  box-shadow: inset 0 0 0 1px rgb(58 71 70 / 55%), 0 22px 60px rgb(0 0 0 / 62%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+}
+
+.playtest-buy-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid #0a0d0e;
+  background: linear-gradient(#1f2a2d, #141d1f);
+}
+
+.playtest-buy-title {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8ed0bd;
+}
+
+.playtest-buy-cash {
+  margin-left: auto;
+  color: #9ee2af;
+  font-variant-numeric: tabular-nums;
+}
+
+.playtest-buy-close {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #2c3633;
+  border-radius: 3px;
+  background: #141b1d;
+  color: #c2ccca;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.playtest-buy-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: auto;
+}
+
+.playtest-buy-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #34403e;
+  border-radius: 6px;
+  background: #131a1c;
+  color: #e4ebe9;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playtest-buy-row:hover:not(:disabled) {
+  border-color: #8ed0bd;
+}
+
+.playtest-buy-row:disabled {
+  cursor: not-allowed;
+}
+
+.playtest-buy-row[data-state="locked"] {
+  opacity: 0.5;
+}
+
+.playtest-buy-row[data-state="owned"] {
+  box-shadow: inset 2px 0 0 #8ed0bd;
+}
+
+.playtest-buy-name {
+  font-weight: 600;
+}
+
+.playtest-buy-role {
+  color: #9fb0ac;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.playtest-buy-price {
+  color: #c9b27e;
+  font-variant-numeric: tabular-nums;
+}
+
+.playtest-buy-hint {
+  margin: 0;
+  padding: 8px 12px 12px;
+  font-size: 12px;
+  color: #7c8986;
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;
