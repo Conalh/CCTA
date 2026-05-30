@@ -324,6 +324,9 @@ const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
 const hudSideEl = requireElement("playtest-hud-side");
 const scoreEl = requireElement("playtest-score");
+const mapNameEl = requireElement("playtest-mapname");
+const mapNameValueEl = requireElement("playtest-mapname-value");
+const scoreboardMapEl = requireElement("playtest-scoreboard-map");
 const roundTimerEl = requireElement("playtest-round-timer");
 const roundTimerLabelEl = requireElement("playtest-round-timer-label");
 const roundTimerTimeEl = requireElement("playtest-round-timer-time");
@@ -1875,6 +1878,15 @@ function maybeSwitchMap(): void {
   currentMapId = state.mapId;
   currentArena = arena;
   rebuildGreybox(arena);
+  applyCurrentMapLabel(arena);
+}
+
+// Surface the arena name in the always-on top-left chip and the scoreboard header so a
+// player can always tell which map they are on. Driven purely by the server-reported map.
+function applyCurrentMapLabel(arena: ArenaMapMetadata): void {
+  mapNameValueEl.textContent = arena.displayName;
+  mapNameEl.dataset.visible = "true";
+  scoreboardMapEl.textContent = arena.displayName;
 }
 
 // Load the private-prototype weapon mesh and attach it as the held first-person

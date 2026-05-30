@@ -158,6 +158,10 @@
           <span id="playtest-round-timer-time" class="playtest-round-timer-time">0:00</span>
         </div>
         <div id="playtest-score" class="playtest-score" aria-label="Round score">Cops 0 — Robbers 0</div>
+        <div id="playtest-mapname" class="playtest-mapname" data-visible="false" aria-label="Current map">
+          <span class="playtest-mapname-label">Map</span>
+          <span id="playtest-mapname-value" class="playtest-mapname-value"></span>
+        </div>
         <div id="playtest-round-banner" class="playtest-round-banner" data-active="false" role="status"></div>
         <div id="playtest-match-banner" class="playtest-match-banner" data-active="false" role="status"></div>
         <div id="playtest-objective" class="playtest-objective" data-visible="false" data-tone="idle" role="status">
@@ -249,6 +253,7 @@
         <aside class="playtest-scoreboard" aria-label="Server-authoritative kill and death scoreboard">
           <header class="playtest-scoreboard-head">
             <span class="playtest-scoreboard-title">Scoreboard</span>
+            <span id="playtest-scoreboard-map" class="playtest-scoreboard-map"></span>
             <span class="playtest-scoreboard-columns">K / D</span>
           </header>
           <p id="playtest-scoreboard-summary" class="playtest-scoreboard-summary">no stats yet</p>

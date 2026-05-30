@@ -678,6 +678,52 @@ li {
   z-index: 21;
 }
 
+/* Always-on map label: a quiet chip in the top-left so a player can tell which arena
+   they are on at a glance. Shown only once the server has told the client the map. */
+.playtest-mapname {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: none;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid rgb(58 71 70 / 55%);
+  border-radius: 5px;
+  background: rgb(10 13 14 / 78%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+  pointer-events: none;
+  z-index: 21;
+}
+
+.playtest-mapname[data-visible="true"] {
+  display: flex;
+}
+
+.playtest-mapname-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b9794;
+}
+
+.playtest-mapname-value {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #e7edeb;
+}
+
+.playtest-scoreboard-map {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: #9fb0ac;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The scoreboard and roster are a hold-Tab "scores" overlay: hidden during play, shown
    only while Tab is held (data-scores="visible"). */
 .playtest-page[data-scores="hidden"] .playtest-scoreboard,
@@ -1345,6 +1391,7 @@ body[data-menu-open="true"] .playtest-crosshair,
 body[data-menu-open="true"] .playtest-hud,
 body[data-menu-open="true"] .playtest-scoreboard,
 body[data-menu-open="true"] .playtest-roster,
+body[data-menu-open="true"] .playtest-mapname,
 body[data-menu-open="true"] .playtest-round-banner,
 body[data-menu-open="true"] .playtest-match-banner {
   display: none;
