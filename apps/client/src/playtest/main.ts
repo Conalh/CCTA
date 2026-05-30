@@ -8,6 +8,10 @@ import {
   COMBAT_EVENT_KIND,
   DEFAULT_ARMOR_VALUE,
   DEFAULT_WEAPON_PROFILE_ID,
+  GRENADE_BLAST_RADIUS_METERS,
+  GRENADE_MAX_COUNT,
+  GRENADE_PRICE,
+  GRENADE_RADIUS_METERS,
   PLANT_SITE,
   PROTOCOL_VERSION,
   ROUND_PHASE,
@@ -15,11 +19,14 @@ import {
   createClientAdminCommand,
   createClientArmorBuy,
   createClientFireIntent,
+  createClientGrenadeBuy,
+  createClientGrenadeThrow,
   createClientLoadoutSelect,
   createClientWeaponBuy,
   createClientWeaponReload,
   getPlayerCallsign,
   teamForSlot,
+  type GrenadeStateEntry,
   type MessageTransport
 } from "@breachline/shared";
 
@@ -61,6 +68,7 @@ import {
   classifyNetworkedPlaytestMotionContact,
   holdPlaytestMotionContact,
   formatPlaytestArmor,
+  formatPlaytestGrenades,
   formatPlaytestMatchOccupancy,
   formatPlaytestMoney,
   formatPlaytestRoundScore,
@@ -306,6 +314,7 @@ const localLifeEl = requireElement("playtest-local-life");
 const hudMoneyEl = requireElement("playtest-hud-money");
 const hudHealthEl = requireElement("playtest-hud-health");
 const hudArmorEl = requireElement("playtest-hud-armor");
+const hudGrenadeEl = requireElement("playtest-hud-grenade");
 const hudLifeEl = requireElement("playtest-hud-life");
 const hudStanceEl = requireElement("playtest-hud-stance");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
@@ -379,6 +388,11 @@ let pingTimer: ReturnType<typeof setInterval> | undefined;
 let inputTimer: ReturnType<typeof setInterval> | undefined;
 let animationFrame: number | undefined;
 let chargeDeviceMesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial> | undefined;
+let grenadeSphereGroup: THREE.Group | undefined;
+let grenadeFlashGroup: THREE.Group | undefined;
+const flashedGrenadeIds = new Set<number>();
+const grenadeFlashes: Array<{ mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>; bornFrame: number }> = [];
+const GRENADE_FLASH_TTL_FRAMES = 24;
 const killFeedEntries: Array<{ text: string; bornFrame: number }> = [];
 let lastKillFeedStats: ReadonlyArray<{ sessionId: number; kills: number; deaths: number }> | undefined;
 let lastDamageEventSequence: number | undefined;
@@ -416,6 +430,7 @@ let buySequence = 0;
 let lastBuyRenderKey: string | undefined;
 let consoleOpen = false;
 let adminSequence = 0;
+let grenadeSequence = 0;
 let pendingConnect: { joinUrl: string; name: string } | undefined;
 let activeMenuWindow: MenuPanel | undefined;
 let activeServerTab: ServerBrowserTab = "internet";
@@ -602,6 +617,11 @@ try {
   chargeDeviceMesh.visible = false;
   scene.add(chargeDeviceMesh);
 
+  grenadeSphereGroup = new THREE.Group();
+  scene.add(grenadeSphereGroup);
+  grenadeFlashGroup = new THREE.Group();
+  scene.add(grenadeFlashGroup);
+
   canvas.addEventListener("click", () => {
     requestPointerLockForCanvas();
   });
@@ -667,6 +687,12 @@ try {
     if (event.code === "KeyR") {
       event.preventDefault();
       sendReloadIntent();
+      return;
+    }
+
+    if (event.code === "KeyG" && menuEl.dataset.visible !== "true" && !buyMenuOpen) {
+      event.preventDefault();
+      sendGrenadeThrowIntent();
       return;
     }
 
@@ -764,6 +790,16 @@ async function connect(): Promise<void> {
 
       if (message.kind === "server.admin.result") {
         appendConsoleLine(message.ok ? "ok" : "error", message.text);
+      }
+
+      if (message.kind === "server.grenade.state") {
+        rebuildGrenadeSpheres(message.entries);
+        for (const entry of message.entries) {
+          if (entry.detonated && !flashedGrenadeIds.has(entry.id)) {
+            flashedGrenadeIds.add(entry.id);
+            spawnGrenadeFlash(entry.x, entry.y, entry.z);
+          }
+        }
       }
       if (message.kind === "match.assigned") {
         sendLoadoutSelection();
@@ -1144,7 +1180,7 @@ function refreshBuyMenuIfOpen(): void {
 }
 
 function buyMenuRenderKey(): string {
-  return `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}:${state.localArmor ?? "-"}`;
+  return `${state.localMoney ?? "-"}:${state.weaponProfileId ?? "-"}:${state.localArmor ?? "-"}:${state.localGrenades ?? "-"}`;
 }
 
 function renderBuyMenu(): void {
@@ -1157,7 +1193,52 @@ function renderBuyMenu(): void {
   buyCashEl.textContent = formatPlaytestMoney(view.money);
   const rows = view.rows.map((row) => createBuyRow(row));
   rows.push(createArmorBuyRow());
+  rows.push(createGrenadeBuyRow());
   buyListEl.replaceChildren(...rows);
+}
+
+function createGrenadeBuyRow(): HTMLLIElement {
+  const owned = (state.localGrenades ?? 0) >= GRENADE_MAX_COUNT;
+  const affordable = !owned && state.localMoney !== undefined && state.localMoney >= GRENADE_PRICE;
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "playtest-buy-row";
+  button.dataset.state = owned ? "owned" : affordable ? "affordable" : "locked";
+  button.disabled = owned || !affordable;
+
+  const name = document.createElement("span");
+  name.className = "playtest-buy-name";
+  name.textContent = "Grenade";
+  const role = document.createElement("span");
+  role.className = "playtest-buy-role";
+  role.textContent = "utility";
+  const price = document.createElement("span");
+  price.className = "playtest-buy-price";
+  price.textContent = owned ? "Held" : formatBuyMenuPrice(GRENADE_PRICE);
+
+  button.append(name, role, price);
+  button.addEventListener("click", () => {
+    sendGrenadeBuyIntent();
+  });
+  item.append(button);
+  return item;
+}
+
+function sendGrenadeBuyIntent(): void {
+  if (transport === undefined) {
+    return;
+  }
+  buySequence += 1;
+  transport.send(createClientGrenadeBuy({ sequence: buySequence }));
+}
+
+function sendGrenadeThrowIntent(): void {
+  if (transport === undefined || (state.localGrenades ?? 0) <= 0 || state.localAlive !== true) {
+    return;
+  }
+  grenadeSequence += 1;
+  transport.send(createClientGrenadeThrow({ sequence: grenadeSequence, yaw: yawRadians, pitch: pitchRadians }));
 }
 
 function createArmorBuyRow(): HTMLLIElement {
@@ -1262,6 +1343,63 @@ function renderObjectivePrompt(): void {
   });
   objectivePromptEl.dataset.visible = prompt.visible ? "true" : "false";
   objectivePromptEl.textContent = prompt.visible ? prompt.text : "";
+}
+
+function rebuildGrenadeSpheres(entries: readonly GrenadeStateEntry[]): void {
+  if (grenadeSphereGroup === undefined) {
+    return;
+  }
+  for (const child of [...grenadeSphereGroup.children]) {
+    grenadeSphereGroup.remove(child);
+    if (child instanceof THREE.Mesh) {
+      child.geometry.dispose();
+      (child.material as THREE.Material).dispose();
+    }
+  }
+  for (const entry of entries) {
+    if (entry.detonated) {
+      continue;
+    }
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(GRENADE_RADIUS_METERS, 10, 8),
+      new THREE.MeshBasicMaterial({ color: "#3f4a30" })
+    );
+    mesh.position.set(entry.x, entry.y, entry.z);
+    grenadeSphereGroup.add(mesh);
+  }
+}
+
+function spawnGrenadeFlash(x: number, y: number, z: number): void {
+  if (grenadeFlashGroup === undefined) {
+    return;
+  }
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 16, 12),
+    new THREE.MeshBasicMaterial({ color: "#ffcf6a", transparent: true, opacity: 0.7 })
+  );
+  mesh.position.set(x, Math.max(0.5, y), z);
+  grenadeFlashGroup.add(mesh);
+  grenadeFlashes.push({ mesh, bornFrame: frameCount });
+}
+
+function updateGrenadeFlashes(): void {
+  if (grenadeFlashGroup === undefined) {
+    return;
+  }
+  for (let index = grenadeFlashes.length - 1; index >= 0; index -= 1) {
+    const flash = grenadeFlashes[index];
+    const age = frameCount - flash.bornFrame;
+    if (age > GRENADE_FLASH_TTL_FRAMES) {
+      grenadeFlashGroup.remove(flash.mesh);
+      flash.mesh.geometry.dispose();
+      flash.mesh.material.dispose();
+      grenadeFlashes.splice(index, 1);
+      continue;
+    }
+    const progress = age / GRENADE_FLASH_TTL_FRAMES;
+    flash.mesh.scale.setScalar(1 + progress * (GRENADE_BLAST_RADIUS_METERS / 0.5));
+    flash.mesh.material.opacity = 0.7 * (1 - progress);
+  }
 }
 
 function updateChargeDevice(): void {
@@ -2213,9 +2351,11 @@ function updateReadout(
   renderObjectiveHud();
   renderObjectivePrompt();
   updateChargeDevice();
+  updateGrenadeFlashes();
   updateCombatFeedback(presentation);
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudArmorEl.textContent = formatPlaytestArmor(state.localArmor);
+  hudGrenadeEl.textContent = formatPlaytestGrenades(state.localGrenades);
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =
     roundCombatPresentationState.localLifeLabel === "alive"

@@ -37,6 +37,14 @@ export type CombatEntityInput = Readonly<{
   entityId: number;
 }>;
 
+export type CombatDamageInput = Readonly<{
+  targetSessionId: number;
+  sourceSessionId: number;
+  amount: number;
+  serverTick: number;
+  sequence?: number;
+}>;
+
 export type CombatSessionState = Omit<ServerCombatStateMessage, "kind" | "serverTick">;
 
 export type CombatApplyResult = Readonly<{
@@ -53,6 +61,9 @@ export type CombatState = Readonly<{
   isAlive(sessionId: number): boolean;
   getSessionState(sessionId: number): CombatSessionState | undefined;
   applyFireResult(result: ServerFireResultMessage): CombatApplyResult;
+  // Direct server-authoritative damage (e.g. a grenade blast), through the same armor/death
+  // path as a hitscan hit.
+  applyDamage(input: CombatDamageInput): CombatApplyResult;
   // Armor is a server-owned damage buffer, separate from the broadcast combat state.
   setArmor(sessionId: number, amount: number): boolean;
   getArmor(sessionId: number): number;
@@ -181,21 +192,32 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
       getDamagePerHit?.(source.sessionId) ?? damagePerHit,
       "damagePerHit"
     );
-    // Armor absorbs a fraction of the hit (capped by the pool) before it reaches health.
-    const absorbed = target.armor > 0 ? Math.min(target.armor, Math.floor(resolvedDamagePerHit * ARMOR_ABSORB_FRACTION)) : 0;
+    return applyDamageToTarget(target, resolvedDamagePerHit, result.sessionId, result.serverTick, result.sequence);
+  }
+
+  // Shared damage application: armor absorbs a fraction of the hit (capped by the pool)
+  // before it reaches health, then health/death/event fields are updated.
+  function applyDamageToTarget(
+    target: MutableCombatSessionState,
+    incoming: number,
+    sourceSessionId: number,
+    serverTick: number,
+    sequence: number
+  ): CombatApplyResult {
+    const absorbed = target.armor > 0 ? Math.min(target.armor, Math.floor(incoming * ARMOR_ABSORB_FRACTION)) : 0;
     target.armor -= absorbed;
-    const healthDamage = resolvedDamagePerHit - absorbed;
+    const healthDamage = incoming - absorbed;
     const nextHealth = Math.max(0, target.health - healthDamage);
     const died = nextHealth === 0;
     target.health = nextHealth;
     target.alive = !died;
-    target.deathTick = died ? result.serverTick : 0;
-    target.respawnEligibleTick = died ? result.serverTick + respawnDelayTicks : 0;
+    target.deathTick = died ? serverTick : 0;
+    target.respawnEligibleTick = died ? serverTick + respawnDelayTicks : 0;
     target.lastEventKind = died ? COMBAT_EVENT_KIND.death : COMBAT_EVENT_KIND.damage;
-    target.lastEventTick = result.serverTick;
-    target.lastEventSequence = result.sequence;
-    target.sourceSessionId = result.sessionId;
-    target.targetSessionId = result.targetSessionId;
+    target.lastEventTick = serverTick;
+    target.lastEventSequence = sequence;
+    target.sourceSessionId = sourceSessionId;
+    target.targetSessionId = target.sessionId;
     target.damage = healthDamage;
 
     return {
@@ -203,6 +225,21 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
       state: toReadonlyState(target),
       armor: target.armor
     };
+  }
+
+  function applyDamage(input: CombatDamageInput): CombatApplyResult {
+    const target = sessions.get(readPositiveUint32(input.targetSessionId, "targetSessionId"));
+    if (target === undefined) {
+      return { applied: false, rejectReason: COMBAT_APPLY_REJECT_REASON.targetUnknown };
+    }
+    if (!target.alive) {
+      return { applied: false, rejectReason: COMBAT_APPLY_REJECT_REASON.targetDead, state: toReadonlyState(target) };
+    }
+    const incoming = Math.max(0, Math.trunc(input.amount));
+    if (incoming <= 0) {
+      return { applied: false, rejectReason: COMBAT_APPLY_REJECT_REASON.missed, state: toReadonlyState(target) };
+    }
+    return applyDamageToTarget(target, incoming, input.sourceSessionId, readUint32(input.serverTick, "serverTick"), input.sequence ?? 0);
   }
 
   function setArmor(sessionIdValue: number, amount: number): boolean {
@@ -290,6 +327,7 @@ export function createCombatState(config: CombatStateConfig = {}): CombatState {
     isAlive,
     getSessionState,
     applyFireResult,
+    applyDamage,
     setArmor,
     getArmor,
     advanceRespawns,

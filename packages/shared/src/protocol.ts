@@ -44,7 +44,11 @@ export const PACKET_KIND = {
   clientAdminCommand: 26,
   serverAdminResult: 27,
   clientArmorBuy: 28,
-  serverPlayerArmor: 29
+  serverPlayerArmor: 29,
+  clientGrenadeThrow: 30,
+  clientGrenadeBuy: 31,
+  serverPlayerGrenade: 32,
+  serverGrenadeState: 33
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -170,6 +174,8 @@ export type ClientProtocolMessage =
   | ClientWeaponReloadMessage
   | ClientWeaponBuyMessage
   | ClientArmorBuyMessage
+  | ClientGrenadeThrowMessage
+  | ClientGrenadeBuyMessage
   | ClientAdminCommandMessage;
 
 export type ServerProtocolMessage =
@@ -192,7 +198,9 @@ export type ServerProtocolMessage =
   | ServerPlayerEconomyMessage
   | ServerObjectiveStateMessage
   | ServerAdminResultMessage
-  | ServerPlayerArmorMessage;
+  | ServerPlayerArmorMessage
+  | ServerPlayerGrenadeMessage
+  | ServerGrenadeStateMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -433,6 +441,47 @@ export type ServerPlayerArmorMessage = Readonly<{
   maxArmor: number;
 }>;
 
+// Throw a held grenade along the aim direction.
+export type ClientGrenadeThrowMessage = Readonly<{
+  kind: "client.grenade.throw";
+  sequence: number;
+  yaw: number;
+  pitch: number;
+}>;
+
+// Buy a grenade. Server-validated like the other buys.
+export type ClientGrenadeBuyMessage = Readonly<{
+  kind: "client.grenade.buy";
+  sequence: number;
+}>;
+
+// How many grenades a player holds, sent only to the owner (private).
+export type ServerPlayerGrenadeMessage = Readonly<{
+  kind: "server.player.grenade";
+  serverTick: number;
+  sessionId: number;
+  count: number;
+  maxCount: number;
+}>;
+
+export type GrenadeStateEntry = Readonly<{
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  fuseTicks: number;
+  detonated: boolean;
+}>;
+
+// The live grenades in the world, broadcast to everyone so clients render the projectile
+// and its detonation. A detonated entry appears for the single tick it blows.
+export type ServerGrenadeStateMessage = Readonly<{
+  kind: "server.grenade.state";
+  serverTick: number;
+  entryCount: number;
+  entries: readonly GrenadeStateEntry[];
+}>;
+
 export type ServerSnapshotMessage = Readonly<{
   kind: "server.snapshot";
   tick: number;
@@ -556,6 +605,22 @@ export function createClientAdminCommand(input: Omit<ClientAdminCommandMessage, 
 export function createClientArmorBuy(input: Omit<ClientArmorBuyMessage, "kind">): ClientArmorBuyMessage {
   return {
     kind: "client.armor.buy",
+    sequence: readUint32(input.sequence, "sequence")
+  };
+}
+
+export function createClientGrenadeThrow(input: Omit<ClientGrenadeThrowMessage, "kind">): ClientGrenadeThrowMessage {
+  return {
+    kind: "client.grenade.throw",
+    sequence: readUint32(input.sequence, "sequence"),
+    yaw: readFiniteNumber(input.yaw, "yaw"),
+    pitch: readFiniteNumber(input.pitch, "pitch")
+  };
+}
+
+export function createClientGrenadeBuy(input: Omit<ClientGrenadeBuyMessage, "kind">): ClientGrenadeBuyMessage {
+  return {
+    kind: "client.grenade.buy",
     sequence: readUint32(input.sequence, "sequence")
   };
 }
@@ -747,6 +812,34 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerPlayerArmorPayload(message)
+      );
+    case "client.grenade.throw":
+      return writePacket(
+        PACKET_KIND.clientGrenadeThrow,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        encodeClientGrenadeThrowPayload(message)
+      );
+    case "client.grenade.buy":
+      return writePacket(
+        PACKET_KIND.clientGrenadeBuy,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        new Uint8Array(0)
+      );
+    case "server.player.grenade":
+      return writePacket(
+        PACKET_KIND.serverPlayerGrenade,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerPlayerGrenadePayload(message)
+      );
+    case "server.grenade.state":
+      return writePacket(
+        PACKET_KIND.serverGrenadeState,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerGrenadeStatePayload(message)
       );
   }
 }
@@ -1050,6 +1143,36 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         sessionId: payload.getUint32(0, true),
         armor: payload.getUint16(4, true),
         maxArmor: payload.getUint16(6, true)
+      };
+    case PACKET_KIND.clientGrenadeThrow:
+      requirePayloadLength(payloadLength, 8, "client.grenade.throw");
+      return {
+        kind: "client.grenade.throw",
+        sequence: sequenceOrTick,
+        yaw: readFiniteNumber(payload.getFloat32(0, true), "yaw"),
+        pitch: readFiniteNumber(payload.getFloat32(4, true), "pitch")
+      };
+    case PACKET_KIND.clientGrenadeBuy:
+      requirePayloadLength(payloadLength, 0, "client.grenade.buy");
+      return {
+        kind: "client.grenade.buy",
+        sequence: sequenceOrTick
+      };
+    case PACKET_KIND.serverPlayerGrenade:
+      requirePayloadLength(payloadLength, 8, "server.player.grenade");
+      return {
+        kind: "server.player.grenade",
+        serverTick: sequenceOrTick,
+        sessionId: payload.getUint32(0, true),
+        count: payload.getUint16(4, true),
+        maxCount: payload.getUint16(6, true)
+      };
+    case PACKET_KIND.serverGrenadeState:
+      return {
+        kind: "server.grenade.state",
+        serverTick: sequenceOrTick,
+        entryCount: payload.getUint16(0, true),
+        entries: decodeGrenadeStateEntries(payload, payloadLength)
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1358,6 +1481,71 @@ function encodeServerPlayerArmorPayload(message: ServerPlayerArmorMessage): Uint
   view.setUint16(4, readUint16(message.armor, "armor"), true);
   view.setUint16(6, readUint16(message.maxArmor, "maxArmor"), true);
   return payload;
+}
+
+function encodeClientGrenadeThrowPayload(message: ClientGrenadeThrowMessage): Uint8Array {
+  const payload = new Uint8Array(8);
+  const view = new DataView(payload.buffer);
+  view.setFloat32(0, readFiniteNumber(message.yaw, "yaw"), true);
+  view.setFloat32(4, readFiniteNumber(message.pitch, "pitch"), true);
+  return payload;
+}
+
+function encodeServerPlayerGrenadePayload(message: ServerPlayerGrenadeMessage): Uint8Array {
+  const payload = new Uint8Array(8);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, readUint32(message.sessionId, "sessionId"), true);
+  view.setUint16(4, readUint16(message.count, "count"), true);
+  view.setUint16(6, readUint16(message.maxCount, "maxCount"), true);
+  return payload;
+}
+
+const GRENADE_STATE_ENTRY_STRIDE = 18 as const;
+
+function encodeServerGrenadeStatePayload(message: ServerGrenadeStateMessage): Uint8Array {
+  const entryCount = readUint16(message.entryCount, "entryCount");
+  if (entryCount !== message.entries.length) {
+    throw new Error(`server.grenade.state entry count ${entryCount} does not match ${message.entries.length} entries.`);
+  }
+  const payload = new Uint8Array(4 + message.entries.length * GRENADE_STATE_ENTRY_STRIDE);
+  const view = new DataView(payload.buffer);
+  view.setUint16(0, entryCount, true);
+  view.setUint16(2, 0, true);
+
+  let offset = 4;
+  for (const entry of message.entries) {
+    view.setUint16(offset, readUint16(entry.id, "id"), true);
+    view.setUint8(offset + 2, entry.detonated ? 1 : 0);
+    view.setUint8(offset + 3, 0);
+    view.setFloat32(offset + 4, readFiniteNumber(entry.x, "x"), true);
+    view.setFloat32(offset + 8, readFiniteNumber(entry.y, "y"), true);
+    view.setFloat32(offset + 12, readFiniteNumber(entry.z, "z"), true);
+    view.setUint16(offset + 16, readUint16(entry.fuseTicks, "fuseTicks"), true);
+    offset += GRENADE_STATE_ENTRY_STRIDE;
+  }
+  return payload;
+}
+
+function decodeGrenadeStateEntries(payload: DataView, payloadLength: number): readonly GrenadeStateEntry[] {
+  const entryCount = payload.getUint16(0, true);
+  const expected = 4 + entryCount * GRENADE_STATE_ENTRY_STRIDE;
+  if (payloadLength !== expected) {
+    throw new Error(`server.grenade.state length ${payloadLength} does not match ${entryCount} entries.`);
+  }
+  const entries: GrenadeStateEntry[] = [];
+  let offset = 4;
+  for (let index = 0; index < entryCount; index += 1) {
+    entries.push({
+      id: payload.getUint16(offset, true),
+      x: payload.getFloat32(offset + 4, true),
+      y: payload.getFloat32(offset + 8, true),
+      z: payload.getFloat32(offset + 12, true),
+      fuseTicks: payload.getUint16(offset + 16, true),
+      detonated: payload.getUint8(offset + 2) !== 0
+    });
+    offset += GRENADE_STATE_ENTRY_STRIDE;
+  }
+  return entries;
 }
 
 function encodeServerAdminResultPayload(message: ServerAdminResultMessage): Uint8Array {

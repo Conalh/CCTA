@@ -1061,6 +1061,22 @@ test("connection state reducer mirrors the player's own armor", () => {
   assert.equal(state.localArmor, undefined);
 });
 
+test("connection state reducer mirrors the player's held grenade count", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.localGrenades, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: { kind: "server.player.grenade", serverTick: 42, sessionId: 7, count: 1, maxCount: 1 }
+  });
+  assert.equal(state.localGrenades, 1);
+  assert.equal(state.localMaxGrenades, 1);
+
+  state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
+  assert.equal(state.localGrenades, undefined);
+});
+
 test("connection state reducer mirrors the broadcast breach-charge state", () => {
   let state = createInitialConnectionViewState(0);
   assert.equal(state.chargePhase, undefined);

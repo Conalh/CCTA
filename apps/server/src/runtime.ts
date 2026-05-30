@@ -3,12 +3,16 @@ import {
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
   DEFAULT_ARMOR_VALUE,
+  DRYDOCK_SPAN_ARENA,
+  GRENADE_MAX_COUNT,
+  GRENADE_PRICE,
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
   TEAM,
   createServerSnapshotPlaceholder,
   getPlayerCallsign,
   getWeaponDefinition,
+  grenadeBlastDamage,
   isWithinPlantSite,
   teamForSlot,
   teamName,
@@ -17,6 +21,8 @@ import {
   LOADOUT_STATUS,
   type ClientAdminCommandMessage,
   type ClientArmorBuyMessage,
+  type ClientGrenadeBuyMessage,
+  type ClientGrenadeThrowMessage,
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type ClientLoadoutSelectMessage,
@@ -41,6 +47,8 @@ import {
   type ServerObjectiveStateMessage,
   type ServerPlayerArmorMessage,
   type ServerPlayerEconomyMessage,
+  type ServerPlayerGrenadeMessage,
+  type ServerGrenadeStateMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
   type ServerTickMessage,
@@ -87,6 +95,7 @@ import { createMatchStats } from "./match-stats.js";
 import { createMatchProgress } from "./match-progress.js";
 import { createEconomyState, type EconomyConfig } from "./economy.js";
 import { createObjectiveState, type ObjectiveConfig } from "./objective.js";
+import { createGrenadeState } from "./grenade-state.js";
 import {
   ADMIN_HELP_TEXT,
   TERMINAL_ONLY_ADMIN_COMMANDS,
@@ -110,6 +119,7 @@ export type ServerRuntimeConfig = Readonly<{
   objective?: ObjectiveConfig;
   matchKillTarget?: number;
   friendlyFire?: boolean;
+  grenade?: Readonly<{ fuseTicks?: number; throwSpeed?: number; gravity?: number }>;
   now?: ServerClock;
 }>;
 
@@ -155,6 +165,7 @@ export type ServerRuntime = Readonly<{
   getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
   getEconomy(sessionId: number, serverTick?: number): ServerPlayerEconomyMessage | undefined;
   getArmor(sessionId: number, serverTick?: number): ServerPlayerArmorMessage | undefined;
+  getGrenade(sessionId: number, serverTick?: number): ServerPlayerGrenadeMessage | undefined;
   getObjectiveState(serverTick?: number): ServerObjectiveStateMessage;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
@@ -201,6 +212,23 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   let pendingMatchResetTick: number | undefined;
   // Sessions the host operator has granted in-game admin console access (by sessionId).
   const adminSessions = new Set<number>();
+  // Grenades: live projectiles kept inside the arena walls, and a per-player held count.
+  const grenadeState = createGrenadeState({
+    tickRateHz: config.tickRateHz,
+    fuseTicks: config.grenade?.fuseTicks,
+    throwSpeed: config.grenade?.throwSpeed,
+    gravity: config.grenade?.gravity,
+    bounds: {
+      minX: DRYDOCK_SPAN_ARENA.worldBounds.min[0] + 0.5,
+      maxX: DRYDOCK_SPAN_ARENA.worldBounds.max[0] - 0.5,
+      minZ: DRYDOCK_SPAN_ARENA.worldBounds.min[2] + 0.5,
+      maxZ: DRYDOCK_SPAN_ARENA.worldBounds.max[2] - 0.5
+    }
+  });
+  const grenadeCounts = new Map<number, number>();
+  let lastGrenadeBroadcastNonEmpty = false;
+  const GRENADE_THROW_ORIGIN_HEIGHT = 1.5;
+  const GRENADE_TARGET_HEIGHT = 1.0;
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -229,6 +257,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         economy.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         adminSessions.delete(runtimeSession.matchAssignment?.sessionId ?? 0);
+        grenadeCounts.delete(runtimeSession.matchAssignment?.sessionId ?? 0);
         playerRegistry.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchSession.disconnect(transport.id);
@@ -276,6 +305,12 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         break;
       case "client.armor.buy":
         recordClientArmorBuy(session, message);
+        break;
+      case "client.grenade.buy":
+        recordClientGrenadeBuy(session, message);
+        break;
+      case "client.grenade.throw":
+        recordClientGrenadeThrow(session, message);
         break;
       case "client.admin.command":
         recordClientAdminCommand(session, message);
@@ -334,6 +369,8 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     sendEconomyToSession(assignment.sessionId);
     sendArmorToSession(assignment.sessionId);
+    grenadeCounts.set(assignment.sessionId, 0);
+    sendGrenadeCountToSession(assignment.sessionId);
     session.transport.send(objective.createStateMessage(lastServerTick));
     broadcastMatchUpdate();
     broadcastMatchRoster();
@@ -410,6 +447,14 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       worldState.resetMovement();
       playerRegistry.resetWeapons();
       objective.reset();
+      // Clear live grenades and held counts; players re-buy grenades each round.
+      grenadeState.reset();
+      broadcastGrenadeState(tick, []);
+      lastGrenadeBroadcastNonEmpty = false;
+      for (const sessionId of grenadeCounts.keys()) {
+        grenadeCounts.set(sessionId, 0);
+        sendGrenadeCountToSession(sessionId);
+      }
     }
     const completedReloads = roundAdvance.resetRound ? [] : weaponState.advanceReloads(tick);
     const respawned = roundState.allowsRespawn() ? combatState.advanceRespawns(tick) : [];
@@ -435,6 +480,8 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     // Broadcast the charge only when it changed, so an idle site costs nothing while a
     // live plant/defuse streams progress and the detonation countdown to everyone.
     broadcastObjectiveState(tick);
+    // Advance live grenades, apply detonation blasts, and broadcast their state.
+    advanceGrenades(tick);
 
     for (const state of resetLoadoutStates) {
       sendLoadoutStateToSession(state);
@@ -788,6 +835,139 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     };
   }
 
+  function recordClientGrenadeBuy(session: MutableServerRuntimeSession, _message: ClientGrenadeBuyMessage): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+    const sessionId = session.matchAssignment.sessionId;
+    if (
+      !roundState.allowsBuy(lastServerTick) ||
+      !combatState.isAlive(sessionId) ||
+      (grenadeCounts.get(sessionId) ?? 0) >= GRENADE_MAX_COUNT ||
+      !economy.spend(sessionId, GRENADE_PRICE)
+    ) {
+      return;
+    }
+    grenadeCounts.set(sessionId, (grenadeCounts.get(sessionId) ?? 0) + 1);
+    sendGrenadeCountToSession(sessionId);
+    sendEconomyToSession(sessionId);
+  }
+
+  function recordClientGrenadeThrow(session: MutableServerRuntimeSession, message: ClientGrenadeThrowMessage): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+    const sessionId = session.matchAssignment.sessionId;
+    if (!roundState.allowsFire() || !combatState.isAlive(sessionId) || (grenadeCounts.get(sessionId) ?? 0) <= 0) {
+      return;
+    }
+    const occupant = worldState.listOccupants().find((entry) => entry.sessionId === sessionId);
+    if (occupant === undefined) {
+      return;
+    }
+    grenadeCounts.set(sessionId, (grenadeCounts.get(sessionId) ?? 0) - 1);
+    grenadeState.throwGrenade({
+      ownerSessionId: sessionId,
+      origin: { x: occupant.x, y: GRENADE_THROW_ORIGIN_HEIGHT, z: occupant.z },
+      yaw: message.yaw,
+      pitch: message.pitch
+    });
+    sendGrenadeCountToSession(sessionId);
+  }
+
+  function advanceGrenades(tick: number): void {
+    const result = grenadeState.advance();
+    for (const detonation of result.detonations) {
+      const ownerTeam = teamOfSession(detonation.ownerSessionId);
+      for (const occupant of worldState.listOccupants()) {
+        if (!combatState.isAlive(occupant.sessionId)) {
+          continue;
+        }
+        const dx = occupant.x - detonation.x;
+        const dy = GRENADE_TARGET_HEIGHT - detonation.y;
+        const dz = occupant.z - detonation.z;
+        const damage = grenadeBlastDamage(Math.sqrt(dx * dx + dy * dy + dz * dz));
+        if (damage <= 0) {
+          continue;
+        }
+        // Friendly fire off spares teammates, but your own grenade can always hurt you.
+        if (
+          !friendlyFire &&
+          occupant.sessionId !== detonation.ownerSessionId &&
+          ownerTeam !== undefined &&
+          teamOfSession(occupant.sessionId) === ownerTeam
+        ) {
+          continue;
+        }
+        const combatResult = combatState.applyDamage({
+          targetSessionId: occupant.sessionId,
+          sourceSessionId: detonation.ownerSessionId,
+          amount: damage,
+          serverTick: tick,
+          sequence: detonation.id
+        });
+        if (combatResult.applied && combatResult.state !== undefined) {
+          sendCombatStateToSession(combatResult.state.targetSessionId);
+          sendArmorToSession(combatResult.state.targetSessionId);
+          if (combatResult.state.lastEventKind === COMBAT_EVENT_KIND.death) {
+            matchStats.recordKill({ killerSessionId: detonation.ownerSessionId, victimSessionId: occupant.sessionId });
+            broadcastMatchStats();
+            if (detonation.ownerSessionId !== occupant.sessionId && economy.awardKill(detonation.ownerSessionId)) {
+              sendEconomyToSession(detonation.ownerSessionId);
+            }
+          }
+        }
+      }
+    }
+    if (result.entries.length > 0) {
+      broadcastGrenadeState(tick, result.entries);
+      lastGrenadeBroadcastNonEmpty = true;
+    } else if (lastGrenadeBroadcastNonEmpty) {
+      broadcastGrenadeState(tick, []);
+      lastGrenadeBroadcastNonEmpty = false;
+    }
+  }
+
+  function broadcastGrenadeState(serverTick: number, entries: ServerGrenadeStateMessage["entries"]): void {
+    const message: ServerGrenadeStateMessage = {
+      kind: "server.grenade.state",
+      serverTick,
+      entryCount: entries.length,
+      entries
+    };
+    for (const session of sessions.values()) {
+      if (session.accepted) {
+        session.transport.send(message);
+      }
+    }
+  }
+
+  function sendGrenadeCountToSession(sessionId: number): void {
+    const message = getGrenade(sessionId);
+    if (message === undefined) {
+      return;
+    }
+    for (const runtimeSession of sessions.values()) {
+      if (runtimeSession.accepted && runtimeSession.matchAssignment?.sessionId === sessionId) {
+        runtimeSession.transport.send(message);
+        return;
+      }
+    }
+  }
+
+  function getGrenade(sessionId: number, serverTick = lastServerTick): ServerPlayerGrenadeMessage | undefined {
+    if (!grenadeCounts.has(sessionId)) {
+      return undefined;
+    }
+    return {
+      kind: "server.player.grenade",
+      serverTick,
+      sessionId,
+      count: grenadeCounts.get(sessionId) ?? 0,
+      maxCount: GRENADE_MAX_COUNT
+    };
+  }
+
   function sendCombatStateToSession(sessionId: number): void {
     const message = combatState.createStateMessage(sessionId, lastServerTick);
     if (message === undefined) {
@@ -1085,6 +1265,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getWeaponState,
     getEconomy,
     getArmor,
+    getGrenade,
     getObjectiveState,
     applyAdminCommand,
     getAdminStatus,

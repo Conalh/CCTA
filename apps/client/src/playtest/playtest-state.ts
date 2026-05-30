@@ -468,6 +468,11 @@ export function formatPlaytestArmor(armor: number | undefined): string {
   return typeof armor === "number" && Number.isFinite(armor) && armor > 0 ? String(Math.trunc(armor)) : "0";
 }
 
+// How many grenades the player holds (server-owned, private). Unknown reads as "0".
+export function formatPlaytestGrenades(count: number | undefined): string {
+  return typeof count === "number" && Number.isFinite(count) && count > 0 ? String(Math.trunc(count)) : "0";
+}
+
 export function formatPlaytestMoney(money: number | undefined): string {
   // Money is server-owned (server.player.economy); the client only formats the mirrored
   // value of its own cash and never sets it.

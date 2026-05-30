@@ -605,6 +605,10 @@ li {
   color: #a9c6ea;
 }
 
+.playtest-hud-grenade {
+  color: #c9d88a;
+}
+
 .playtest-hud-side[data-team="cops"] {
   color: #a9c6ea;
 }

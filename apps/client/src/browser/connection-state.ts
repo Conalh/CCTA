@@ -129,6 +129,8 @@ export type ConnectionViewState = Readonly<{
   localMoney: number | undefined;
   localArmor: number | undefined;
   localMaxArmor: number | undefined;
+  localGrenades: number | undefined;
+  localMaxGrenades: number | undefined;
   chargePhase: ChargePhase | undefined;
   chargePlantProgress: number | undefined;
   chargeDefuseProgress: number | undefined;
@@ -296,6 +298,8 @@ export function createInitialConnectionViewState(
     localMoney: undefined,
     localArmor: undefined,
     localMaxArmor: undefined,
+    localGrenades: undefined,
+    localMaxGrenades: undefined,
     chargePhase: undefined,
     chargePlantProgress: undefined,
     chargeDefuseProgress: undefined,
@@ -557,6 +561,13 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         localArmor: message.armor,
         localMaxArmor: message.maxArmor
       };
+    case "server.player.grenade":
+      return {
+        ...baseState,
+        sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
+        localGrenades: message.count,
+        localMaxGrenades: message.maxCount
+      };
     case "server.objective.state":
       return {
         ...baseState,
@@ -763,6 +774,8 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     localMoney: undefined,
     localArmor: undefined,
     localMaxArmor: undefined,
+    localGrenades: undefined,
+    localMaxGrenades: undefined,
     chargePhase: undefined,
     chargePlantProgress: undefined,
     chargeDefuseProgress: undefined,

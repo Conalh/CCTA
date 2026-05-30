@@ -19,6 +19,8 @@ import {
   SERVER_TICK_RATE_HZ,
   createClientAdminCommand,
   createClientArmorBuy,
+  createClientGrenadeBuy,
+  createClientGrenadeThrow,
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
@@ -737,6 +739,31 @@ test("protocol helpers round-trip armor messages", () => {
 
   const armor = { kind: "server.player.armor", serverTick: 50, sessionId: 3, armor: 75, maxArmor: 100 };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(armor)), armor);
+});
+
+test("protocol helpers round-trip grenade messages", () => {
+  assert.equal(PACKET_KIND.clientGrenadeThrow, 30);
+  assert.equal(PACKET_KIND.serverGrenadeState, 33);
+
+  const thrown = createClientGrenadeThrow({ sequence: 8, yaw: 0.5, pitch: -0.25 });
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(thrown)), thrown);
+
+  const buy = createClientGrenadeBuy({ sequence: 3 });
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(buy)), buy);
+
+  const held = { kind: "server.player.grenade", serverTick: 60, sessionId: 4, count: 1, maxCount: 1 };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(held)), held);
+
+  const grenades = {
+    kind: "server.grenade.state",
+    serverTick: 120,
+    entryCount: 2,
+    entries: [
+      { id: 1, x: 2, y: 1.5, z: -3, fuseTicks: 90, detonated: false },
+      { id: 2, x: -5, y: 0, z: 4, fuseTicks: 0, detonated: true }
+    ]
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(grenades)), grenades);
 });
 
 test("decodeProtocolMessage rejects an unknown charge phase", () => {

@@ -15,6 +15,8 @@ import {
   WEAPON_EVENT_KIND,
   createClientArmorBuy,
   createClientFireIntent,
+  createClientGrenadeBuy,
+  createClientGrenadeThrow,
   createClientWeaponBuy
 } from "../packages/shared/dist/index.js";
 import {
@@ -122,6 +124,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "server.weapon.state",
       "server.player.economy",
       "server.player.armor",
+      "server.player.grenade",
       "server.objective.state",
       "match.update",
       "server.match.roster",
@@ -313,6 +316,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.weapon.state",
     "server.player.economy",
     "server.player.armor",
+    "server.player.grenade",
     "server.objective.state",
     "match.update",
     "server.match.roster",
@@ -326,6 +330,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.weapon.state",
     "server.player.economy",
     "server.player.armor",
+    "server.player.grenade",
     "server.objective.state",
     "match.update",
     "server.match.roster"
@@ -1722,6 +1727,41 @@ test("server runtime sells armor against the economy and it reduces damage", () 
   first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 }));
   assert.equal(runtime.getCombatState(2, 5).health, 75);
   assert.equal(runtime.getArmor(2)?.armor, 75);
+});
+
+test("server runtime buys, throws, and detonates a grenade with blast damage", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    economy: { startingMoney: 1000 },
+    // A still grenade with a one-tick fuse detonates at the thrower's feet next step.
+    grenade: { fuseTicks: 1, throwSpeed: 0, gravity: 0 },
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("nade-a");
+  const second = createFakeTransportSession("nade-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  runtime.step(5, 1016); // active; buy window open
+
+  // Buy a grenade.
+  first.receive(createClientGrenadeBuy({ sequence: 1 }));
+  assert.equal(runtime.getGrenade(1)?.count, 1);
+  assert.equal(runtime.getGrenade(1)?.maxCount, 1);
+  assert.equal(runtime.getEconomy(1)?.money, 1000 - 300);
+
+  // Throw it; the held count drops to zero.
+  first.receive(createClientGrenadeThrow({ sequence: 2, yaw: 0, pitch: 0 }));
+  assert.equal(runtime.getGrenade(1)?.count, 0);
+
+  // Next step the grenade detonates at the thrower's feet — self-blast damage.
+  runtime.step(6, 1020);
+  assert.equal(runtime.getCombatState(1, 6).health < 100, true);
+  assert.equal(first.sent.some((message) => message.kind === "server.grenade.state"), true);
 });
 
 test("in-game admin console only works for host-granted sessions", () => {

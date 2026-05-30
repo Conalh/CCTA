@@ -261,6 +261,7 @@ try {
   assert.match(playtestHtml, /id="playtest-buy-list"/);
   assert.match(playtestHtml, /id="playtest-hud-money"/);
   assert.match(playtestHtml, /id="playtest-hud-armor"/);
+  assert.match(playtestHtml, /id="playtest-hud-grenade"/);
   assert.match(playtestHtml, /id="playtest-objective"[^>]*data-visible="false"/);
   assert.match(playtestHtml, /id="playtest-objective-bar"/);
   assert.match(playtestHtml, /id="playtest-hud-side"/);
@@ -310,6 +311,7 @@ try {
   assert.match(playtestSource, /createObjectiveHudView/);
   assert.match(playtestSource, /diffMatchStatsKills/);
   assert.match(playtestSource, /createClientAdminCommand/);
+  assert.match(playtestSource, /createClientGrenadeThrow/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const buyMenuModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/buy-menu.js`);

@@ -10,3 +10,4 @@ export * from "./arena-collision.js";
 export * from "./match-registry.js";
 export * from "./teams.js";
 export * from "./objective.js";
+export * from "./grenade.js";

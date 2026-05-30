@@ -5,6 +5,7 @@ import { ROUND_PHASE, SERVER_TICK_RATE_HZ } from "../packages/shared/dist/index.
 import {
   createPlaytestRoundTimerView,
   formatPlaytestArmor,
+  formatPlaytestGrenades,
   formatPlaytestRoundScore,
   formatPlaytestSide,
   parsePlaytestConsoleCommand
@@ -14,6 +15,12 @@ test("formatPlaytestArmor shows the armor value, zero when none", () => {
   assert.equal(formatPlaytestArmor(75), "75");
   assert.equal(formatPlaytestArmor(0), "0");
   assert.equal(formatPlaytestArmor(undefined), "0");
+});
+
+test("formatPlaytestGrenades shows the held count, zero when none", () => {
+  assert.equal(formatPlaytestGrenades(1), "1");
+  assert.equal(formatPlaytestGrenades(0), "0");
+  assert.equal(formatPlaytestGrenades(undefined), "0");
 });
 
 test("formatPlaytestSide labels the local side from the server-owned slot", () => {
