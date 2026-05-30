@@ -646,7 +646,9 @@ test("protocol helpers round-trip the Phase 57 server match result message", () 
     serverTick: 240,
     matchOver: true,
     winnerSessionId: 3,
-    killTarget: 10
+    killTarget: 4,
+    copsRoundWins: 4,
+    robbersRoundWins: 2
   };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(decided)), decided);
 
@@ -655,7 +657,9 @@ test("protocol helpers round-trip the Phase 57 server match result message", () 
     serverTick: 12,
     matchOver: false,
     winnerSessionId: 0,
-    killTarget: 10
+    killTarget: 4,
+    copsRoundWins: 1,
+    robbersRoundWins: 0
   };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(pending)), pending);
 });

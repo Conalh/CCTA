@@ -3,7 +3,7 @@ import { TEAM, type ServerMatchResultMessage, type TeamId } from "@breachline/sh
 // `killTarget` is kept as the wire/config field name (the protocol message field is
 // unchanged) but now counts ROUND WINS: the first side to win this many rounds wins
 // the match.
-export const DEFAULT_MATCH_KILL_TARGET = 10 as const;
+export const DEFAULT_MATCH_KILL_TARGET = 4 as const;
 
 export type MatchProgressConfig = Readonly<{
   killTarget?: number;
@@ -65,7 +65,9 @@ export function createMatchProgress(config: MatchProgressConfig = {}): MatchProg
       serverTick: readUint32(serverTick, "serverTick"),
       matchOver,
       winnerSessionId,
-      killTarget
+      killTarget,
+      copsRoundWins: wins.get(TEAM.cops) ?? 0,
+      robbersRoundWins: wins.get(TEAM.robbers) ?? 0
     };
   }
 

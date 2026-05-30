@@ -367,6 +367,17 @@ export function formatPlaytestSide(
   return { label: teamName(team), tag: team === TEAM.cops ? "cops" : "robbers" };
 }
 
+// The live match score in round wins per side, from the server-owned match result. Both
+// undefined (before the first round resolves) reads as 0 — 0.
+export function formatPlaytestRoundScore(
+  copsRoundWins: number | undefined,
+  robbersRoundWins: number | undefined
+): string {
+  const cops = typeof copsRoundWins === "number" && copsRoundWins >= 0 ? Math.trunc(copsRoundWins) : 0;
+  const robbers = typeof robbersRoundWins === "number" && robbersRoundWins >= 0 ? Math.trunc(robbersRoundWins) : 0;
+  return `Cops ${cops} — Robbers ${robbers}`;
+}
+
 export function formatPlaytestMoney(money: number | undefined): string {
   // Money is server-owned (server.player.economy); the client only formats the mirrored
   // value of its own cash and never sets it.

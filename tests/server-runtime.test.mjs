@@ -880,7 +880,9 @@ test("server runtime declares the match when a side wins the round target", () =
     serverTick: 7,
     matchOver: true,
     winnerSessionId: 1,
-    killTarget: 1
+    killTarget: 1,
+    copsRoundWins: 1,
+    robbersRoundWins: 0
   };
   const firstResults = first.sent.filter((message) => message.kind === "server.match.result");
   const secondResults = second.sent.filter((message) => message.kind === "server.match.result");
@@ -889,6 +891,39 @@ test("server runtime declares the match when a side wins the round target", () =
   assert.deepEqual(firstResults[0], expectedResult);
   assert.deepEqual(secondResults[0], expectedResult);
   assert.deepEqual(runtime.getMatchResult(7), expectedResult);
+});
+
+test("server runtime freezes the round loop once the match is decided", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    matchKillTarget: 1,
+    round: { setupDurationTicks: 1, activeDurationTicks: 30, resetDurationTicks: 1 },
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("freeze-a");
+  const second = createFakeTransportSession("freeze-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  runtime.step(5, 1016); // active
+  first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 }));
+  runtime.step(6, 1020);
+  first.receive(createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 6, yaw: -Math.PI / 2, pitch: 0 }));
+  runtime.step(7, 1024); // round ends, Cops win, match decided (target 1)
+
+  assert.equal(runtime.getMatchResult(7).matchOver, true);
+  assert.equal(runtime.getRoundState(7).phase, ROUND_PHASE.ended);
+
+  // Step far past the reset window: the round must stay frozen in `ended`, not restart.
+  runtime.step(20, 1100);
+  runtime.step(40, 1200);
+  assert.equal(runtime.getRoundState(40).phase, ROUND_PHASE.ended);
+  // Only the one decisive result was broadcast; the freeze emits no further results.
+  assert.equal(first.sent.filter((message) => message.kind === "server.match.result").length, 1);
 });
 
 test("server runtime pays the server-owned economy from kills and round results", () => {

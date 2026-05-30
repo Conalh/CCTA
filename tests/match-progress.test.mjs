@@ -33,7 +33,9 @@ test("match progress declares the match when a side reaches the round target", (
     serverTick: 50,
     matchOver: true,
     winnerSessionId: 7,
-    killTarget: 2
+    killTarget: 2,
+    copsRoundWins: 2,
+    robbersRoundWins: 1
   });
 
   progress.reset();
@@ -51,6 +53,8 @@ test("match progress defaults to a positive round target with a pending result",
     serverTick: 0,
     matchOver: false,
     winnerSessionId: 0,
-    killTarget: DEFAULT_MATCH_KILL_TARGET
+    killTarget: DEFAULT_MATCH_KILL_TARGET,
+    copsRoundWins: 0,
+    robbersRoundWins: 0
   });
 });

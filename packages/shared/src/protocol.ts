@@ -369,6 +369,8 @@ export type ServerMatchResultMessage = Readonly<{
   matchOver: boolean;
   winnerSessionId: number;
   killTarget: number;
+  copsRoundWins: number;
+  robbersRoundWins: number;
 }>;
 
 // A player's own money. Sent only to the owning session (you never see enemy cash).
@@ -905,13 +907,15 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         entries: decodeMatchRosterEntries(payload, payloadLength)
       };
     case PACKET_KIND.serverMatchResult:
-      requirePayloadLength(payloadLength, 8, "server.match.result");
+      requirePayloadLength(payloadLength, 12, "server.match.result");
       return {
         kind: "server.match.result",
         serverTick: sequenceOrTick,
         winnerSessionId: payload.getUint32(0, true),
         killTarget: payload.getUint16(4, true),
-        matchOver: payload.getUint16(6, true) !== 0
+        matchOver: payload.getUint16(6, true) !== 0,
+        copsRoundWins: payload.getUint16(8, true),
+        robbersRoundWins: payload.getUint16(10, true)
       };
     case PACKET_KIND.serverPlayerEconomy:
       requirePayloadLength(payloadLength, 8, "server.player.economy");
@@ -1192,11 +1196,13 @@ function encodeServerMatchRosterPayload(message: ServerMatchRosterMessage): Uint
 }
 
 function encodeServerMatchResultPayload(message: ServerMatchResultMessage): Uint8Array {
-  const payload = new Uint8Array(8);
+  const payload = new Uint8Array(12);
   const view = new DataView(payload.buffer);
   view.setUint32(0, readUint32(message.winnerSessionId, "winnerSessionId"), true);
   view.setUint16(4, readUint16(message.killTarget, "killTarget"), true);
   view.setUint16(6, message.matchOver ? 1 : 0, true);
+  view.setUint16(8, readUint16(message.copsRoundWins, "copsRoundWins"), true);
+  view.setUint16(10, readUint16(message.robbersRoundWins, "robbersRoundWins"), true);
   return payload;
 }
 

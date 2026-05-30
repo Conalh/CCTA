@@ -70,6 +70,7 @@ import {
 import { createWeaponState, type WeaponStateConfig } from "./weapon-state.js";
 import {
   createRoundState,
+  type RoundAdvanceResult,
   type RoundParticipant,
   type RoundState,
   type RoundStateConfig
@@ -298,41 +299,55 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   function step(tick: number, serverTimeMs = now()): void {
     lastServerTick = tick;
     const participants = getRoundParticipants();
-    // The charge advances before the round decision: an armed charge suspends the
-    // round's elimination/timeout logic, and a defuse/detonation forces the outcome.
-    const actorCounts = getObjectiveActorCounts(participants);
-    const chargeResult = objective.advance({
-      serverTick: tick,
-      planterCount: actorCounts.planterCount,
-      defuserCount: actorCounts.defuserCount
-    });
-    const roundAdvance = roundState.advance({
-      serverTick: tick,
-      participants,
-      charge: {
-        armed: objective.isArmed(),
-        justDefused: chargeResult.justDefused,
-        justDetonated: chargeResult.justDetonated
-      }
-    });
-    // A finished round scores for the winning side and pays out the economy; the match
-    // ends when a side reaches the round target. Kills feed the scoreboard but no longer
-    // decide the match.
-    if (roundAdvance.roundEnded) {
-      const winnerTeam = roundAdvance.winnerTeam;
-      const winners = winnerTeam === undefined ? [] : participants.filter((p) => p.team === winnerTeam).map((p) => p.sessionId);
-      const losers = participants
-        .filter((p) => winnerTeam === undefined || p.team !== winnerTeam)
-        .map((p) => p.sessionId);
-      for (const sessionId of economy.awardRoundResult({ winners, losers })) {
-        sendEconomyToSession(sessionId);
-      }
-
-      const matchDecided = matchProgress.recordRoundResult({
-        winnerTeam,
-        winnerSessionId: roundAdvance.state.winnerSessionId
+    // Once the match is decided the round loop freezes: no new rounds, no charge progress,
+    // no further scoring. The world keeps broadcasting so the result banner and frozen
+    // scene stay visible until the host restarts.
+    const matchFrozen = matchProgress.isMatchOver();
+    let roundAdvance: RoundAdvanceResult;
+    if (matchFrozen) {
+      roundAdvance = {
+        resetRound: false,
+        transitioned: false,
+        roundEnded: false,
+        winnerTeam: undefined,
+        state: roundState.createStateMessage(tick)
+      };
+    } else {
+      // The charge advances before the round decision: an armed charge suspends the
+      // round's elimination/timeout logic, and a defuse/detonation forces the outcome.
+      const actorCounts = getObjectiveActorCounts(participants);
+      const chargeResult = objective.advance({
+        serverTick: tick,
+        planterCount: actorCounts.planterCount,
+        defuserCount: actorCounts.defuserCount
       });
-      if (matchDecided) {
+      roundAdvance = roundState.advance({
+        serverTick: tick,
+        participants,
+        charge: {
+          armed: objective.isArmed(),
+          justDefused: chargeResult.justDefused,
+          justDetonated: chargeResult.justDetonated
+        }
+      });
+      // A finished round scores for the winning side and pays out the economy; the match
+      // ends when a side reaches the round target. Kills feed the scoreboard but no longer
+      // decide the match. The result is broadcast every round-end so the live side score
+      // updates; the match-over banner is gated on its matchOver flag.
+      if (roundAdvance.roundEnded) {
+        const winnerTeam = roundAdvance.winnerTeam;
+        const winners = winnerTeam === undefined ? [] : participants.filter((p) => p.team === winnerTeam).map((p) => p.sessionId);
+        const losers = participants
+          .filter((p) => winnerTeam === undefined || p.team !== winnerTeam)
+          .map((p) => p.sessionId);
+        for (const sessionId of economy.awardRoundResult({ winners, losers })) {
+          sendEconomyToSession(sessionId);
+        }
+
+        matchProgress.recordRoundResult({
+          winnerTeam,
+          winnerSessionId: roundAdvance.state.winnerSessionId
+        });
         broadcastMatchResult();
       }
     }

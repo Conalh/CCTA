@@ -1106,18 +1106,24 @@ test("connection state reducer mirrors the server-owned match result and resets 
       serverTick: 240,
       matchOver: true,
       winnerSessionId: 1,
-      killTarget: 10
+      killTarget: 4,
+      copsRoundWins: 4,
+      robbersRoundWins: 2
     }
   });
   assert.equal(state.matchOver, true);
   assert.equal(state.matchWinnerSessionId, 1);
-  assert.equal(state.matchKillTarget, 10);
+  assert.equal(state.matchKillTarget, 4);
+  assert.equal(state.matchCopsRoundWins, 4);
+  assert.equal(state.matchRobbersRoundWins, 2);
   assert.equal(state.lastMatchResultServerTick, 240);
 
   state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
   assert.equal(state.matchOver, false);
   assert.equal(state.matchWinnerSessionId, undefined);
   assert.equal(state.matchKillTarget, undefined);
+  assert.equal(state.matchCopsRoundWins, undefined);
+  assert.equal(state.matchRobbersRoundWins, undefined);
   assert.equal(state.lastMatchResultServerTick, undefined);
 });
 
