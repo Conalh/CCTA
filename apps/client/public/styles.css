@@ -1174,6 +1174,8 @@ li {
   color: #c6d0cd;
   background: rgb(17 23 25 / 90%);
   overflow: auto;
+  /* Above the pause overlay backdrop (z-index 30) so it stays readable in the pause menu. */
+  z-index: 31;
 }
 
 .playtest-scoreboard-head {
@@ -1244,6 +1246,8 @@ li {
   color: #c6d0cd;
   background: rgb(17 23 25 / 90%);
   overflow: auto;
+  /* Above the pause overlay backdrop (z-index 30) so it stays readable in the pause menu. */
+  z-index: 31;
 }
 
 .playtest-roster-head {

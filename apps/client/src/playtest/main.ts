@@ -2665,8 +2665,13 @@ function updatePauseOverlay(): void {
     !buyMenuOpen &&
     !consoleOpen &&
     document.pointerLockElement !== canvas;
+  const wasPaused = pauseEl.dataset.open === "true";
   pauseEl.dataset.open = paused ? "true" : "false";
+  // The pause menu doubles as the scoreboard view: opening it reveals the live scoreboard and
+  // roster panels, and leaving it hides them again. Hold-X during active play is unaffected.
   if (paused) {
+    document.body.dataset.scores = "visible";
+  } else if (wasPaused) {
     document.body.dataset.scores = "hidden";
   }
 }
