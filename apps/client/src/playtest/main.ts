@@ -4,6 +4,7 @@ import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 
 import {
   CHARGE_PHASE,
+  COMBAT_EVENT_KIND,
   DEFAULT_WEAPON_PROFILE_ID,
   PLANT_SITE,
   PROTOCOL_VERSION,
@@ -12,6 +13,7 @@ import {
   createClientLoadoutSelect,
   createClientWeaponBuy,
   createClientWeaponReload,
+  getPlayerCallsign,
   teamForSlot,
   type MessageTransport
 } from "@breachline/shared";
@@ -89,6 +91,11 @@ import {
 } from "./scoreboard-presentation.js";
 import { createBuyMenuView, formatBuyMenuPrice, type BuyMenuRow } from "./buy-menu.js";
 import { createObjectiveHudView, createObjectivePromptView } from "./objective-presentation.js";
+import {
+  damageIndicatorAngleRadians,
+  diffMatchStatsKills,
+  formatKillFeedLine
+} from "./combat-feedback.js";
 import {
   SERVER_BROWSER_BUILD_ID,
   SERVER_BROWSER_TABS,
@@ -300,6 +307,8 @@ const objectiveStatusEl = requireElement("playtest-objective-status");
 const objectiveDetailEl = requireElement("playtest-objective-detail");
 const objectiveBarEl = requireElement("playtest-objective-bar");
 const objectivePromptEl = requireElement("playtest-objective-prompt");
+const killFeedEl = requireElement("playtest-kill-feed");
+const damageIndicatorEl = requireElement("playtest-damage-indicator");
 const readoutEl = requireElement("playtest-readout");
 const diagnosticsToggleEl = requireElement("playtest-diagnostics-toggle");
 const localCombatEventEl = requireElement("playtest-combat-event");
@@ -349,6 +358,14 @@ let pingTimer: ReturnType<typeof setInterval> | undefined;
 let inputTimer: ReturnType<typeof setInterval> | undefined;
 let animationFrame: number | undefined;
 let chargeDeviceMesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial> | undefined;
+const killFeedEntries: Array<{ text: string; bornFrame: number }> = [];
+let lastKillFeedStats: ReadonlyArray<{ sessionId: number; kills: number; deaths: number }> | undefined;
+let lastDamageEventSequence: number | undefined;
+let damageIndicatorAngle = 0;
+let damageIndicatorBornFrame = -10_000;
+const KILL_FEED_MAX_ENTRIES = 5;
+const KILL_FEED_TTL_FRAMES = 360;
+const DAMAGE_INDICATOR_TTL_FRAMES = 54;
 let frameCount = 0;
 let lastRenderTimeMs = performance.now();
 let latestRenderSample: ScenePixelSampleSummary = {
@@ -1143,6 +1160,80 @@ function updateChargeDevice(): void {
   } else if (phase === CHARGE_PHASE.detonated) {
     chargeDeviceMesh.material.color.set("#f0a000");
   }
+}
+
+function resolveFeedCallsign(sessionId: number): string {
+  const entry = state.matchRoster.find((row) => row.sessionId === sessionId);
+  const callsign = entry !== undefined ? getPlayerCallsign(entry.handleId) : undefined;
+  return callsign ?? `Player ${sessionId}`;
+}
+
+function updateCombatFeedback(presentation: NetworkedPlaytestPresentation): void {
+  // Kill feed: diff the broadcast match-stats so each confirmed kill names killer + victim.
+  if (state.matchStats !== lastKillFeedStats) {
+    if (lastKillFeedStats !== undefined) {
+      for (const event of diffMatchStatsKills(lastKillFeedStats, state.matchStats)) {
+        killFeedEntries.push({ text: formatKillFeedLine(event, resolveFeedCallsign), bornFrame: frameCount });
+      }
+      while (killFeedEntries.length > KILL_FEED_MAX_ENTRIES) {
+        killFeedEntries.shift();
+      }
+    }
+    lastKillFeedStats = state.matchStats;
+  }
+  while (killFeedEntries.length > 0 && frameCount - killFeedEntries[0].bornFrame > KILL_FEED_TTL_FRAMES) {
+    killFeedEntries.shift();
+  }
+  renderKillFeed();
+
+  // Directional hit indicator: trigger on a fresh damage event against the local player,
+  // pointed at the attacker's snapshot position relative to where the camera faces.
+  if (
+    state.lastCombatEventKind === COMBAT_EVENT_KIND.damage &&
+    state.lastCombatEventSequence !== undefined &&
+    state.lastCombatEventSequence !== lastDamageEventSequence
+  ) {
+    lastDamageEventSequence = state.lastCombatEventSequence;
+    const attacker =
+      state.lastCombatSourceSessionId === undefined
+        ? undefined
+        : presentation.remotePlaceholders.find((entry) => entry.sessionId === state.lastCombatSourceSessionId);
+    if (attacker !== undefined) {
+      damageIndicatorAngle = damageIndicatorAngleRadians({
+        localX: presentation.localCameraPose.position[0],
+        localZ: presentation.localCameraPose.position[2],
+        localYaw: presentation.localCameraPose.yawRadians,
+        sourceX: attacker.position[0],
+        sourceZ: attacker.position[2]
+      });
+      damageIndicatorBornFrame = frameCount;
+    }
+  }
+  renderDamageIndicator();
+}
+
+function renderKillFeed(): void {
+  killFeedEl.replaceChildren(
+    ...killFeedEntries.map((entry) => {
+      const item = document.createElement("li");
+      item.className = "playtest-kill-feed-row";
+      item.textContent = entry.text;
+      const age = frameCount - entry.bornFrame;
+      item.style.opacity = age > KILL_FEED_TTL_FRAMES - 60 ? "0.4" : "1";
+      return item;
+    })
+  );
+}
+
+function renderDamageIndicator(): void {
+  const age = frameCount - damageIndicatorBornFrame;
+  if (age > DAMAGE_INDICATOR_TTL_FRAMES) {
+    damageIndicatorEl.dataset.active = "false";
+    return;
+  }
+  damageIndicatorEl.dataset.active = "true";
+  damageIndicatorEl.style.transform = `rotate(${(damageIndicatorAngle * 180) / Math.PI}deg)`;
+  damageIndicatorEl.style.opacity = (1 - age / DAMAGE_INDICATOR_TTL_FRAMES).toFixed(2);
 }
 
 function applySettingsReadouts(): void {
@@ -1989,6 +2080,7 @@ function updateReadout(
   renderObjectiveHud();
   renderObjectivePrompt();
   updateChargeDevice();
+  updateCombatFeedback(presentation);
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =

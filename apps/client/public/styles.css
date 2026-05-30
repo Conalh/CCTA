@@ -838,6 +838,62 @@ li {
   display: block;
 }
 
+.playtest-kill-feed {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 21;
+}
+
+.playtest-kill-feed-row {
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: rgb(10 13 14 / 78%);
+  border: 1px solid rgb(58 71 70 / 50%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #e4ebe9;
+  white-space: nowrap;
+}
+
+.playtest-damage-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 220px;
+  height: 220px;
+  margin: -110px 0 0 -110px;
+  display: none;
+  pointer-events: none;
+  z-index: 19;
+}
+
+.playtest-damage-indicator[data-active="true"] {
+  display: block;
+}
+
+.playtest-damage-indicator::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  margin-left: -15px;
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-bottom: 18px solid rgb(214 96 76 / 88%);
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;
