@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { TEAM, teamForSlot } from "../packages/shared/dist/index.js";
 import * as server from "../apps/server/dist/index.js";
+
+test("fixed match session balances players across the two sides as they join", () => {
+  const match = server.createFixedMatchSession({ matchId: 1, capacity: 4, firstSessionId: 1 });
+
+  const slots = ["a", "b", "c", "d"].map((id) => match.assign(`transport-${id}`).slotIndex);
+  // Sides alternate so a 1v1 (a vs b) lands on opposite teams.
+  assert.deepEqual(slots, [0, 2, 1, 3]);
+  assert.deepEqual(
+    slots.map((slot) => teamForSlot(slot, 4)),
+    [TEAM.cops, TEAM.robbers, TEAM.cops, TEAM.robbers]
+  );
+});
 
 test("fixed match session assigns stable server session ids into bounded slots", () => {
   assert.equal(typeof server.createFixedMatchSession, "function");

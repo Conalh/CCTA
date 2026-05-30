@@ -1,3 +1,5 @@
+import { TEAM, teamForSlot, type TeamId } from "@breachline/shared";
+
 export const DEFAULT_MATCH_ID = 1 as const;
 export const DEFAULT_MATCH_CAPACITY = 8 as const;
 export const DEFAULT_FIRST_SESSION_ID = 1 as const;
@@ -67,7 +69,7 @@ export function createFixedMatchSession(config: FixedMatchSessionConfig = {}): F
       return createAssignment(existingSlot);
     }
 
-    const availableSlot = slots.find((slot) => !slot.connected);
+    const availableSlot = pickBalancedSlot();
     if (availableSlot === undefined) {
       return {
         ok: false,
@@ -107,6 +109,30 @@ export function createFixedMatchSession(config: FixedMatchSessionConfig = {}): F
 
   function connectedSlotCount(): number {
     return slots.reduce((count, slot) => count + (slot.connected ? 1 : 0), 0);
+  }
+
+  function connectedTeamCount(team: TeamId): number {
+    return slots.reduce(
+      (count, slot) => count + (slot.connected && teamForSlot(slot.slotIndex, capacity) === team ? 1 : 0),
+      0
+    );
+  }
+
+  // Balance the two sides as players join: fill the smaller side's lowest free slot
+  // (ties go to Cops), falling back to whichever side still has room. This keeps a
+  // 1v1 on opposite sides instead of stacking both on the lower slots.
+  function pickBalancedSlot(): MatchSlot | undefined {
+    const freeCops = slots.filter((slot) => !slot.connected && teamForSlot(slot.slotIndex, capacity) === TEAM.cops);
+    const freeRobbers = slots.filter((slot) => !slot.connected && teamForSlot(slot.slotIndex, capacity) === TEAM.robbers);
+    const preferCops = connectedTeamCount(TEAM.cops) <= connectedTeamCount(TEAM.robbers);
+
+    if (preferCops && freeCops.length > 0) {
+      return freeCops[0];
+    }
+    if (!preferCops && freeRobbers.length > 0) {
+      return freeRobbers[0];
+    }
+    return freeCops[0] ?? freeRobbers[0];
   }
 
   function createAssignment(slot: MatchSlot): MatchAssignment {
