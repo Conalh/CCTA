@@ -304,6 +304,9 @@ const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
 const hudSideEl = requireElement("playtest-hud-side");
 const scoreEl = requireElement("playtest-score");
+const pauseEl = requireElement("playtest-pause");
+const pauseResumeButton = requireButton("playtest-pause-resume");
+const pauseDisconnectButton = requireButton("playtest-pause-disconnect");
 const objectiveEl = requireElement("playtest-objective");
 const objectiveStatusEl = requireElement("playtest-objective-status");
 const objectiveDetailEl = requireElement("playtest-objective-detail");
@@ -633,6 +636,13 @@ try {
       return;
     }
 
+    if (event.code === "Tab" && menuEl.dataset.visible !== "true") {
+      // Hold Tab to reveal the scoreboard + roster (released = hidden), GoldSrc-style.
+      event.preventDefault();
+      document.body.dataset.scores = "visible";
+      return;
+    }
+
     if (!isPlaytestInputKey(event.code)) {
       return;
     }
@@ -642,10 +652,30 @@ try {
     sendInput();
   });
   document.addEventListener("keyup", (event) => {
+    if (event.code === "Tab") {
+      document.body.dataset.scores = "hidden";
+    }
     keys.delete(event.code);
   });
   window.addEventListener("resize", () => {
     resizeRenderer(renderer, camera);
+  });
+  window.addEventListener("blur", () => {
+    // Losing focus drops held keys and the scores overlay so nothing sticks.
+    document.body.dataset.scores = "hidden";
+    keys.clear();
+  });
+  pauseResumeButton.addEventListener("click", () => {
+    requestPointerLockForCanvas();
+  });
+  pauseDisconnectButton.addEventListener("click", () => {
+    disconnect("client disconnect");
+  });
+  pauseEl.addEventListener("click", (event) => {
+    // Clicking the dimmed backdrop (not a button) resumes by re-capturing the mouse.
+    if (event.target === pauseEl) {
+      requestPointerLockForCanvas();
+    }
   });
 
   updatePointerState();
@@ -2026,6 +2056,7 @@ function updateReadout(
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
   updateMenuVisibility(presentation.connectionStatus);
+  updatePauseOverlay();
   localEntityEl.textContent = formatNumber(presentation.localEntityId);
   serverPositionEl.textContent = formatVector(presentation.serverPosition);
   predictedPositionEl.textContent = formatVector(presentation.predictedPosition);
@@ -2308,6 +2339,20 @@ function readRenderSample(renderer: THREE.WebGLRenderer): ScenePixelSampleSummar
 
 function updatePointerState(): void {
   pointerStateEl.textContent = document.pointerLockElement === canvas ? "captured" : "free";
+  updatePauseOverlay();
+}
+
+// The pause overlay shows whenever you are in a match but the mouse is free (Esc released
+// it, or you have not captured it yet) and no other overlay owns the cursor. It doubles as
+// the click-to-play gate; Resume re-captures the mouse and dismisses it.
+function updatePauseOverlay(): void {
+  const menuVisible = menuEl.dataset.visible === "true";
+  const paused =
+    transport !== undefined && !menuVisible && !buyMenuOpen && document.pointerLockElement !== canvas;
+  pauseEl.dataset.open = paused ? "true" : "false";
+  if (paused) {
+    document.body.dataset.scores = "hidden";
+  }
 }
 
 function requestPointerLockForCanvas(): void {

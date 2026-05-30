@@ -264,6 +264,9 @@ try {
   assert.match(playtestHtml, /id="playtest-objective-bar"/);
   assert.match(playtestHtml, /id="playtest-hud-side"/);
   assert.match(playtestHtml, /id="playtest-score"/);
+  assert.match(playtestHtml, /id="playtest-pause"[^>]*data-open="false"/);
+  assert.match(playtestHtml, /id="playtest-pause-resume"/);
+  assert.match(playtestHtml, /data-scores="hidden"/);
   assert.match(playtestHtml, /id="playtest-objective-prompt"/);
   assert.match(playtestHtml, /id="playtest-kill-feed"/);
   assert.match(playtestHtml, /id="playtest-damage-indicator"/);

@@ -16,7 +16,7 @@
       }
     </script>
   </head>
-  <body class="playtest-page" data-menu-open="true">
+  <body class="playtest-page" data-menu-open="true" data-scores="hidden">
     <main class="playtest-shell">
       <header class="topbar">
         <div>
@@ -134,6 +134,14 @@
             </header>
             <ul id="playtest-buy-list" class="playtest-buy-list"></ul>
             <p class="playtest-buy-hint">Press B to open/close · buy at round start</p>
+          </div>
+        </section>
+        <section id="playtest-pause" class="playtest-pause" data-open="false" aria-label="Pause menu">
+          <div class="playtest-pause-panel">
+            <p class="playtest-pause-title">Paused</p>
+            <button id="playtest-pause-resume" class="playtest-pause-button" type="button">Resume</button>
+            <button id="playtest-pause-disconnect" class="playtest-pause-button playtest-pause-leave" type="button">Disconnect</button>
+            <p class="playtest-pause-hint">Esc releases the mouse · B buys · hold Tab for scores</p>
           </div>
         </section>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>
