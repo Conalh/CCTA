@@ -40,7 +40,9 @@ export const PACKET_KIND = {
   serverMatchResult: 22,
   serverPlayerEconomy: 23,
   clientWeaponBuy: 24,
-  serverObjectiveState: 25
+  serverObjectiveState: 25,
+  clientAdminCommand: 26,
+  serverAdminResult: 27
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -164,7 +166,8 @@ export type ClientProtocolMessage =
   | ClientFireIntentMessage
   | ClientLoadoutSelectMessage
   | ClientWeaponReloadMessage
-  | ClientWeaponBuyMessage;
+  | ClientWeaponBuyMessage
+  | ClientAdminCommandMessage;
 
 export type ServerProtocolMessage =
   | ProtocolAcceptMessage
@@ -184,7 +187,8 @@ export type ServerProtocolMessage =
   | ServerMatchRosterMessage
   | ServerMatchResultMessage
   | ServerPlayerEconomyMessage
-  | ServerObjectiveStateMessage;
+  | ServerObjectiveStateMessage
+  | ServerAdminResultMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -393,6 +397,22 @@ export type ServerObjectiveStateMessage = Readonly<{
   detonationTick: number;
 }>;
 
+// A raw admin console command line, sent by a client. The server parses, authorizes (only
+// host-granted sessions), validates, and applies it — the client is a dumb terminal.
+export type ClientAdminCommandMessage = Readonly<{
+  kind: "client.admin.command";
+  sequence: number;
+  text: string;
+}>;
+
+// The server's reply to an admin command, sent only to the requesting session.
+export type ServerAdminResultMessage = Readonly<{
+  kind: "server.admin.result";
+  serverTick: number;
+  ok: boolean;
+  text: string;
+}>;
+
 export type ServerSnapshotMessage = Readonly<{
   kind: "server.snapshot";
   tick: number;
@@ -500,6 +520,16 @@ export function createClientWeaponBuy(input: Omit<ClientWeaponBuyMessage, "kind"
     kind: "client.weapon.buy",
     sequence: readUint32(input.sequence, "sequence"),
     profileId: readRequiredLoadoutProfileId(input.profileId)
+  };
+}
+
+export const MAX_ADMIN_COMMAND_LENGTH = 200 as const;
+
+export function createClientAdminCommand(input: Omit<ClientAdminCommandMessage, "kind">): ClientAdminCommandMessage {
+  return {
+    kind: "client.admin.command",
+    sequence: readUint32(input.sequence, "sequence"),
+    text: String(input.text ?? "").slice(0, MAX_ADMIN_COMMAND_LENGTH)
   };
 }
 
@@ -662,6 +692,20 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerObjectiveStatePayload(message)
+      );
+    case "client.admin.command":
+      return writePacket(
+        PACKET_KIND.clientAdminCommand,
+        PROTOCOL_VERSION,
+        readUint32(message.sequence, "sequence"),
+        encodeStringPayload(message.text)
+      );
+    case "server.admin.result":
+      return writePacket(
+        PACKET_KIND.serverAdminResult,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerAdminResultPayload(message)
       );
   }
 }
@@ -934,6 +978,22 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         plantProgress: payload.getUint16(1, true),
         defuseProgress: payload.getUint16(3, true),
         detonationTick: payload.getUint32(5, true)
+      };
+    case PACKET_KIND.clientAdminCommand:
+      return {
+        kind: "client.admin.command",
+        sequence: sequenceOrTick,
+        text: decodeStringPayload(payloadBytes)
+      };
+    case PACKET_KIND.serverAdminResult:
+      if (payloadLength < 1) {
+        throw new Error("server.admin.result payload too short.");
+      }
+      return {
+        kind: "server.admin.result",
+        serverTick: sequenceOrTick,
+        ok: payload.getUint8(0) !== 0,
+        text: decodeStringPayload(payloadBytes.subarray(1))
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1233,6 +1293,14 @@ function encodeServerObjectiveStatePayload(message: ServerObjectiveStateMessage)
 
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
+}
+
+function encodeServerAdminResultPayload(message: ServerAdminResultMessage): Uint8Array {
+  const textBytes = textEncoder.encode(message.text);
+  const payload = new Uint8Array(1 + textBytes.byteLength);
+  payload[0] = message.ok ? 1 : 0;
+  payload.set(textBytes, 1);
+  return payload;
 }
 
 function decodeStringPayload(payload: Uint8Array): string {

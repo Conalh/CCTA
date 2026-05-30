@@ -17,6 +17,7 @@ import {
   ROUND_OUTCOME,
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
+  createClientAdminCommand,
   createClientFireIntent,
   createClientInputPlaceholder,
   createClientLoadoutSelect,
@@ -709,6 +710,20 @@ test("protocol helpers round-trip a server objective state message", () => {
     detonationTick: 0
   };
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(idle)), idle);
+});
+
+test("protocol helpers round-trip admin console messages", () => {
+  assert.equal(PACKET_KIND.clientAdminCommand, 26);
+  assert.equal(PACKET_KIND.serverAdminResult, 27);
+
+  const command = createClientAdminCommand({ sequence: 9, text: "buytime 3" });
+  assert.deepEqual(command, { kind: "client.admin.command", sequence: 9, text: "buytime 3" });
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(command)), command);
+
+  for (const ok of [true, false]) {
+    const result = { kind: "server.admin.result", serverTick: 120, ok, text: "buy time set to 3s." };
+    assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(result)), result);
+  }
 });
 
 test("decodeProtocolMessage rejects an unknown charge phase", () => {

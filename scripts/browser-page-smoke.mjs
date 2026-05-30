@@ -268,6 +268,8 @@ try {
   assert.match(playtestHtml, /id="playtest-score"/);
   assert.match(playtestHtml, /id="playtest-pause"[^>]*data-open="false"/);
   assert.match(playtestHtml, /id="playtest-pause-resume"/);
+  assert.match(playtestHtml, /id="playtest-console"[^>]*data-open="false"/);
+  assert.match(playtestHtml, /id="playtest-console-input"/);
   assert.match(playtestHtml, /data-scores="hidden"/);
   assert.match(playtestHtml, /id="playtest-objective-prompt"/);
   assert.match(playtestHtml, /id="playtest-kill-feed"/);
@@ -306,6 +308,7 @@ try {
   assert.match(playtestSource, /createClientWeaponBuy/);
   assert.match(playtestSource, /createObjectiveHudView/);
   assert.match(playtestSource, /diffMatchStatsKills/);
+  assert.match(playtestSource, /createClientAdminCommand/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const buyMenuModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/buy-menu.js`);

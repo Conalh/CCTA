@@ -743,6 +743,73 @@ li {
   color: #7c8986;
 }
 
+.playtest-console {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 32;
+  display: none;
+  flex-direction: column;
+  max-height: 46%;
+  border-bottom: 1px solid #0a0d0e;
+  background: rgb(8 11 12 / 94%);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 55%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+}
+
+.playtest-console[data-open="true"] {
+  display: flex;
+}
+
+.playtest-console-log {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.playtest-console-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.playtest-console-line[data-tone="ok"] {
+  color: #9ee2af;
+}
+
+.playtest-console-line[data-tone="error"] {
+  color: #f2a08c;
+}
+
+.playtest-console-line[data-tone="echo"] {
+  color: #9fb0ac;
+}
+
+.playtest-console-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid rgb(58 71 70 / 45%);
+  background: rgb(12 16 17 / 90%);
+}
+
+.playtest-console-prompt {
+  color: #8ed0bd;
+}
+
+.playtest-console-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #e4ebe9;
+  font: inherit;
+  outline: none;
+}
+
 .playtest-buy-menu {
   position: absolute;
   inset: 0;

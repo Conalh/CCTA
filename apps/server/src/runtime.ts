@@ -5,12 +5,15 @@ import {
   SERVER_TICK_RATE_HZ,
   TEAM,
   createServerSnapshotPlaceholder,
+  getPlayerCallsign,
   getWeaponDefinition,
   isWithinPlantSite,
   teamForSlot,
+  teamName,
   FIRE_REJECT_REASON,
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS,
+  type ClientAdminCommandMessage,
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type ClientLoadoutSelectMessage,
@@ -30,6 +33,7 @@ import {
   type ServerLoadoutStateMessage,
   type ServerMatchRosterMessage,
   type ServerMatchResultMessage,
+  type ServerAdminResultMessage,
   type ServerMatchStatsMessage,
   type ServerObjectiveStateMessage,
   type ServerPlayerEconomyMessage,
@@ -79,7 +83,12 @@ import { createMatchStats } from "./match-stats.js";
 import { createMatchProgress } from "./match-progress.js";
 import { createEconomyState, type EconomyConfig } from "./economy.js";
 import { createObjectiveState, type ObjectiveConfig } from "./objective.js";
-import { ADMIN_HELP_TEXT, type AdminCommand } from "./admin-console.js";
+import {
+  ADMIN_HELP_TEXT,
+  TERMINAL_ONLY_ADMIN_COMMANDS,
+  parseAdminCommand,
+  type AdminCommand
+} from "./admin-console.js";
 import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
@@ -185,6 +194,8 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   let friendlyFire = config.friendlyFire ?? true;
   // Scheduled admin match reset (matchreset <sec>): the server tick at which to perform it.
   let pendingMatchResetTick: number | undefined;
+  // Sessions the host operator has granted in-game admin console access (by sessionId).
+  const adminSessions = new Set<number>();
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -212,6 +223,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         combatState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         economy.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
+        adminSessions.delete(runtimeSession.matchAssignment?.sessionId ?? 0);
         playerRegistry.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchSession.disconnect(transport.id);
@@ -256,6 +268,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         break;
       case "client.weapon.buy":
         recordClientBuy(session, message);
+        break;
+      case "client.admin.command":
+        recordClientAdminCommand(session, message);
         break;
       default:
         break;
@@ -845,7 +860,14 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     broadcastMatchResult();
   }
 
-  function applyAdminCommand(command: AdminCommand): AdminCommandResult {
+  function applyAdminCommand(
+    command: AdminCommand,
+    options: { source?: "terminal" | "session" } = {}
+  ): AdminCommandResult {
+    const source = options.source ?? "terminal";
+    if (source === "session" && command.kind !== "unknown" && TERMINAL_ONLY_ADMIN_COMMANDS.has(command.kind)) {
+      return { ok: false, message: `'${command.kind}' is only available from the host terminal.` };
+    }
     switch (command.kind) {
       case "help":
         return { ok: true, message: ADMIN_HELP_TEXT };
@@ -885,9 +907,93 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         }
         pendingMatchResetTick = lastServerTick + secondsToTicks(command.delaySeconds);
         return { ok: true, message: `match reset in ${command.delaySeconds}s.` };
+      case "who":
+        return { ok: true, message: formatPlayerList() };
+      case "grant": {
+        const sessionId = sessionAtSlot(command.slot);
+        if (sessionId === undefined) {
+          return { ok: false, message: `no player in slot ${command.slot}.` };
+        }
+        adminSessions.add(sessionId);
+        sendAdminResultToSession(sessionId, true, "You are now an admin. Press / to open the console.");
+        return { ok: true, message: `granted admin to slot ${command.slot}.` };
+      }
+      case "revoke": {
+        const sessionId = sessionAtSlot(command.slot);
+        if (sessionId === undefined) {
+          return { ok: false, message: `no player in slot ${command.slot}.` };
+        }
+        adminSessions.delete(sessionId);
+        sendAdminResultToSession(sessionId, true, "Your admin access was revoked.");
+        return { ok: true, message: `revoked admin from slot ${command.slot}.` };
+      }
       case "unknown":
         return { ok: false, message: command.message };
     }
+  }
+
+  function sessionAtSlot(slot: number): number | undefined {
+    for (const session of sessions.values()) {
+      if (session.accepted && session.matchAssignment?.slotIndex === slot) {
+        return session.matchAssignment.sessionId;
+      }
+    }
+    return undefined;
+  }
+
+  function formatPlayerList(): string {
+    const roster = getMatchRoster(lastServerTick);
+    if (roster.entries.length === 0) {
+      return "No players connected.";
+    }
+    return roster.entries
+      .slice()
+      .sort((left, right) => left.slotIndex - right.slotIndex)
+      .map((entry) => {
+        const callsign = getPlayerCallsign(entry.handleId) ?? `handle ${entry.handleId}`;
+        const team = teamName(teamForSlot(entry.slotIndex, matchSession.capacity));
+        const admin = adminSessions.has(entry.sessionId) ? " [admin]" : "";
+        return `slot ${entry.slotIndex}: ${callsign} (${team})${admin}`;
+      })
+      .join("\n");
+  }
+
+  function sendAdminResultToSession(sessionId: number, ok: boolean, text: string): void {
+    const message: ServerAdminResultMessage = {
+      kind: "server.admin.result",
+      serverTick: lastServerTick,
+      ok,
+      text
+    };
+    for (const session of sessions.values()) {
+      if (session.accepted && session.matchAssignment?.sessionId === sessionId) {
+        session.transport.send(message);
+        return;
+      }
+    }
+  }
+
+  function recordClientAdminCommand(session: MutableServerRuntimeSession, message: ClientAdminCommandMessage): void {
+    if (!session.accepted || session.matchAssignment === undefined) {
+      return;
+    }
+    const sessionId = session.matchAssignment.sessionId;
+    if (!adminSessions.has(sessionId)) {
+      session.transport.send({
+        kind: "server.admin.result",
+        serverTick: lastServerTick,
+        ok: false,
+        text: "You are not an admin on this server. Ask the host to grant you access."
+      });
+      return;
+    }
+    const result = applyAdminCommand(parseAdminCommand(message.text), { source: "session" });
+    session.transport.send({
+      kind: "server.admin.result",
+      serverTick: lastServerTick,
+      ok: result.ok,
+      text: result.message
+    });
   }
 
   function broadcastObjectiveState(serverTick: number): void {

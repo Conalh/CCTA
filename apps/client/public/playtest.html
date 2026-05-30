@@ -141,7 +141,14 @@
             <p class="playtest-pause-title">Paused</p>
             <button id="playtest-pause-resume" class="playtest-pause-button" type="button">Resume</button>
             <button id="playtest-pause-disconnect" class="playtest-pause-button playtest-pause-leave" type="button">Disconnect</button>
-            <p class="playtest-pause-hint">Esc releases the mouse · B buys · hold Tab for scores</p>
+            <p class="playtest-pause-hint">B buys · / console · hold X for scores</p>
+          </div>
+        </section>
+        <section id="playtest-console" class="playtest-console" data-open="false" aria-label="Admin console">
+          <div id="playtest-console-log" class="playtest-console-log" aria-live="polite"></div>
+          <div class="playtest-console-entry">
+            <span class="playtest-console-prompt">&gt;</span>
+            <input id="playtest-console-input" class="playtest-console-input" type="text" autocomplete="off" spellcheck="false" placeholder="type a command (help) · Esc to close" />
           </div>
         </section>
         <div id="playtest-crosshair" class="playtest-crosshair" aria-hidden="true"></div>

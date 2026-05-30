@@ -10,6 +10,7 @@ import {
   PROTOCOL_VERSION,
   ROUND_PHASE,
   WEAPON_CATALOG,
+  createClientAdminCommand,
   createClientFireIntent,
   createClientLoadoutSelect,
   createClientWeaponBuy,
@@ -312,6 +313,9 @@ const roundTimerTimeEl = requireElement("playtest-round-timer-time");
 const pauseEl = requireElement("playtest-pause");
 const pauseResumeButton = requireButton("playtest-pause-resume");
 const pauseDisconnectButton = requireButton("playtest-pause-disconnect");
+const consoleEl = requireElement("playtest-console");
+const consoleLogEl = requireElement("playtest-console-log");
+const consoleInputEl = requireInput("playtest-console-input");
 const objectiveEl = requireElement("playtest-objective");
 const objectiveStatusEl = requireElement("playtest-objective-status");
 const objectiveDetailEl = requireElement("playtest-objective-detail");
@@ -404,6 +408,8 @@ let pingProbeGeneration = 0;
 let buyMenuOpen = false;
 let buySequence = 0;
 let lastBuyRenderKey: string | undefined;
+let consoleOpen = false;
+let adminSequence = 0;
 let pendingConnect: { joinUrl: string; name: string } | undefined;
 let activeMenuWindow: MenuPanel | undefined;
 let activeServerTab: ServerBrowserTab = "internet";
@@ -612,6 +618,22 @@ try {
     pitchRadians = clamp(pitchRadians - event.movementY * step, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
   });
   document.addEventListener("keydown", (event) => {
+    // While the console is open, keys belong to its input — only Esc (close) is intercepted.
+    if (consoleOpen) {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeConsole();
+      }
+      return;
+    }
+
+    if (event.code === "Slash" && transport !== undefined && menuEl.dataset.visible !== "true" && !buyMenuOpen) {
+      // Open the admin console (the cursor frees so you can type).
+      event.preventDefault();
+      openConsole();
+      return;
+    }
+
     if (event.code === "Escape" && menuEl.dataset.visible === "true" && activeMenuWindow !== undefined) {
       event.preventDefault();
       closeMenuWindow();
@@ -642,8 +664,9 @@ try {
       return;
     }
 
-    if (event.code === "Tab" && menuEl.dataset.visible !== "true") {
-      // Hold Tab to reveal the scoreboard + roster (released = hidden), GoldSrc-style.
+    if (event.code === "KeyX" && menuEl.dataset.visible !== "true") {
+      // Hold X to reveal the scoreboard + roster (released = hidden). Tab/Esc are reserved
+      // by Chrome, so the scoreboard lives on X.
       event.preventDefault();
       document.body.dataset.scores = "visible";
       return;
@@ -658,10 +681,17 @@ try {
     sendInput();
   });
   document.addEventListener("keyup", (event) => {
-    if (event.code === "Tab") {
+    if (event.code === "KeyX") {
       document.body.dataset.scores = "hidden";
     }
     keys.delete(event.code);
+  });
+  consoleInputEl.addEventListener("keydown", (event) => {
+    if (event.code === "Enter") {
+      event.preventDefault();
+      sendAdminCommand(consoleInputEl.value);
+      consoleInputEl.value = "";
+    }
   });
   window.addEventListener("resize", () => {
     resizeRenderer(renderer, camera);
@@ -724,6 +754,10 @@ async function connect(): Promise<void> {
       if (message.kind === "protocol.accept") {
         startNetworkTimers();
         recordConnectedServer();
+      }
+
+      if (message.kind === "server.admin.result") {
+        appendConsoleLine(message.ok ? "ok" : "error", message.text);
       }
       if (message.kind === "match.assigned") {
         sendLoadoutSelection();
@@ -2366,11 +2400,65 @@ function updatePointerState(): void {
 function updatePauseOverlay(): void {
   const menuVisible = menuEl.dataset.visible === "true";
   const paused =
-    transport !== undefined && !menuVisible && !buyMenuOpen && document.pointerLockElement !== canvas;
+    transport !== undefined &&
+    !menuVisible &&
+    !buyMenuOpen &&
+    !consoleOpen &&
+    document.pointerLockElement !== canvas;
   pauseEl.dataset.open = paused ? "true" : "false";
   if (paused) {
     document.body.dataset.scores = "hidden";
   }
+}
+
+function openConsole(): void {
+  if (transport === undefined) {
+    return;
+  }
+  consoleOpen = true;
+  consoleEl.dataset.open = "true";
+  keys.clear();
+  document.body.dataset.scores = "hidden";
+  if (document.pointerLockElement === canvas) {
+    document.exitPointerLock();
+  }
+  updatePauseOverlay();
+  consoleInputEl.value = "";
+  consoleInputEl.focus();
+}
+
+function closeConsole(): void {
+  consoleOpen = false;
+  consoleEl.dataset.open = "false";
+  consoleInputEl.blur();
+  updatePauseOverlay();
+}
+
+function appendConsoleLine(tone: "ok" | "error" | "echo", text: string): void {
+  for (const line of String(text).split("\n")) {
+    const lineEl = document.createElement("div");
+    lineEl.className = "playtest-console-line";
+    lineEl.dataset.tone = tone;
+    lineEl.textContent = line;
+    consoleLogEl.appendChild(lineEl);
+  }
+  while (consoleLogEl.childElementCount > 80 && consoleLogEl.firstChild !== null) {
+    consoleLogEl.removeChild(consoleLogEl.firstChild);
+  }
+  consoleLogEl.scrollTop = consoleLogEl.scrollHeight;
+}
+
+function sendAdminCommand(text: string): void {
+  if (transport === undefined) {
+    return;
+  }
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return;
+  }
+  appendConsoleLine("echo", `> ${trimmed}`);
+  adminSequence += 1;
+  transport.send(createClientAdminCommand({ sequence: adminSequence, text: trimmed }));
 }
 
 function requestPointerLockForCanvas(): void {

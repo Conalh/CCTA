@@ -1690,3 +1690,36 @@ test("admin console restarts the round and resets a decided match", () => {
   assert.equal(runtime.getMatchResult(9).matchOver, false);
   assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY); // economy reset
 });
+
+test("in-game admin console only works for host-granted sessions", () => {
+  const runtime = createServerRuntime({ tickRateHz: 20, matchCapacity: 2, now: () => 1000 });
+  const first = createFakeTransportSession("admin-a");
+  const second = createFakeTransportSession("admin-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  runtime.step(1, 1000);
+
+  const lastResult = (transport) => transport.sent.filter((message) => message.kind === "server.admin.result").at(-1);
+
+  // Ungranted: the command is refused.
+  first.receive({ kind: "client.admin.command", sequence: 1, text: "buytime 3" });
+  assert.equal(lastResult(first).ok, false);
+  assert.match(lastResult(first).text, /not an admin/i);
+
+  // The host grants slot 0 (session 1) from the terminal; that session is notified.
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("grant 0")).ok, true);
+  assert.match(lastResult(first).text, /now an admin/i);
+
+  // Now an in-game settings command applies authoritatively.
+  first.receive({ kind: "client.admin.command", sequence: 2, text: "buytime 3" });
+  assert.equal(lastResult(first).ok, true);
+  assert.equal(runtime.getAdminStatus().buyTimeSeconds, 3);
+
+  // Terminal-only commands stay refused from the in-game console.
+  first.receive({ kind: "client.admin.command", sequence: 3, text: "grant 1" });
+  assert.equal(lastResult(first).ok, false);
+  assert.match(lastResult(first).text, /host terminal/i);
+});

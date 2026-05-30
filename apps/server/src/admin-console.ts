@@ -18,7 +18,13 @@ export type AdminCommand =
   | { kind: "friendlyfire"; enabled: boolean }
   | { kind: "roundreset" }
   | { kind: "matchreset"; delaySeconds: number }
+  | { kind: "grant"; slot: number }
+  | { kind: "revoke"; slot: number }
+  | { kind: "who" }
   | { kind: "unknown"; message: string };
+
+// Commands only the host operator (server terminal) may run, never an in-game admin.
+export const TERMINAL_ONLY_ADMIN_COMMANDS = new Set(["grant", "revoke", "who"]);
 
 export const ADMIN_HELP_TEXT = [
   "Admin console commands (apply on the next round unless noted):",
@@ -34,6 +40,10 @@ export const ADMIN_HELP_TEXT = [
   "  matchreset [sec]     reset scores/economy and restart (optionally after sec)",
   "  status               print the current settings",
   "  help                 show this list",
+  "Host terminal only:",
+  "  who                  list connected players and their slots",
+  "  grant <slot>         let the player in that slot use the in-game console",
+  "  revoke <slot>        remove that player's admin access",
   "Forms 'buytime 15', 'set buytime 15', and 'buytime_15' are all accepted."
 ].join("\n");
 
@@ -76,6 +86,13 @@ export function parseAdminCommand(line: string): AdminCommand {
       return { kind: "roundreset" };
     case "matchreset":
       return matchResetCommand(args);
+    case "who":
+    case "players":
+      return { kind: "who" };
+    case "grant":
+      return countCommand(name, args, (slot) => ({ kind: "grant", slot }), { min: 0 });
+    case "revoke":
+      return countCommand(name, args, (slot) => ({ kind: "revoke", slot }), { min: 0 });
     default:
       return { kind: "unknown", message: `Unknown command '${name}'. Type 'help' for the list.` };
   }
