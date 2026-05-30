@@ -916,6 +916,8 @@ function recordConnectedServer(): void {
 function updateMenuVisibility(connectionStatus: string): void {
   const inGame = connectionStatus === "accepted" || connectionStatus === "connecting";
   menuEl.dataset.visible = inGame ? "false" : "true";
+  // Hide the gameplay HUD while the menu is up so the main menu reads clean over the map.
+  document.body.dataset.menuOpen = inGame ? "false" : "true";
 }
 
 function setMenuStatus(text: string): void {
@@ -1176,11 +1178,10 @@ function animate(
     });
     applyCameraPose(camera, presentation, smoothedCameraPosition);
   }
-  // The camera-attached gun/effects belong to the game, not the menu backdrop.
-  firstPersonShellGroup.visible = !menuVisible;
+  // The camera-attached fire effects belong to the game, not the menu backdrop.
   fireResultCameraGroup.visible = !menuVisible;
   const firstPersonShell = createFirstPersonShellPresentation({
-    enabled: true,
+    enabled: !menuVisible,
     fireIntentActive: readFireIntentActive(timeMs),
     lookPitchRadians: presentation.localCameraPose.pitchRadians,
     motionContact: lastMotionContact,

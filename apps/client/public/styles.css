@@ -794,6 +794,16 @@ li {
   display: none;
 }
 
+/* While the main menu is up, hide the in-game HUD so it reads as a clean menu. */
+body[data-menu-open="true"] .playtest-crosshair,
+body[data-menu-open="true"] .playtest-hud,
+body[data-menu-open="true"] .playtest-scoreboard,
+body[data-menu-open="true"] .playtest-roster,
+body[data-menu-open="true"] .playtest-round-banner,
+body[data-menu-open="true"] .playtest-match-banner {
+  display: none;
+}
+
 /* The arena renders behind the menu (a live "map" backdrop); only a vignette and
    faint scanlines darken it so the panels stay readable. */
 .playtest-menu-vignette {
