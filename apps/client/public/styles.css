@@ -816,6 +816,28 @@ li {
   background: #8ed0bd;
 }
 
+.playtest-objective-prompt {
+  position: absolute;
+  bottom: 132px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  padding: 6px 14px;
+  border: 1px solid rgb(216 178 74 / 50%);
+  border-radius: 5px;
+  background: rgb(12 16 17 / 80%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: #f2e6b8;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.playtest-objective-prompt[data-visible="true"] {
+  display: block;
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;

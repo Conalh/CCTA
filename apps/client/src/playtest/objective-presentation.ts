@@ -3,7 +3,10 @@ import {
   DEFUSE_DURATION_TICKS,
   PLANT_DURATION_TICKS,
   SERVER_TICK_RATE_HZ,
-  type ChargePhase
+  TEAM,
+  isWithinPlantSite,
+  type ChargePhase,
+  type TeamId
 } from "@breachline/shared";
 
 // Pure view model for the breach-charge HUD readout. Turns the mirrored charge state into
@@ -54,6 +57,38 @@ export function createObjectiveHudView(input: ObjectiveHudInput): ObjectiveHudVi
     return { visible: true, status: "Planting", detail: `${Math.round(plant * 100)}%`, tone: "arming", progress: plant };
   }
   return HIDDEN;
+}
+
+// Contextual action prompt: shown only when the local player can actually act on the
+// charge — a live Robber standing on the idle site (plant) or a live Cop on the armed
+// charge (defuse). Side comes from the server-owned slot; position from server truth.
+export type ObjectivePromptView = Readonly<{ visible: boolean; text: string }>;
+
+export type ObjectivePromptInput = Readonly<{
+  localTeam: TeamId | undefined;
+  localAlive: boolean | undefined;
+  localX: number | undefined;
+  localZ: number | undefined;
+  chargePhase: ChargePhase | undefined;
+}>;
+
+const NO_PROMPT: ObjectivePromptView = { visible: false, text: "" };
+
+export function createObjectivePromptView(input: ObjectivePromptInput): ObjectivePromptView {
+  if (input.localAlive !== true || input.localX === undefined || input.localZ === undefined) {
+    return NO_PROMPT;
+  }
+  if (!isWithinPlantSite(input.localX, input.localZ)) {
+    return NO_PROMPT;
+  }
+  const phase = input.chargePhase;
+  if (input.localTeam === TEAM.robbers && (phase === undefined || phase === CHARGE_PHASE.idle)) {
+    return { visible: true, text: "Hold E to plant the charge" };
+  }
+  if (input.localTeam === TEAM.cops && phase === CHARGE_PHASE.planted) {
+    return { visible: true, text: "Hold E to defuse the charge" };
+  }
+  return NO_PROMPT;
 }
 
 function clampProgress(value: number | undefined, duration: number): number {

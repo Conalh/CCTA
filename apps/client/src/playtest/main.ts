@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 
 import {
+  CHARGE_PHASE,
   DEFAULT_WEAPON_PROFILE_ID,
   PLANT_SITE,
   PROTOCOL_VERSION,
@@ -11,6 +12,7 @@ import {
   createClientLoadoutSelect,
   createClientWeaponBuy,
   createClientWeaponReload,
+  teamForSlot,
   type MessageTransport
 } from "@breachline/shared";
 
@@ -86,7 +88,7 @@ import {
   type ScoreboardPresentation
 } from "./scoreboard-presentation.js";
 import { createBuyMenuView, formatBuyMenuPrice, type BuyMenuRow } from "./buy-menu.js";
-import { createObjectiveHudView } from "./objective-presentation.js";
+import { createObjectiveHudView, createObjectivePromptView } from "./objective-presentation.js";
 import {
   SERVER_BROWSER_BUILD_ID,
   SERVER_BROWSER_TABS,
@@ -297,6 +299,7 @@ const objectiveEl = requireElement("playtest-objective");
 const objectiveStatusEl = requireElement("playtest-objective-status");
 const objectiveDetailEl = requireElement("playtest-objective-detail");
 const objectiveBarEl = requireElement("playtest-objective-bar");
+const objectivePromptEl = requireElement("playtest-objective-prompt");
 const readoutEl = requireElement("playtest-readout");
 const diagnosticsToggleEl = requireElement("playtest-diagnostics-toggle");
 const localCombatEventEl = requireElement("playtest-combat-event");
@@ -345,6 +348,7 @@ let firstPersonShellAttachedToCamera = false;
 let pingTimer: ReturnType<typeof setInterval> | undefined;
 let inputTimer: ReturnType<typeof setInterval> | undefined;
 let animationFrame: number | undefined;
+let chargeDeviceMesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial> | undefined;
 let frameCount = 0;
 let lastRenderTimeMs = performance.now();
 let latestRenderSample: ScenePixelSampleSummary = {
@@ -547,6 +551,16 @@ try {
   plantSiteRing.rotation.x = -Math.PI / 2;
   plantSiteRing.position.set(PLANT_SITE.x, 0.02, PLANT_SITE.z);
   scene.add(plantSiteRing);
+
+  // The planted charge: a small device that appears on the site once armed (blinking),
+  // so players can see and find it. Visibility is driven by the mirrored charge phase.
+  chargeDeviceMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.34, 0.28, 0.5),
+    new THREE.MeshBasicMaterial({ color: "#d6604c" })
+  );
+  chargeDeviceMesh.position.set(PLANT_SITE.x, 0.16, PLANT_SITE.z);
+  chargeDeviceMesh.visible = false;
+  scene.add(chargeDeviceMesh);
 
   canvas.addEventListener("click", () => {
     requestPointerLockForCanvas();
@@ -1098,6 +1112,37 @@ function renderObjectiveHud(): void {
   const hasBar = view.progress !== undefined;
   objectiveBarEl.parentElement?.setAttribute("data-active", hasBar ? "true" : "false");
   objectiveBarEl.style.width = hasBar ? `${Math.round((view.progress ?? 0) * 100)}%` : "0%";
+}
+
+function renderObjectivePrompt(): void {
+  const position = state.predictedLocalEntityPosition ?? state.localEntityPosition;
+  const localTeam = state.slotIndex === undefined ? undefined : teamForSlot(state.slotIndex, state.matchCapacity);
+  const prompt = createObjectivePromptView({
+    localTeam,
+    localAlive: state.localAlive,
+    localX: position?.x,
+    localZ: position?.z,
+    chargePhase: state.chargePhase
+  });
+  objectivePromptEl.dataset.visible = prompt.visible ? "true" : "false";
+  objectivePromptEl.textContent = prompt.visible ? prompt.text : "";
+}
+
+function updateChargeDevice(): void {
+  if (chargeDeviceMesh === undefined) {
+    return;
+  }
+  const phase = state.chargePhase;
+  chargeDeviceMesh.visible =
+    phase === CHARGE_PHASE.planted || phase === CHARGE_PHASE.defused || phase === CHARGE_PHASE.detonated;
+  if (phase === CHARGE_PHASE.planted) {
+    // Blink while armed (~3 Hz at 60 fps).
+    chargeDeviceMesh.material.color.set(Math.floor(frameCount / 10) % 2 === 0 ? "#ff6f57" : "#5a2620");
+  } else if (phase === CHARGE_PHASE.defused) {
+    chargeDeviceMesh.material.color.set("#8ed0bd");
+  } else if (phase === CHARGE_PHASE.detonated) {
+    chargeDeviceMesh.material.color.set("#f0a000");
+  }
 }
 
 function applySettingsReadouts(): void {
@@ -1942,6 +1987,8 @@ function updateReadout(
   }
   refreshBuyMenuIfOpen();
   renderObjectiveHud();
+  renderObjectivePrompt();
+  updateChargeDevice();
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =

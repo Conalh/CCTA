@@ -5,9 +5,14 @@ import {
   CHARGE_PHASE,
   DEFUSE_DURATION_TICKS,
   PLANT_DURATION_TICKS,
-  SERVER_TICK_RATE_HZ
+  PLANT_SITE,
+  SERVER_TICK_RATE_HZ,
+  TEAM
 } from "../packages/shared/dist/index.js";
-import { createObjectiveHudView } from "../apps/client/dist/playtest/objective-presentation.js";
+import {
+  createObjectiveHudView,
+  createObjectivePromptView
+} from "../apps/client/dist/playtest/objective-presentation.js";
 
 test("objective hud stays hidden for an untouched idle charge", () => {
   assert.equal(createObjectiveHudView({ chargePhase: CHARGE_PHASE.idle }).visible, false);
@@ -53,4 +58,40 @@ test("objective hud surfaces a defuse in progress with its own bar", () => {
 test("objective hud reports terminal outcomes", () => {
   assert.equal(createObjectiveHudView({ chargePhase: CHARGE_PHASE.defused }).tone, "defused");
   assert.equal(createObjectiveHudView({ chargePhase: CHARGE_PHASE.detonated }).tone, "detonated");
+});
+
+test("objective prompt invites a Robber on the idle site to plant", () => {
+  const view = createObjectivePromptView({
+    localTeam: TEAM.robbers,
+    localAlive: true,
+    localX: PLANT_SITE.x,
+    localZ: PLANT_SITE.z,
+    chargePhase: CHARGE_PHASE.idle
+  });
+  assert.equal(view.visible, true);
+  assert.match(view.text, /plant/i);
+});
+
+test("objective prompt invites a Cop on the armed charge to defuse", () => {
+  const view = createObjectivePromptView({
+    localTeam: TEAM.cops,
+    localAlive: true,
+    localX: PLANT_SITE.x,
+    localZ: PLANT_SITE.z,
+    chargePhase: CHARGE_PHASE.planted
+  });
+  assert.equal(view.visible, true);
+  assert.match(view.text, /defuse/i);
+});
+
+test("objective prompt stays hidden off-site, when dead, or for the wrong side/phase", () => {
+  const base = { localTeam: TEAM.robbers, localAlive: true, localX: PLANT_SITE.x, localZ: PLANT_SITE.z, chargePhase: CHARGE_PHASE.idle };
+  assert.equal(createObjectivePromptView({ ...base, localZ: PLANT_SITE.z + 50 }).visible, false); // off-site
+  assert.equal(createObjectivePromptView({ ...base, localAlive: false }).visible, false); // dead
+  // A Cop cannot plant; a Robber cannot defuse.
+  assert.equal(createObjectivePromptView({ ...base, localTeam: TEAM.cops }).visible, false);
+  assert.equal(
+    createObjectivePromptView({ ...base, localTeam: TEAM.cops, chargePhase: CHARGE_PHASE.idle }).visible,
+    false
+  );
 });
