@@ -5,7 +5,7 @@
 // tabbed table model. The client owns none of the truth here; it only presents
 // what the registry reports and what the player has joined or starred.
 
-import { PROTOCOL_VERSION, DRYDOCK_SPAN_ARENA, EBB_TERMINAL_ARENA } from "@breachline/shared";
+import { PROTOCOL_VERSION, EBB_TERMINAL_ARENA, getArenaMetadataById } from "@breachline/shared";
 
 export const SERVER_BROWSER_BUILD_ID = `proto-${PROTOCOL_VERSION}` as const;
 export const RECENT_SERVERS_LIMIT = 12 as const;
@@ -513,14 +513,17 @@ export async function probeServerPings(input: ProbeServerPingsInput): Promise<Re
 }
 
 export function formatMapLabel(mapId: string): string {
-  switch (mapId) {
-    case DRYDOCK_SPAN_ARENA.id:
-      return DRYDOCK_SPAN_ARENA.displayName;
-    case EBB_TERMINAL_ARENA.id:
-      return EBB_TERMINAL_ARENA.displayName;
-    default:
-      return mapId;
+  // Resolve any selectable arena (Drydock, Foundry Row, …) to its display name so the
+  // browser never shows a raw "arena-foundry-row" id. The Ebb Terminal test arena is not
+  // in the selectable registry, so it keeps an explicit fallback; unknown ids show as-is.
+  const known = getArenaMetadataById(mapId);
+  if (known !== undefined) {
+    return known.displayName;
   }
+  if (mapId === EBB_TERMINAL_ARENA.id) {
+    return EBB_TERMINAL_ARENA.displayName;
+  }
+  return mapId;
 }
 
 type MutableEntry = {

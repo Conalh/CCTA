@@ -9,6 +9,7 @@ import {
   countServerBrowserTabs,
   fetchRegistryMatches,
   filterServerBrowserEntriesByTab,
+  formatMapLabel,
   formatPingCell,
   formatPlayersCell,
   isFavoriteServer,
@@ -96,6 +97,15 @@ test("toggleFavoriteServer adds then removes by normalized join URL", () => {
   assert.equal(isFavoriteServer(favorites, "ws://10.0.0.1:8787/"), true);
   favorites = toggleFavoriteServer(favorites, { joinUrl: "ws://10.0.0.1:8787/", name: "Fav" });
   assert.equal(favorites.length, 0);
+});
+
+test("formatMapLabel resolves every selectable arena id to its display name", () => {
+  // Full ids and the short form both resolve, so the browser never shows a raw arena id.
+  assert.equal(formatMapLabel("arena-drydock-span"), "Drydock Span");
+  assert.equal(formatMapLabel("arena-foundry-row"), "Foundry Row");
+  assert.equal(formatMapLabel("foundry-row"), "Foundry Row");
+  // Unknown ids fall through unchanged rather than throwing.
+  assert.equal(formatMapLabel("arena-unknown"), "arena-unknown");
 });
 
 test("buildServerBrowserEntries merges registry, recent, and favorites by normalized join URL", () => {

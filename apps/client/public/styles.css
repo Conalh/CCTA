@@ -1520,20 +1520,29 @@ body[data-menu-open="true"] .playtest-match-banner {
   border: 1px solid #2c3633;
   border-radius: 3px;
   background: #0c1113;
-  overflow: hidden;
+  /* The table itself is the scroll container so the header and rows live in one box and
+     always share the same content width — that is what keeps the columns lined up. */
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .playtest-browser-head,
 .playtest-server-row {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 66px minmax(0, 0.9fr) 52px 30px;
+  grid-template-columns: 16px minmax(140px, 1.4fr) 56px minmax(112px, 1fr) 64px 26px;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 10px;
+  padding: 0 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .playtest-browser-head {
-  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 30px;
   border-bottom: 1px solid #2c3633;
   background: #161e21;
 }
@@ -1577,8 +1586,7 @@ body[data-menu-open="true"] .playtest-match-banner {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 300px;
-  overflow: auto;
+  width: 100%;
 }
 
 .playtest-server-row {

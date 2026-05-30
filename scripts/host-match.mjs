@@ -3,7 +3,7 @@ import process from "node:process";
 import readline from "node:readline";
 
 import { parseAdminCommand, startTransportLoopServer } from "../apps/server/dist/index.js";
-import { DRYDOCK_SPAN_ARENA, PROTOCOL_VERSION } from "../packages/shared/dist/index.js";
+import { PROTOCOL_VERSION } from "../packages/shared/dist/index.js";
 import { createHostMatchUrls, formatHostMatchSummary } from "./host-match-urls.mjs";
 import { buildHostAnnouncement, createRegistryPublisher, resolvePublishJoinUrl } from "./host-match-publish.mjs";
 
@@ -97,7 +97,7 @@ async function publishToRegistryIfRequested() {
       buildHostAnnouncement({
         name: matchName,
         joinUrl,
-        mapId: DRYDOCK_SPAN_ARENA.id,
+        mapId: server.runtime.getMapId(),
         buildId: `proto-${PROTOCOL_VERSION}`,
         playerCount: server.runtime.connectedMatchSlotCount(),
         capacity
