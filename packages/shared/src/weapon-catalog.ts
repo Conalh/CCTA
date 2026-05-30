@@ -23,13 +23,15 @@ const WEAPON_DEFINITIONS: readonly WeaponDefinition[] = [
     reloadTicks: 150
   },
   {
+    // Starter sidearm: a hard-hitting six-shot revolver. Low capacity and a slow,
+    // deliberate cadence trade against high per-hit damage.
     profileId: LOADOUT_PROFILE_ID.halcyon,
     name: "Halcyon",
-    role: "balanced",
-    damagePerHit: 28,
-    fireIntervalTicks: 9,
-    magazineSize: 24,
-    reloadTicks: 120
+    role: "revolver",
+    damagePerHit: 50,
+    fireIntervalTicks: 20,
+    magazineSize: 6,
+    reloadTicks: 165
   },
   {
     profileId: LOADOUT_PROFILE_ID.cinder,

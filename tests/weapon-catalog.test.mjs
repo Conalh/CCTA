@@ -41,6 +41,15 @@ test("default weapon profile id is a catalog member", () => {
   assert.notEqual(getWeaponDefinition(DEFAULT_WEAPON_PROFILE_ID), undefined);
 });
 
+test("the starter weapon is a hard-hitting six-shot revolver", () => {
+  const starter = getWeaponDefinition(DEFAULT_WEAPON_PROFILE_ID);
+  assert.equal(starter.role, "revolver");
+  assert.equal(starter.magazineSize, 6);
+  // Revolver feel: high per-hit damage and a slow, deliberate cadence.
+  assert.ok(starter.damagePerHit >= 40, "a revolver hits hard");
+  assert.ok(starter.fireIntervalTicks >= 15, "a revolver fires deliberately");
+});
+
 test("weapon lookup resolves known profiles and rejects unknown ids", () => {
   assert.equal(getWeaponDefinition(LOADOUT_PROFILE_ID.ridgeline)?.name, "Ridgeline");
   assert.equal(getWeaponDefinition(0), undefined);
