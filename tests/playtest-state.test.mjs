@@ -5,7 +5,8 @@ import { ROUND_PHASE, SERVER_TICK_RATE_HZ } from "../packages/shared/dist/index.
 import {
   createPlaytestRoundTimerView,
   formatPlaytestRoundScore,
-  formatPlaytestSide
+  formatPlaytestSide,
+  parsePlaytestConsoleCommand
 } from "../apps/client/dist/playtest/playtest-state.js";
 
 test("formatPlaytestSide labels the local side from the server-owned slot", () => {
@@ -49,4 +50,18 @@ test("round timer counts down the buy phase, then the round clock", () => {
 test("round timer hides once the round has ended", () => {
   assert.equal(createPlaytestRoundTimerView({ phase: ROUND_PHASE.ended, phaseEndsTick: 10, serverTick: 5 }).visible, false);
   assert.equal(createPlaytestRoundTimerView({ phase: undefined, phaseEndsTick: undefined, serverTick: undefined }).visible, false);
+});
+
+test("client console parser splits local commands from server commands", () => {
+  assert.deepEqual(parsePlaytestConsoleCommand("sensitivity 1.5"), { kind: "sensitivity", value: 1.5 });
+  assert.deepEqual(parsePlaytestConsoleCommand("sens 2"), { kind: "sensitivity", value: 2 });
+  assert.deepEqual(parsePlaytestConsoleCommand("fov 100"), { kind: "fov", value: 100 });
+  assert.deepEqual(parsePlaytestConsoleCommand("debug"), { kind: "debug", desired: undefined });
+  assert.deepEqual(parsePlaytestConsoleCommand("debug on"), { kind: "debug", desired: true });
+  assert.deepEqual(parsePlaytestConsoleCommand("debug off"), { kind: "debug", desired: false });
+  assert.deepEqual(parsePlaytestConsoleCommand("clear"), { kind: "clear" });
+  assert.equal(parsePlaytestConsoleCommand("sensitivity nope").kind, "error");
+  // Server-side commands are not client-handled, so they forward.
+  assert.deepEqual(parsePlaytestConsoleCommand("buytime 3"), { kind: "none" });
+  assert.deepEqual(parsePlaytestConsoleCommand("help"), { kind: "none" });
 });

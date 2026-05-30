@@ -65,6 +65,7 @@ import {
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
   formatPlaytestMatchResult,
+  parsePlaytestConsoleCommand,
   NETWORKED_PLAYTEST_INPUT_INTERVAL_MS,
   smoothNetworkedPlaytestCameraPosition,
   updateNetworkedPlaytestReviewStats,
@@ -689,7 +690,7 @@ try {
   consoleInputEl.addEventListener("keydown", (event) => {
     if (event.code === "Enter") {
       event.preventDefault();
-      sendAdminCommand(consoleInputEl.value);
+      submitConsoleCommand(consoleInputEl.value);
       consoleInputEl.value = "";
     }
   });
@@ -2417,6 +2418,9 @@ function openConsole(): void {
   }
   consoleOpen = true;
   consoleEl.dataset.open = "true";
+  if (consoleLogEl.childElementCount === 0) {
+    appendConsoleLine("ok", "Console — 'help' for commands. Local: sensitivity, fov, debug, clear.");
+  }
   keys.clear();
   document.body.dataset.scores = "hidden";
   if (document.pointerLockElement === canvas) {
@@ -2448,17 +2452,63 @@ function appendConsoleLine(tone: "ok" | "error" | "echo", text: string): void {
   consoleLogEl.scrollTop = consoleLogEl.scrollHeight;
 }
 
-function sendAdminCommand(text: string): void {
-  if (transport === undefined) {
-    return;
-  }
+function submitConsoleCommand(text: string): void {
   const trimmed = text.trim();
   if (trimmed.length === 0) {
     return;
   }
   appendConsoleLine("echo", `> ${trimmed}`);
+
+  // `help` shows the local commands here and still forwards to the server for its list.
+  if (trimmed.toLowerCase().split(/\s+/)[0] === "help") {
+    appendConsoleLine("ok", "Local: sensitivity <n> · fov <n> · debug [on|off] · clear");
+  } else {
+    const local = parsePlaytestConsoleCommand(trimmed);
+    if (local.kind !== "none") {
+      applyClientConsoleCommand(local);
+      return;
+    }
+  }
+
+  if (transport === undefined) {
+    appendConsoleLine("error", "not connected.");
+    return;
+  }
   adminSequence += 1;
   transport.send(createClientAdminCommand({ sequence: adminSequence, text: trimmed }));
+}
+
+function applyClientConsoleCommand(command: ReturnType<typeof parsePlaytestConsoleCommand>): void {
+  switch (command.kind) {
+    case "sensitivity":
+      lookSensitivity = clampSensitivity(command.value);
+      persistSetting(SENSITIVITY_STORAGE_KEY, lookSensitivity);
+      settingsSensitivityInput.value = lookSensitivity.toFixed(2);
+      applySettingsReadouts();
+      appendConsoleLine("ok", `sensitivity = ${lookSensitivity.toFixed(2)}`);
+      break;
+    case "fov":
+      fieldOfView = clampFieldOfView(command.value);
+      persistSetting(FOV_STORAGE_KEY, fieldOfView);
+      settingsFovInput.value = String(fieldOfView);
+      applyFieldOfView();
+      applySettingsReadouts();
+      appendConsoleLine("ok", `fov = ${fieldOfView}`);
+      break;
+    case "debug":
+      diagnosticsVisible = command.desired === undefined ? !diagnosticsVisible : command.desired;
+      applyDiagnosticsVisibility();
+      appendConsoleLine("ok", `diagnostics ${diagnosticsVisible ? "on" : "off"}`);
+      break;
+    case "clear":
+      consoleLogEl.replaceChildren();
+      break;
+    case "error":
+      appendConsoleLine("error", command.message);
+      break;
+    case "none":
+      break;
+  }
 }
 
 function requestPointerLockForCanvas(): void {

@@ -349,6 +349,43 @@ export function formatPlaytestRoundPhase(value: RoundPhase | number | undefined)
   }
 }
 
+// Client-only console commands (handled in the browser, never sent to the server): the
+// look/FOV settings and the diagnostics overlay. Anything else returns {kind:"none"} so the
+// caller forwards it to the server as an admin command.
+export type PlaytestConsoleCommand =
+  | { kind: "none" }
+  | { kind: "sensitivity"; value: number }
+  | { kind: "fov"; value: number }
+  | { kind: "debug"; desired: boolean | undefined }
+  | { kind: "clear" }
+  | { kind: "error"; message: string };
+
+export function parsePlaytestConsoleCommand(text: string): PlaytestConsoleCommand {
+  const tokens = text.trim().toLowerCase().split(/\s+/).filter((token) => token.length > 0);
+  const name = tokens[0];
+  switch (name) {
+    case "sensitivity":
+    case "sens": {
+      const value = Number(tokens[1]);
+      return Number.isFinite(value)
+        ? { kind: "sensitivity", value }
+        : { kind: "error", message: "sensitivity needs a number (0.25–3)." };
+    }
+    case "fov": {
+      const value = Number(tokens[1]);
+      return Number.isFinite(value) ? { kind: "fov", value } : { kind: "error", message: "fov needs a number (70–110)." };
+    }
+    case "debug": {
+      const arg = tokens[1];
+      return { kind: "debug", desired: arg === "on" ? true : arg === "off" ? false : undefined };
+    }
+    case "clear":
+      return { kind: "clear" };
+    default:
+      return { kind: "none" };
+  }
+}
+
 export function formatPlaytestStance(crouched: boolean | undefined): string {
   // Stance is server-owned (snapshot crouch flag); the client only labels the mirrored value.
   return crouched === true ? "Crouched" : "Standing";
