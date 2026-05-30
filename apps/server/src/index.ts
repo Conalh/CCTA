@@ -12,6 +12,7 @@ export * from "./match-stats.js";
 export * from "./match-progress.js";
 export * from "./economy.js";
 export * from "./objective.js";
+export * from "./admin-console.js";
 export * from "./static-client.js";
 export * from "./tick-loop.js";
 export * from "./transport-loop-server.js";

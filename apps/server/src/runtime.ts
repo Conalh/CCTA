@@ -79,6 +79,7 @@ import { createMatchStats } from "./match-stats.js";
 import { createMatchProgress } from "./match-progress.js";
 import { createEconomyState, type EconomyConfig } from "./economy.js";
 import { createObjectiveState, type ObjectiveConfig } from "./objective.js";
+import { ADMIN_HELP_TEXT, type AdminCommand } from "./admin-console.js";
 import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
@@ -95,8 +96,23 @@ export type ServerRuntimeConfig = Readonly<{
   economy?: EconomyConfig;
   objective?: ObjectiveConfig;
   matchKillTarget?: number;
+  friendlyFire?: boolean;
   now?: ServerClock;
 }>;
+
+// What the admin console reports and how it answers a command.
+export type AdminStatus = Readonly<{
+  buyTimeSeconds: number;
+  roundTimeSeconds: number;
+  maxRounds: number;
+  startMoney: number;
+  killReward: number;
+  roundWinBonus: number;
+  roundLossBonus: number;
+  friendlyFire: boolean;
+}>;
+
+export type AdminCommandResult = Readonly<{ ok: boolean; message: string }>;
 
 export type ServerRuntimeSession = Readonly<{
   transport: MessageTransport;
@@ -130,6 +146,8 @@ export type ServerRuntime = Readonly<{
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   getMatchRoster(serverTick?: number): ServerMatchRosterMessage;
   getMatchResult(serverTick?: number): ServerMatchResultMessage;
+  applyAdminCommand(command: AdminCommand): AdminCommandResult;
+  getAdminStatus(): AdminStatus;
   step(tick: number, serverTimeMs?: number): void;
   close(): void;
 }>;
@@ -163,6 +181,10 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   // Seeded to the idle charge so the redundant first idle broadcast is suppressed; a new
   // session still gets the live state on accept, and changes broadcast from there.
   let lastObjectiveBroadcastKey = objectiveBroadcastKey(objective.createStateMessage(0));
+  // Admin-tunable: teammates can damage each other by default; the console can switch it off.
+  let friendlyFire = config.friendlyFire ?? true;
+  // Scheduled admin match reset (matchreset <sec>): the server tick at which to perform it.
+  let pendingMatchResetTick: number | undefined;
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -298,6 +320,12 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
   function step(tick: number, serverTimeMs = now()): void {
     lastServerTick = tick;
+    // A scheduled admin match reset fires before the round advances, so its requested
+    // restart is honored this same step.
+    if (pendingMatchResetTick !== undefined && tick >= pendingMatchResetTick) {
+      pendingMatchResetTick = undefined;
+      performMatchReset();
+    }
     const participants = getRoundParticipants();
     // Once the match is decided the round loop freezes: no new rounds, no charge progress,
     // no further scoring. The world keeps broadcasting so the result banner and frozen
@@ -574,7 +602,15 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
     session.transport.send(validation.result);
     sendWeaponStateToSession(weaponState.createStateMessage(session.matchAssignment.sessionId, lastServerTick));
-    const combatResult = combatState.applyFireResult(validation.result);
+    // Friendly fire: with it off, a hit on a teammate deals no damage.
+    const targetSessionId = validation.result.targetSessionId;
+    const blockedByFriendlyFire =
+      !friendlyFire &&
+      targetSessionId !== 0 &&
+      teamOfSession(session.matchAssignment.sessionId) === teamOfSession(targetSessionId);
+    const combatResult = blockedByFriendlyFire
+      ? { applied: false, state: undefined }
+      : combatState.applyFireResult(validation.result);
     if (combatResult.applied && combatResult.state !== undefined) {
       sendCombatStateToSession(combatResult.state.targetSessionId);
       if (combatResult.state.lastEventKind === COMBAT_EVENT_KIND.death) {
@@ -775,6 +811,85 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     return { planterCount, defuserCount };
   }
 
+  function teamOfSession(sessionId: number): number | undefined {
+    for (const session of sessions.values()) {
+      if (session.accepted && session.matchAssignment?.sessionId === sessionId) {
+        return teamForSlot(session.matchAssignment.slotIndex, matchSession.capacity);
+      }
+    }
+    return undefined;
+  }
+
+  const secondsToTicks = (seconds: number): number => Math.max(0, Math.round(seconds * config.tickRateHz));
+
+  function getAdminStatus(): AdminStatus {
+    return {
+      buyTimeSeconds: roundState.getSetupDurationTicks() / config.tickRateHz,
+      roundTimeSeconds: roundState.getActiveDurationTicks() / config.tickRateHz,
+      maxRounds: matchProgress.getKillTarget(),
+      startMoney: economy.getStartingMoney(),
+      killReward: economy.getKillReward(),
+      roundWinBonus: economy.getRoundWinBonus(),
+      roundLossBonus: economy.getRoundLossBonus(),
+      friendlyFire
+    };
+  }
+
+  // Reset the whole match: scores to 0, everyone back to starting money, and a fresh round.
+  function performMatchReset(): void {
+    matchProgress.reset();
+    for (const sessionId of economy.resetAll()) {
+      sendEconomyToSession(sessionId);
+    }
+    roundState.requestRestart();
+    broadcastMatchResult();
+  }
+
+  function applyAdminCommand(command: AdminCommand): AdminCommandResult {
+    switch (command.kind) {
+      case "help":
+        return { ok: true, message: ADMIN_HELP_TEXT };
+      case "status":
+        return { ok: true, message: formatAdminStatus(getAdminStatus()) };
+      case "buytime":
+        roundState.reconfigure({ setupDurationTicks: secondsToTicks(command.seconds) });
+        return { ok: true, message: `buy time set to ${command.seconds}s (takes effect next round).` };
+      case "roundtime":
+        roundState.reconfigure({ activeDurationTicks: Math.max(1, secondsToTicks(command.seconds)) });
+        return { ok: true, message: `round time set to ${command.seconds}s (takes effect next round).` };
+      case "maxrounds":
+        matchProgress.reconfigure({ killTarget: command.value });
+        return { ok: true, message: `match target set to ${command.value} round wins.` };
+      case "startmoney":
+        economy.reconfigure({ startingMoney: command.value });
+        return { ok: true, message: `starting money set to ${command.value} (takes effect next round).` };
+      case "killreward":
+        economy.reconfigure({ killReward: command.value });
+        return { ok: true, message: `kill reward set to ${command.value}.` };
+      case "roundwin":
+        economy.reconfigure({ roundWinBonus: command.value });
+        return { ok: true, message: `round-win bonus set to ${command.value}.` };
+      case "roundloss":
+        economy.reconfigure({ roundLossBonus: command.value });
+        return { ok: true, message: `round-loss bonus set to ${command.value}.` };
+      case "friendlyfire":
+        friendlyFire = command.enabled;
+        return { ok: true, message: `friendly fire ${command.enabled ? "on" : "off"}.` };
+      case "roundreset":
+        roundState.requestRestart();
+        return { ok: true, message: "round restarting." };
+      case "matchreset":
+        if (command.delaySeconds <= 0) {
+          performMatchReset();
+          return { ok: true, message: "match reset." };
+        }
+        pendingMatchResetTick = lastServerTick + secondsToTicks(command.delaySeconds);
+        return { ok: true, message: `match reset in ${command.delaySeconds}s.` };
+      case "unknown":
+        return { ok: false, message: command.message };
+    }
+  }
+
   function broadcastObjectiveState(serverTick: number): void {
     const message = objective.createStateMessage(serverTick);
     const key = objectiveBroadcastKey(message);
@@ -805,6 +920,8 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getWeaponState,
     getEconomy,
     getObjectiveState,
+    applyAdminCommand,
+    getAdminStatus,
     getRoundState,
     getMatchStats,
     getMatchRoster,
@@ -922,6 +1039,19 @@ function recordClientInput(
 
 function objectiveBroadcastKey(message: ServerObjectiveStateMessage): string {
   return `${message.chargePhase}:${message.plantProgress}:${message.defuseProgress}:${message.detonationTick}`;
+}
+
+function formatAdminStatus(status: AdminStatus): string {
+  return [
+    `buytime    ${status.buyTimeSeconds}s`,
+    `roundtime  ${status.roundTimeSeconds}s`,
+    `maxrounds  ${status.maxRounds}`,
+    `startmoney ${status.startMoney}`,
+    `killreward ${status.killReward}`,
+    `roundwin   ${status.roundWinBonus}`,
+    `roundloss  ${status.roundLossBonus}`,
+    `friendlyfire ${status.friendlyFire ? "on" : "off"}`
+  ].join("\n");
 }
 
 export function createInputAckMessage(state: InputPipelineSnapshot): InputAckMessage {

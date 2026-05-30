@@ -58,6 +58,14 @@ export type RoundAdvanceResult = Readonly<{
   state: ServerRoundStateMessage;
 }>;
 
+// Admin-tunable round timings. Durations are in ticks; changes take effect on the next
+// phase transition (you do not retroactively shorten the phase you are already in).
+export type RoundReconfigureInput = Readonly<{
+  setupDurationTicks?: number;
+  activeDurationTicks?: number;
+  buyGraceTicks?: number;
+}>;
+
 export type RoundState = Readonly<{
   allowsMovement(): boolean;
   allowsFire(): boolean;
@@ -66,6 +74,12 @@ export type RoundState = Readonly<{
   allowsBuy(serverTick: number): boolean;
   advance(input: RoundAdvanceInput): RoundAdvanceResult;
   createStateMessage(serverTick: number): ServerRoundStateMessage;
+  // Admin console: live-tune the round timings, and force the current round to restart
+  // (resetting combat/positions on the next step) without scoring it.
+  reconfigure(input: RoundReconfigureInput): void;
+  requestRestart(): void;
+  getSetupDurationTicks(): number;
+  getActiveDurationTicks(): number;
 }>;
 
 type MutableRoundState = {
@@ -83,11 +97,11 @@ type MutableRoundState = {
 
 export function createRoundState(config: RoundStateConfig = {}): RoundState {
   const firstRoundId = readPositiveUint32(config.firstRoundId ?? DEFAULT_FIRST_ROUND_ID, "firstRoundId");
-  const setupDurationTicks = readUint32(
+  let setupDurationTicks = readUint32(
     config.setupDurationTicks ?? DEFAULT_ROUND_SETUP_DURATION_TICKS,
     "setupDurationTicks"
   );
-  const activeDurationTicks = readPositiveUint32(
+  let activeDurationTicks = readPositiveUint32(
     config.activeDurationTicks ?? DEFAULT_ROUND_ACTIVE_DURATION_TICKS,
     "activeDurationTicks"
   );
@@ -95,7 +109,8 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     config.resetDurationTicks ?? DEFAULT_ROUND_RESET_DURATION_TICKS,
     "resetDurationTicks"
   );
-  const buyGraceTicks = readUint32(config.buyGraceTicks ?? DEFAULT_ROUND_BUY_GRACE_TICKS, "buyGraceTicks");
+  let buyGraceTicks = readUint32(config.buyGraceTicks ?? DEFAULT_ROUND_BUY_GRACE_TICKS, "buyGraceTicks");
+  let restartRequested = false;
 
   const state: MutableRoundState = {
     roundId: firstRoundId,
@@ -118,6 +133,20 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     let winnerTeam: TeamId | undefined;
 
     const participants = readParticipants(input.participants);
+
+    // An admin restart wins over the normal phase machine: drop straight into a fresh setup
+    // and signal resetRound so the runtime resets combat, positions, weapons, and the charge.
+    if (restartRequested) {
+      restartRequested = false;
+      transitionToSetup(serverTick);
+      return {
+        resetRound: true,
+        transitioned: true,
+        roundEnded: false,
+        winnerTeam: undefined,
+        state: createStateMessage(serverTick)
+      };
+    }
 
     if (state.phase === ROUND_PHASE.setup && participants.length > 0 && serverTick >= state.phaseEndsTick) {
       transitionToActive(serverTick);
@@ -258,8 +287,28 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
       (state.phase === ROUND_PHASE.active &&
         readUint32(serverTick, "serverTick") - state.phaseStartedTick <= buyGraceTicks),
     advance,
-    createStateMessage
+    createStateMessage,
+    reconfigure,
+    requestRestart,
+    getSetupDurationTicks: () => setupDurationTicks,
+    getActiveDurationTicks: () => activeDurationTicks
   };
+
+  function reconfigure(input: RoundReconfigureInput): void {
+    if (input.setupDurationTicks !== undefined) {
+      setupDurationTicks = readUint32(input.setupDurationTicks, "setupDurationTicks");
+    }
+    if (input.activeDurationTicks !== undefined) {
+      activeDurationTicks = readPositiveUint32(input.activeDurationTicks, "activeDurationTicks");
+    }
+    if (input.buyGraceTicks !== undefined) {
+      buyGraceTicks = readUint32(input.buyGraceTicks, "buyGraceTicks");
+    }
+  }
+
+  function requestRestart(): void {
+    restartRequested = true;
+  }
 }
 
 function readParticipants(values: readonly RoundParticipant[]): RoundParticipant[] {

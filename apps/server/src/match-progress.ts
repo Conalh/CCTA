@@ -17,6 +17,9 @@ export type MatchRoundResult = Readonly<{
 
 export type MatchProgress = Readonly<{
   readonly killTarget: number;
+  // Admin console: change the rounds-to-win target live (applies to the next round-end).
+  reconfigure(input: { killTarget?: number }): void;
+  getKillTarget(): number;
   isMatchOver(): boolean;
   winnerSessionId(): number;
   roundWins(team: TeamId): number;
@@ -28,7 +31,7 @@ export type MatchProgress = Readonly<{
 }>;
 
 export function createMatchProgress(config: MatchProgressConfig = {}): MatchProgress {
-  const killTarget = readPositiveUint16(config.killTarget ?? DEFAULT_MATCH_KILL_TARGET, "killTarget");
+  let killTarget = readPositiveUint16(config.killTarget ?? DEFAULT_MATCH_KILL_TARGET, "killTarget");
   let matchOver = false;
   let winnerSessionId = 0;
   const wins = new Map<TeamId, number>([
@@ -71,8 +74,18 @@ export function createMatchProgress(config: MatchProgressConfig = {}): MatchProg
     };
   }
 
+  function reconfigure(input: { killTarget?: number }): void {
+    if (input.killTarget !== undefined) {
+      killTarget = readPositiveUint16(input.killTarget, "killTarget");
+    }
+  }
+
   return {
-    killTarget,
+    get killTarget() {
+      return killTarget;
+    },
+    reconfigure,
+    getKillTarget: () => killTarget,
     isMatchOver: () => matchOver,
     winnerSessionId: () => winnerSessionId,
     roundWins: (team) => wins.get(team) ?? 0,

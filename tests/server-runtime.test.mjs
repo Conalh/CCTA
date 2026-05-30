@@ -21,7 +21,8 @@ import {
   DEFAULT_ROUND_LOSS_BONUS,
   DEFAULT_ROUND_WIN_BONUS,
   DEFAULT_STARTING_MONEY,
-  createServerRuntime
+  createServerRuntime,
+  parseAdminCommand
 } from "../apps/server/dist/index.js";
 
 // A deterministic weapon set for combat tests: a flat 50 damage so two hits drop a
@@ -1606,4 +1607,86 @@ test("server runtime exposes the charge and never arms it away from the plant si
   }
   assert.equal(runtime.getObjectiveState(250).chargePhase, CHARGE_PHASE.idle);
   assert.equal(runtime.getObjectiveState(250).plantProgress, 0);
+});
+
+test("admin console applies and reports server settings", () => {
+  const runtime = createServerRuntime({ tickRateHz: 20, now: () => 1000 });
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("buytime 12")).ok, true);
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("maxrounds 6")).ok, true);
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("startmoney 1000")).ok, true);
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("bogus")).ok, false);
+
+  const status = runtime.getAdminStatus();
+  assert.equal(status.buyTimeSeconds, 12);
+  assert.equal(status.maxRounds, 6);
+  assert.equal(status.startMoney, 1000);
+});
+
+test("admin console friendly-fire toggle gates teammate damage", () => {
+  // Balanced joins split two players across sides, so fill four: sessions 1 and 3 both land
+  // on Cops (slots 0 and 1). Session 1 aiming +x hits slot 1 (session 3) — a teammate.
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 4,
+    weapon: TEST_WEAPON_CONFIG,
+    now: () => 1000
+  });
+  const sessions = ["ff-a", "ff-b", "ff-c", "ff-d"].map((id) => createFakeTransportSession(id));
+  for (const transport of sessions) {
+    runtime.attachSession(transport.session);
+  }
+  for (const transport of sessions) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+  const first = sessions[0];
+
+  runtime.applyAdminCommand(parseAdminCommand("friendlyfire off"));
+  runtime.step(5, 1016);
+  first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 }));
+  // The teammate at slot 1 (session 3) takes no damage with friendly fire off.
+  assert.equal(runtime.getCombatState(3, 5).health, 100);
+  assert.equal(runtime.getCombatState(3, 5).alive, true);
+
+  runtime.applyAdminCommand(parseAdminCommand("friendlyfire on"));
+  runtime.step(6, 1020);
+  first.receive(createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 6, yaw: -Math.PI / 2, pitch: 0 }));
+  assert.equal(runtime.getCombatState(3, 6).health < 100, true);
+});
+
+test("admin console restarts the round and resets a decided match", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    matchKillTarget: 1,
+    round: { setupDurationTicks: 0, activeDurationTicks: 100, resetDurationTicks: 1 },
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("reset-a");
+  const second = createFakeTransportSession("reset-b");
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+
+  // roundreset drops the active round straight back to setup.
+  runtime.step(5, 1016);
+  assert.equal(runtime.getRoundState(5).phase, ROUND_PHASE.active);
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("roundreset")).ok, true);
+  runtime.step(6, 1020);
+  assert.equal(runtime.getRoundState(6).phase, ROUND_PHASE.setup);
+
+  // Decide the match (Cops kill the Robber), then matchreset clears it.
+  runtime.step(7, 1024);
+  first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 7, yaw: -Math.PI / 2, pitch: 0 }));
+  runtime.step(8, 1028);
+  first.receive(createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 8, yaw: -Math.PI / 2, pitch: 0 }));
+  runtime.step(9, 1032);
+  assert.equal(runtime.getMatchResult(9).matchOver, true);
+  assert.equal(runtime.getEconomy(1)?.money > DEFAULT_STARTING_MONEY, true); // earned kill + round bonus
+
+  assert.equal(runtime.applyAdminCommand(parseAdminCommand("matchreset")).ok, true);
+  assert.equal(runtime.getMatchResult(9).matchOver, false);
+  assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY); // economy reset
 });

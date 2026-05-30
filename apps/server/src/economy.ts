@@ -27,8 +27,22 @@ export type EconomyRoundResult = Readonly<{
   losers: readonly number[];
 }>;
 
+// Admin-tunable economy knobs. Starting money applies on the next round reset; rewards and
+// bonuses apply to the next kill / round result.
+export type EconomyReconfigureInput = Readonly<{
+  startingMoney?: number;
+  killReward?: number;
+  roundWinBonus?: number;
+  roundLossBonus?: number;
+}>;
+
 export type EconomyState = Readonly<{
   readonly startingMoney: number;
+  reconfigure(input: EconomyReconfigureInput): void;
+  getStartingMoney(): number;
+  getKillReward(): number;
+  getRoundWinBonus(): number;
+  getRoundLossBonus(): number;
   assignSession(sessionId: number): void;
   removeSession(sessionId: number): void;
   awardKill(sessionId: number): boolean;
@@ -41,11 +55,26 @@ export type EconomyState = Readonly<{
 }>;
 
 export function createEconomyState(config: EconomyConfig = {}): EconomyState {
-  const startingMoney = readNonNegativeInteger(config.startingMoney, DEFAULT_STARTING_MONEY);
-  const killReward = readNonNegativeInteger(config.killReward, DEFAULT_KILL_REWARD);
-  const roundWinBonus = readNonNegativeInteger(config.roundWinBonus, DEFAULT_ROUND_WIN_BONUS);
-  const roundLossBonus = readNonNegativeInteger(config.roundLossBonus, DEFAULT_ROUND_LOSS_BONUS);
+  let startingMoney = readNonNegativeInteger(config.startingMoney, DEFAULT_STARTING_MONEY);
+  let killReward = readNonNegativeInteger(config.killReward, DEFAULT_KILL_REWARD);
+  let roundWinBonus = readNonNegativeInteger(config.roundWinBonus, DEFAULT_ROUND_WIN_BONUS);
+  let roundLossBonus = readNonNegativeInteger(config.roundLossBonus, DEFAULT_ROUND_LOSS_BONUS);
   const maxMoney = readPositiveInteger(config.maxMoney, DEFAULT_MAX_MONEY);
+
+  function reconfigure(input: EconomyReconfigureInput): void {
+    if (input.startingMoney !== undefined) {
+      startingMoney = readNonNegativeInteger(input.startingMoney, startingMoney);
+    }
+    if (input.killReward !== undefined) {
+      killReward = readNonNegativeInteger(input.killReward, killReward);
+    }
+    if (input.roundWinBonus !== undefined) {
+      roundWinBonus = readNonNegativeInteger(input.roundWinBonus, roundWinBonus);
+    }
+    if (input.roundLossBonus !== undefined) {
+      roundLossBonus = readNonNegativeInteger(input.roundLossBonus, roundLossBonus);
+    }
+  }
 
   const money = new Map<number, number>();
 
@@ -137,7 +166,15 @@ export function createEconomyState(config: EconomyConfig = {}): EconomyState {
   }
 
   return {
-    startingMoney,
+    // Live value: reflects admin reconfigure, not just the construction-time setting.
+    get startingMoney() {
+      return startingMoney;
+    },
+    reconfigure,
+    getStartingMoney: () => startingMoney,
+    getKillReward: () => killReward,
+    getRoundWinBonus: () => roundWinBonus,
+    getRoundLossBonus: () => roundLossBonus,
     assignSession,
     removeSession,
     awardKill,

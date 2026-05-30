@@ -1,7 +1,8 @@
 import os from "node:os";
 import process from "node:process";
+import readline from "node:readline";
 
-import { startTransportLoopServer } from "../apps/server/dist/index.js";
+import { parseAdminCommand, startTransportLoopServer } from "../apps/server/dist/index.js";
 import { DRYDOCK_SPAN_ARENA, PROTOCOL_VERSION } from "../packages/shared/dist/index.js";
 import { createHostMatchUrls, formatHostMatchSummary } from "./host-match-urls.mjs";
 import { buildHostAnnouncement, createRegistryPublisher, resolvePublishJoinUrl } from "./host-match-publish.mjs";
@@ -46,6 +47,19 @@ const urls = createHostMatchUrls({ interfaces: os.networkInterfaces(), port });
 console.log(formatHostMatchSummary(urls, { host, port }));
 console.log("");
 console.log(`Listening on ${server.url} at ${tickRateHz}Hz. Press Ctrl+C to stop.`);
+console.log("Admin console: type a command and press Enter (try 'help'). e.g. buytime 3");
+
+// Server-side admin console: the operator at this terminal is the admin. Lines typed here
+// are parsed and applied to the authoritative runtime. No networked rcon, no password.
+const adminConsole = readline.createInterface({ input: process.stdin });
+adminConsole.on("line", (line) => {
+  const trimmed = line.trim();
+  if (trimmed.length === 0) {
+    return;
+  }
+  const result = server.runtime.applyAdminCommand(parseAdminCommand(trimmed));
+  console.log(`${result.ok ? "" : "! "}${result.message}`);
+});
 
 let registryPublisher;
 let publishedMatchId;
@@ -109,6 +123,7 @@ async function publishToRegistryIfRequested() {
 }
 
 async function shutdown() {
+  adminConsole.close();
   if (heartbeatTimer !== undefined) {
     clearInterval(heartbeatTimer);
   }
