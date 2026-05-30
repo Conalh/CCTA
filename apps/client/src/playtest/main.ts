@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 
 import {
   DEFAULT_WEAPON_PROFILE_ID,
@@ -358,6 +360,16 @@ let lookSensitivity = loadSensitivity();
 let fieldOfView = loadFieldOfView();
 let activeCamera: THREE.PerspectiveCamera | undefined;
 
+// First-person weapon model. The mesh is a LOCAL-ONLY private prototype placeholder
+// (replace-before-public) used purely as the held visual; the server still owns the
+// weapon's identity, damage, ammo, and reload. When the asset is absent the game
+// silently falls back to the procedural first-person shell.
+const FIRST_PERSON_WEAPON_FIT_METERS = 0.32;
+const FIRST_PERSON_WEAPON_OFFSET: readonly [number, number, number] = [0.2, -0.2, -0.5];
+const FIRST_PERSON_WEAPON_ROTATION: readonly [number, number, number] = [0, Math.PI, 0];
+let weaponModelGroup: THREE.Group | undefined;
+let weaponModelActive = false;
+
 urlInput.value = `ws://${globalThis.location.host}`;
 manualJoinInput.value = `ws://${globalThis.location.host}`;
 registryUrlInput.value = loadRegistryUrl();
@@ -479,6 +491,15 @@ try {
   camera.add(firstPersonShellGroup);
   camera.add(fireResultCameraGroup);
   firstPersonShellAttachedToCamera = firstPersonShellGroup.parent === camera;
+
+  weaponModelGroup = new THREE.Group();
+  weaponModelGroup.name = "first-person-weapon";
+  weaponModelGroup.position.set(...FIRST_PERSON_WEAPON_OFFSET);
+  weaponModelGroup.rotation.set(...FIRST_PERSON_WEAPON_ROTATION);
+  weaponModelGroup.visible = false;
+  camera.add(weaponModelGroup);
+  void loadFirstPersonWeaponModel(weaponModelGroup);
+
   scene.add(camera);
   scene.add(remoteGroup);
   scene.add(fireResultWorldGroup);
@@ -1180,8 +1201,12 @@ function animate(
   }
   // The camera-attached fire effects belong to the game, not the menu backdrop.
   fireResultCameraGroup.visible = !menuVisible;
+  if (weaponModelGroup !== undefined) {
+    weaponModelGroup.visible = weaponModelActive && !menuVisible;
+  }
+  // The loaded weapon model replaces the procedural shell when it is available.
   const firstPersonShell = createFirstPersonShellPresentation({
-    enabled: !menuVisible,
+    enabled: !menuVisible && !weaponModelActive,
     fireIntentActive: readFireIntentActive(timeMs),
     lookPitchRadians: presentation.localCameraPose.pitchRadians,
     motionContact: lastMotionContact,
@@ -1265,6 +1290,62 @@ function addGreyboxPrimitives(scene: THREE.Scene, primitives: readonly GreyboxPr
     edges.position.copy(mesh.position);
     scene.add(edges);
   }
+}
+
+// Load the private-prototype weapon mesh and attach it as the held first-person
+// model. Best-effort and local-only: the asset is git-ignored, so a HEAD check
+// avoids any load attempt when it is absent and the procedural shell stays in use.
+async function loadFirstPersonWeaponModel(group: THREE.Group): Promise<void> {
+  const asset = PRIVATE_PROTOTYPE_ASSETS.find((entry) => entry.category === "equipment-placeholder");
+  if (asset === undefined) {
+    return;
+  }
+  try {
+    if (!(await isWeaponAssetReachable(asset.url))) {
+      return;
+    }
+    const gltf = await new GLTFLoader().loadAsync(asset.url);
+    const root = gltf.scene;
+    root.name = "first-person-weapon-model";
+    fitAndCenterObject(root, FIRST_PERSON_WEAPON_FIT_METERS);
+    root.traverse((object) => {
+      object.frustumCulled = false;
+      if (object instanceof THREE.Mesh) {
+        object.renderOrder = 20;
+      }
+    });
+    group.add(root);
+    weaponModelActive = true;
+  } catch {
+    // Asset missing or failed to parse: keep the procedural first-person shell.
+  }
+}
+
+async function isWeaponAssetReachable(url: string): Promise<boolean> {
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 4000);
+  try {
+    const response = await fetch(url, { cache: "no-store", method: "HEAD", signal: abortController.signal });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function fitAndCenterObject(root: THREE.Object3D, fitMaxDimensionMeters: number): void {
+  root.updateMatrixWorld(true);
+  const size = new THREE.Vector3();
+  new THREE.Box3().setFromObject(root).getSize(size);
+  const largest = Math.max(size.x, size.y, size.z);
+  if (Number.isFinite(largest) && largest > 0) {
+    root.scale.multiplyScalar(fitMaxDimensionMeters / largest);
+  }
+  root.updateMatrixWorld(true);
+  const center = new THREE.Vector3();
+  new THREE.Box3().setFromObject(root).getCenter(center);
+  root.position.sub(center);
 }
 
 function createFirstPersonShellGroup(): THREE.Group {

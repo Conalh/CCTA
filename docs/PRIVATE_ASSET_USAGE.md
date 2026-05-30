@@ -7,6 +7,7 @@ Both paths are ignored by `.gitignore`. Do not stage, commit, package, publish, 
 Acceptable prototype use:
 
 - Renderer sandbox previews in `/sandbox.html`.
+- Visual-only first-person weapon/character placeholders in the live playtest (`/playtest.html`), loaded best-effort from the curated manifest. These drive presentation only — the server still owns weapon identity, damage, ammo, reload, and all gameplay truth — and the client must fall back to the procedural shell when the asset is absent (the binaries stay git-ignored and local-only).
 - Curated sandbox preview presets made from already-listed private assets.
 - Scale checks against the greybox space, map metadata, and player-camera height.
 - Temporary greybox dressing plans and internal blockout readability checks made from hand-curated manifest entries.

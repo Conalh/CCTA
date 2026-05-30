@@ -259,6 +259,8 @@ try {
   assert.match(playtestHtml, /apps\/client\/dist\/playtest\/main\.js/);
   assert.match(playtestHtml, /packages\/shared\/dist\/index\.js/);
   assert.match(playtestHtml, /node_modules\/three\/build\/three\.module\.js/);
+  // The first-person weapon model is loaded with GLTFLoader from the three examples.
+  assert.match(playtestHtml, /three\/examples\/jsm\//);
 
   const playtestModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/main.js`);
   const playtestSource = await playtestModule.text();
@@ -283,6 +285,7 @@ try {
   assert.match(playtestSource, /createRosterPresentation/);
   assert.match(playtestSource, /buildServerBrowserEntries/);
   assert.match(playtestSource, /fetchRegistryMatches/);
+  assert.match(playtestSource, /GLTFLoader/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const serverBrowserModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/server-browser.js`);
