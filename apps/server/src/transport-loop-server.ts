@@ -19,6 +19,7 @@ export type TransportLoopServerConfig = Readonly<{
   matchCapacity?: number;
   matchKillTarget?: number;
   round?: RoundStateConfig;
+  mapId?: string;
 }>;
 
 export type TransportLoopServer = Readonly<{
@@ -37,7 +38,8 @@ export async function startTransportLoopServer(
     tickRateHz,
     matchCapacity: config.matchCapacity,
     matchKillTarget: config.matchKillTarget,
-    round: config.round
+    round: config.round,
+    mapId: config.mapId
   });
   const tickLoop = createFixedTickLoop({ tickRateHz });
   const webSocketServer = await createWebSocketFallbackServer(

@@ -14,6 +14,7 @@ import {
   getWeaponDefinition,
   grenadeBlastDamage,
   isWithinPlantSite,
+  resolveArenaMetadata,
   teamForSlot,
   teamName,
   FIRE_REJECT_REASON,
@@ -120,6 +121,7 @@ export type ServerRuntimeConfig = Readonly<{
   matchKillTarget?: number;
   friendlyFire?: boolean;
   grenade?: Readonly<{ fuseTicks?: number; throwSpeed?: number; gravity?: number }>;
+  mapId?: string;
   now?: ServerClock;
 }>;
 
@@ -166,6 +168,7 @@ export type ServerRuntime = Readonly<{
   getEconomy(sessionId: number, serverTick?: number): ServerPlayerEconomyMessage | undefined;
   getArmor(sessionId: number, serverTick?: number): ServerPlayerArmorMessage | undefined;
   getGrenade(sessionId: number, serverTick?: number): ServerPlayerGrenadeMessage | undefined;
+  getMapId(): string;
   getObjectiveState(serverTick?: number): ServerObjectiveStateMessage;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
@@ -189,9 +192,11 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     capacity: config.matchCapacity ?? DEFAULT_MATCH_CAPACITY,
     firstSessionId: config.firstSessionId ?? DEFAULT_FIRST_SESSION_ID
   });
+  const arena = resolveArenaMetadata(config.mapId);
   const worldState = createWorldState({
     worldId: config.worldId ?? DEFAULT_WORLD_ID,
-    firstEntityId: config.firstWorldEntityId ?? DEFAULT_FIRST_WORLD_ENTITY_ID
+    firstEntityId: config.firstWorldEntityId ?? DEFAULT_FIRST_WORLD_ENTITY_ID,
+    arena
   });
   const loadoutState = createLoadoutState();
   const weaponState = createWeaponState(config.weapon);
@@ -371,6 +376,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     sendArmorToSession(assignment.sessionId);
     grenadeCounts.set(assignment.sessionId, 0);
     sendGrenadeCountToSession(assignment.sessionId);
+    session.transport.send({ kind: "server.match.map", serverTick: lastServerTick, mapId: arena.id });
     session.transport.send(objective.createStateMessage(lastServerTick));
     broadcastMatchUpdate();
     broadcastMatchRoster();
@@ -1266,6 +1272,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getEconomy,
     getArmor,
     getGrenade,
+    getMapId: () => arena.id,
     getObjectiveState,
     applyAdminCommand,
     getAdminStatus,

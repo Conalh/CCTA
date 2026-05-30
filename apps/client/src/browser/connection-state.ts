@@ -1,6 +1,8 @@
 import {
   DRYDOCK_SPAN_ARENA,
   deriveArenaCollisionGeometry,
+  getArenaMetadataById,
+  type ArenaCollisionGeometry,
   type ChargePhase,
   type ClientFireIntentMessage,
   type ClientInputMessage,
@@ -157,6 +159,8 @@ export type ConnectionViewState = Readonly<{
   matchCopsRoundWins: number | undefined;
   matchRobbersRoundWins: number | undefined;
   lastMatchResultServerTick: number | undefined;
+  mapId: string | undefined;
+  predictionCollisionGeometry: ArenaCollisionGeometry;
   observedTickRateHz: number | undefined;
   observedSnapshotRateHz: number | undefined;
   lastMessageTimeMs: number | undefined;
@@ -326,6 +330,8 @@ export function createInitialConnectionViewState(
     matchCopsRoundWins: undefined,
     matchRobbersRoundWins: undefined,
     lastMatchResultServerTick: undefined,
+    mapId: undefined,
+    predictionCollisionGeometry: DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY,
     observedTickRateHz: undefined,
     observedSnapshotRateHz: undefined,
     lastMessageTimeMs: undefined,
@@ -490,7 +496,7 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
             reconcileClientPredictionWithSnapshot(state.predictionState, localEntity, {
               snapshotTick: message.tick,
               lastAcknowledgedInputSequence: state.lastAcknowledgedInputSequence,
-              collisionGeometry: DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY
+              collisionGeometry: state.predictionCollisionGeometry
             })
           );
     case "pong":
@@ -568,6 +574,15 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         localGrenades: message.count,
         localMaxGrenades: message.maxCount
       };
+    case "server.match.map": {
+      const arena = getArenaMetadataById(message.mapId);
+      return {
+        ...baseState,
+        mapId: message.mapId,
+        predictionCollisionGeometry:
+          arena === undefined ? state.predictionCollisionGeometry : deriveArenaCollisionGeometry(arena)
+      };
+    }
     case "server.objective.state":
       return {
         ...baseState,
@@ -658,7 +673,7 @@ function reduceInputSent(
     : applyPredictionView(
         inputState,
         recordClientPredictionInput(state.predictionState, message, {
-          collisionGeometry: DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY
+          collisionGeometry: state.predictionCollisionGeometry
         })
       );
 }
@@ -802,6 +817,8 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     matchCopsRoundWins: undefined,
     matchRobbersRoundWins: undefined,
     lastMatchResultServerTick: undefined,
+    mapId: undefined,
+    predictionCollisionGeometry: DEFAULT_CLIENT_ARENA_COLLISION_GEOMETRY,
     observedTickRateHz: undefined,
     observedSnapshotRateHz: undefined,
     lastMessageTimeMs: undefined,

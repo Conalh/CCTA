@@ -18,6 +18,8 @@ const matchCapacityEnv = process.env.BREACHLINE_SERVER_MATCH_CAPACITY;
 const matchCapacity = matchCapacityEnv === undefined ? undefined : Number(matchCapacityEnv);
 const matchKillTargetEnv = process.env.BREACHLINE_SERVER_MATCH_KILL_TARGET;
 const matchKillTarget = matchKillTargetEnv === undefined ? undefined : Number(matchKillTargetEnv);
+// Which arena to host (e.g. "foundry-row" or "drydock-span"); defaults to Drydock Span.
+const mapId = process.env.BREACHLINE_SERVER_MAP;
 
 // Buy/freeze time: the round opens in a setup phase where movement and firing are off but
 // the buy menu is open. Default to a usable length; override with the env vars below.
@@ -40,13 +42,15 @@ const server = await startTransportLoopServer({
   tickRateHz,
   matchCapacity,
   matchKillTarget,
-  round
+  round,
+  mapId
 });
 
 const urls = createHostMatchUrls({ interfaces: os.networkInterfaces(), port });
 console.log(formatHostMatchSummary(urls, { host, port }));
 console.log("");
 console.log(`Listening on ${server.url} at ${tickRateHz}Hz. Press Ctrl+C to stop.`);
+console.log(`Hosting map: ${server.runtime.getMapId()} (set BREACHLINE_SERVER_MAP=foundry-row or drydock-span).`);
 console.log("Admin console: type a command and press Enter (try 'help'). e.g. buytime 3");
 
 // Server-side admin console: the operator at this terminal is the admin. Lines typed here

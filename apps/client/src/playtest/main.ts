@@ -24,8 +24,10 @@ import {
   createClientLoadoutSelect,
   createClientWeaponBuy,
   createClientWeaponReload,
+  getArenaMetadataById,
   getPlayerCallsign,
   teamForSlot,
+  type ArenaMapMetadata,
   type GrenadeStateEntry,
   type MessageTransport
 } from "@breachline/shared";
@@ -358,7 +360,9 @@ const pointerStateEl = requireElement("playtest-pointer-state");
 const keys = new Set<string>();
 const FROZEN_KEYS: ReadonlySet<string> = new Set();
 const remoteMeshes = new Map<number, THREE.Group>();
-const greyboxLayout = createGreyboxLayoutFromMap(DRYDOCK_SPAN_ARENA);
+let currentArena: ArenaMapMetadata = DRYDOCK_SPAN_ARENA;
+let currentMapId: string | undefined;
+let greyboxGroup: THREE.Group | undefined;
 const networkSimulationProfile = readNetworkSimulationProfileFromSearch(globalThis.location.search);
 
 let state = createInitialConnectionViewState(Date.now());
@@ -577,7 +581,9 @@ try {
   fireResultCameraGroup.name = "fire-result-camera-presentation";
 
   addLighting(scene);
-  addGreyboxPrimitives(scene, greyboxLayout);
+  greyboxGroup = new THREE.Group();
+  scene.add(greyboxGroup);
+  rebuildGreybox(currentArena);
   camera.add(firstPersonShellGroup);
   camera.add(fireResultCameraGroup);
   firstPersonShellAttachedToCamera = firstPersonShellGroup.parent === camera;
@@ -1808,7 +1814,7 @@ function readNetworkedPlaytestPresentation(): NetworkedPlaytestPresentation {
   return createNetworkedPlaytestPresentation({
     lookPitchRadians: pitchRadians,
     lookYawRadians: yawRadians,
-    map: DRYDOCK_SPAN_ARENA,
+    map: currentArena,
     state
   });
 }
@@ -1821,7 +1827,7 @@ function addLighting(scene: THREE.Scene): void {
   scene.add(keyLight);
 }
 
-function addGreyboxPrimitives(scene: THREE.Scene, primitives: readonly GreyboxPrimitive[]): void {
+function addGreyboxPrimitives(target: THREE.Object3D, primitives: readonly GreyboxPrimitive[]): void {
   for (const primitive of primitives) {
     const geometry = new THREE.BoxGeometry(...primitive.size);
     const material = new THREE.MeshStandardMaterial({
@@ -1832,15 +1838,43 @@ function addGreyboxPrimitives(scene: THREE.Scene, primitives: readonly GreyboxPr
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = primitive.id;
     mesh.position.set(...primitive.position);
-    scene.add(mesh);
+    target.add(mesh);
 
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry),
       new THREE.LineBasicMaterial({ color: "#151b1a" })
     );
     edges.position.copy(mesh.position);
-    scene.add(edges);
+    target.add(edges);
   }
+}
+
+// Swap the rendered arena when the server tells us which map is running (server.match.map).
+function rebuildGreybox(arena: ArenaMapMetadata): void {
+  if (greyboxGroup === undefined) {
+    return;
+  }
+  for (const child of [...greyboxGroup.children]) {
+    greyboxGroup.remove(child);
+    if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
+      child.geometry.dispose();
+      (child.material as THREE.Material).dispose();
+    }
+  }
+  addGreyboxPrimitives(greyboxGroup, createGreyboxLayoutFromMap(arena));
+}
+
+function maybeSwitchMap(): void {
+  if (state.mapId === undefined || state.mapId === currentMapId) {
+    return;
+  }
+  const arena = getArenaMetadataById(state.mapId);
+  if (arena === undefined) {
+    return;
+  }
+  currentMapId = state.mapId;
+  currentArena = arena;
+  rebuildGreybox(arena);
 }
 
 // Load the private-prototype weapon mesh and attach it as the held first-person
@@ -2283,6 +2317,7 @@ function updateReadout(
 
   statusEl.textContent = presentation.connectionStatus;
   statusEl.dataset.status = presentation.connectionStatus;
+  maybeSwitchMap();
   updateMenuVisibility(presentation.connectionStatus);
   updatePauseOverlay();
   localEntityEl.textContent = formatNumber(presentation.localEntityId);

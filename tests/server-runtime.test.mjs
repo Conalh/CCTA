@@ -125,6 +125,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "server.player.economy",
       "server.player.armor",
       "server.player.grenade",
+      "server.match.map",
       "server.objective.state",
       "match.update",
       "server.match.roster",
@@ -317,6 +318,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.player.economy",
     "server.player.armor",
     "server.player.grenade",
+    "server.match.map",
     "server.objective.state",
     "match.update",
     "server.match.roster",
@@ -331,6 +333,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.player.economy",
     "server.player.armor",
     "server.player.grenade",
+    "server.match.map",
     "server.objective.state",
     "match.update",
     "server.match.roster"
@@ -1582,6 +1585,25 @@ test("server runtime owns round outcomes and rejects client activity outside act
     z: -16.5,
     yaw: 0
   });
+});
+
+test("server runtime hosts the configured map and spawns players on it", () => {
+  const runtime = createServerRuntime({ tickRateHz: 20, matchCapacity: 2, mapId: "foundry-row", now: () => 1000 });
+  assert.equal(runtime.getMapId(), "arena-foundry-row");
+
+  const transport = createFakeTransportSession("map-a");
+  runtime.attachSession(transport.session);
+  transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: "map-a" });
+  // The client is told which arena on accept.
+  assert.equal(
+    transport.sent.some((message) => message.kind === "server.match.map" && message.mapId === "arena-foundry-row"),
+    true
+  );
+
+  runtime.step(1, 1000);
+  // Session 1 (slot 0) spawns on Foundry Row's first Cop start, not Drydock's.
+  const entity = runtime.getWorldSnapshot(1).entities.find((e) => e.sessionId === 1);
+  assert.deepEqual([entity.x, entity.y, entity.z], [-6, 0, -17]);
 });
 
 test("server runtime exposes the charge and never arms it away from the plant site", () => {

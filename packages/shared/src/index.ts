@@ -6,6 +6,8 @@ export * from "./player-movement.js";
 export * from "./map-metadata.js";
 export * from "./arena-ebb-terminal.js";
 export * from "./arena-drydock-span.js";
+export * from "./arena-foundry-row.js";
+export * from "./arena-registry.js";
 export * from "./arena-collision.js";
 export * from "./match-registry.js";
 export * from "./teams.js";

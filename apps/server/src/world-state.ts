@@ -2,6 +2,7 @@ import {
   DRYDOCK_SPAN_ARENA,
   deriveArenaCollisionGeometry,
   type ArenaCollisionGeometry,
+  type ArenaMapMetadata,
   type ClientInputMessage,
   type SnapshotEntityReference,
   type WorldSnapshotMetadata
@@ -21,7 +22,12 @@ export type WorldStateConfig = Readonly<{
   collisionRadiusMeters?: number;
   worldId?: number;
   firstEntityId?: number;
+  // The arena to host: drives collision geometry and the fixed slot starts. Defaults to
+  // Drydock Span when omitted.
+  arena?: ArenaMapMetadata;
 }>;
+
+type SlotStart = { x: number; y: number; z: number; yaw: number };
 
 export type SessionEntityInput = Readonly<{
   sessionId: number;
@@ -80,16 +86,37 @@ const DEFAULT_SLOT_STARTS = [
 ] as const;
 
 export function createWorldState(config: WorldStateConfig = {}): WorldState {
+  const arena = config.arena ?? DRYDOCK_SPAN_ARENA;
   const worldId = readPositiveUint32(config.worldId ?? DEFAULT_WORLD_ID, "worldId");
   const collisionGeometry =
     config.collisionGeometry === false
       ? undefined
-      : config.collisionGeometry ?? deriveArenaCollisionGeometry(DRYDOCK_SPAN_ARENA);
+      : config.collisionGeometry ?? deriveArenaCollisionGeometry(arena);
+  // The arena's slot starts when it declares them; otherwise the engine default (Drydock).
+  const slotStarts: readonly SlotStart[] =
+    arena.slotStarts !== undefined
+      ? arena.slotStarts.map((start) => ({
+          x: start.position[0],
+          y: start.position[1],
+          z: start.position[2],
+          yaw: start.yaw
+        }))
+      : DEFAULT_SLOT_STARTS;
   let nextEntityId = readPositiveUint32(
     config.firstEntityId ?? DEFAULT_FIRST_WORLD_ENTITY_ID,
     "firstEntityId"
   );
   const entitiesBySessionId = new Map<number, MutableWorldEntity>();
+
+  function createInitialMovementForSlot(slotIndex: number): PlayerMovementState {
+    const slotStart = slotStarts[slotIndex] ?? slotStarts[0];
+    return createInitialPlayerMovementState({
+      x: slotStart.x,
+      y: slotStart.y,
+      z: slotStart.z,
+      yaw: slotStart.yaw
+    });
+  }
 
   function assignSessionEntity(input: SessionEntityInput): WorldEntity {
     const sessionId = readPositiveUint32(input.sessionId, "sessionId");
@@ -197,16 +224,6 @@ export function createWorldState(config: WorldStateConfig = {}): WorldState {
     createSnapshot,
     listOccupants
   };
-}
-
-function createInitialMovementForSlot(slotIndex: number): PlayerMovementState {
-  const slotStart = DEFAULT_SLOT_STARTS[slotIndex] ?? DEFAULT_SLOT_STARTS[0];
-  return createInitialPlayerMovementState({
-    x: slotStart.x,
-    y: slotStart.y,
-    z: slotStart.z,
-    yaw: slotStart.yaw
-  });
 }
 
 function toReadonlyEntity(entity: MutableWorldEntity): WorldEntity {

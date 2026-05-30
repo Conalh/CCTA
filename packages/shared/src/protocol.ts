@@ -48,7 +48,8 @@ export const PACKET_KIND = {
   clientGrenadeThrow: 30,
   clientGrenadeBuy: 31,
   serverPlayerGrenade: 32,
-  serverGrenadeState: 33
+  serverGrenadeState: 33,
+  serverMatchMap: 34
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -200,7 +201,8 @@ export type ServerProtocolMessage =
   | ServerAdminResultMessage
   | ServerPlayerArmorMessage
   | ServerPlayerGrenadeMessage
-  | ServerGrenadeStateMessage;
+  | ServerGrenadeStateMessage
+  | ServerMatchMapMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -480,6 +482,14 @@ export type ServerGrenadeStateMessage = Readonly<{
   serverTick: number;
   entryCount: number;
   entries: readonly GrenadeStateEntry[];
+}>;
+
+// Which arena this match runs, sent to each session on accept so the client renders the
+// matching map (and uses its collision geometry for prediction).
+export type ServerMatchMapMessage = Readonly<{
+  kind: "server.match.map";
+  serverTick: number;
+  mapId: string;
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -841,6 +851,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         readUint32(message.serverTick, "serverTick"),
         encodeServerGrenadeStatePayload(message)
       );
+    case "server.match.map":
+      return writePacket(
+        PACKET_KIND.serverMatchMap,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeStringPayload(message.mapId)
+      );
   }
 }
 
@@ -1166,6 +1183,12 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         sessionId: payload.getUint32(0, true),
         count: payload.getUint16(4, true),
         maxCount: payload.getUint16(6, true)
+      };
+    case PACKET_KIND.serverMatchMap:
+      return {
+        kind: "server.match.map",
+        serverTick: sequenceOrTick,
+        mapId: decodeStringPayload(payloadBytes)
       };
     case PACKET_KIND.serverGrenadeState:
       return {

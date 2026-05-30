@@ -766,6 +766,12 @@ test("protocol helpers round-trip grenade messages", () => {
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(grenades)), grenades);
 });
 
+test("protocol round-trips the match map message", () => {
+  assert.equal(PACKET_KIND.serverMatchMap, 34);
+  const message = { kind: "server.match.map", serverTick: 5, mapId: "arena-foundry-row" };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(message)), message);
+});
+
 test("decodeProtocolMessage rejects an unknown charge phase", () => {
   const packet = encodeProtocolMessage({
     kind: "server.objective.state",

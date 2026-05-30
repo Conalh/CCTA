@@ -44,6 +44,13 @@ export type ArenaMapLabel = Readonly<{
   position: ArenaVector3;
 }>;
 
+// The eight fixed slot starts, ordered slot 0..7 (lower half Cops/north, upper half
+// Robbers/south). Optional: arenas without it fall back to the engine's default starts.
+export type ArenaSlotStart = Readonly<{
+  position: ArenaVector3;
+  yaw: number;
+}>;
+
 export type ArenaMapMetadata = Readonly<{
   id: string;
   displayName: string;
@@ -53,6 +60,7 @@ export type ArenaMapMetadata = Readonly<{
   playerScaleReferences: readonly ArenaPlayerScaleReference[];
   spawnMarkers: readonly ArenaSpawnMarker[];
   labels?: readonly ArenaMapLabel[];
+  slotStarts?: readonly ArenaSlotStart[];
 }>;
 
 export type ArenaMapValidationError = Readonly<{

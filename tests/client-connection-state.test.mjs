@@ -1061,6 +1061,30 @@ test("connection state reducer mirrors the player's own armor", () => {
   assert.equal(state.localArmor, undefined);
 });
 
+test("connection state switches the map and prediction collision on server.match.map", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.mapId, undefined);
+  const drydockGeometry = state.predictionCollisionGeometry;
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 10,
+    message: { kind: "server.match.map", serverTick: 1, mapId: "arena-foundry-row" }
+  });
+  assert.equal(state.mapId, "arena-foundry-row");
+  // The prediction collision switches to the new arena's geometry.
+  assert.notEqual(state.predictionCollisionGeometry, drydockGeometry);
+
+  // An unknown map id keeps the current geometry rather than clearing it.
+  const foundryGeometry = state.predictionCollisionGeometry;
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: { kind: "server.match.map", serverTick: 2, mapId: "arena-nope" }
+  });
+  assert.equal(state.predictionCollisionGeometry, foundryGeometry);
+});
+
 test("connection state reducer mirrors the player's held grenade count", () => {
   let state = createInitialConnectionViewState(0);
   assert.equal(state.localGrenades, undefined);
