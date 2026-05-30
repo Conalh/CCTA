@@ -652,3 +652,16 @@ Milestones (each stays server-authoritative, original, and validated; HUD milest
 Out of scope for this roadmap (still deferred, would need their own decisions): public/internet hosting, matchmaking queues, teams, economy/buy, ranked systems, persistence/accounts, anti-cheat beyond the existing server authority, art/audio pass, and player avatars/skins. The first match is intentionally a small original 1v1-to-8 free-for-all on Drydock Span.
 
 Each milestone keeps the invariants: the server owns hits, damage, health, death, spawns, round and match outcomes; the client only sends intents and renders server-owned truth; transports stay abstracted; originality holds; and `npm run validate` plus the local harness stay green before each commit.
+
+## Roadmap: Competitive Loop (original-named)
+
+Goal: turn the free-for-all into a CS-style sided objective match — two sides, an economy, a buy menu, and a plant/defuse objective — all original-named (no CT/T, no "bomb", no copied gun/map names) and server-authoritative. Sides derive purely from the spawn slot the server already owns, so no new authority surface is added.
+
+- **R1 — Sides.** ✅ Done. **Cops** (defenders, north slots) vs **Robbers** (attackers, south slots) derived from `teamForSlot`; balanced joins; round wins resolve by side (full-side elimination, or timeout → Cops hold), match to a round target. Banners name the side.
+- **R2 — Arsenal.** ✅ Done. The weapon catalog expands to one of each class (sniper, revolver pistol, smg, shotgun, rifle) as server-owned data, each with a price.
+- **R3 — Economy.** ✅ Done. Server-owned private per-player money: starting cash + kill rewards + round win/loss bonuses, sent only to the owner (never see enemy money), shown read-only on the HUD.
+- **R4 — Buy menu.** ✅ Done. Press B to buy from the catalog within a buy window (setup + a short buy-grace); the server validates window/alive/known-weapon/affordability before deducting and equipping.
+- **R5 — The objective (the breach charge).** ✅ Done. A single plant site in the Cops' half; a Robber holds use (E) on the site to arm the charge, a Cop holds use to defuse it, and an armed charge counts down to detonation. While armed, a team wipe and the round clock are both suspended — the round ends only by detonation (Robbers) or defuse (Cops). The charge is a server-side state machine; planters/defusers are decided from server-owned positions + the use button, never client-reported. Charge state is broadcast, mirrored, and shown on a HUD countdown/progress readout with the site marked in the arena.
+- **R6 — Grenade + armor.** Planned. A thrown utility and buyable armor that mitigates damage — each its own phase, server-authoritative, original-named.
+
+Invariants hold throughout: the server never trusts client-reported hits/health/death/score/position/inventory/ammo/money/plant state; the client only sends intents and renders server truth; all sides/weapons/objective names stay original; `npm run validate` and the local harness stay green before each commit.

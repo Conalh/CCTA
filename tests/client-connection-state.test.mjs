@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CHARGE_PHASE,
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
   FIRE_REJECT_REASON,
@@ -1041,6 +1042,34 @@ test("connection state reducer mirrors the server-owned player money", () => {
   // Reconnecting clears the mirrored money.
   state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
   assert.equal(state.localMoney, undefined);
+});
+
+test("connection state reducer mirrors the broadcast breach-charge state", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.chargePhase, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: {
+      kind: "server.objective.state",
+      serverTick: 900,
+      chargePhase: CHARGE_PHASE.planted,
+      plantProgress: 180,
+      defuseProgress: 40,
+      detonationTick: 3000
+    }
+  });
+  assert.equal(state.chargePhase, CHARGE_PHASE.planted);
+  assert.equal(state.chargePlantProgress, 180);
+  assert.equal(state.chargeDefuseProgress, 40);
+  assert.equal(state.chargeDetonationTick, 3000);
+  assert.equal(state.lastObjectiveServerTick, 900);
+
+  // Reconnecting clears the mirrored charge.
+  state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
+  assert.equal(state.chargePhase, undefined);
+  assert.equal(state.chargeDetonationTick, undefined);
 });
 
 test("connection state reducer resets match stats on reconnect", () => {

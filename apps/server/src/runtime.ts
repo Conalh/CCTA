@@ -1,9 +1,12 @@
 import {
+  CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
+  TEAM,
   createServerSnapshotPlaceholder,
   getWeaponDefinition,
+  isWithinPlantSite,
   teamForSlot,
   FIRE_REJECT_REASON,
   LOADOUT_REJECT_REASON,
@@ -28,6 +31,7 @@ import {
   type ServerMatchRosterMessage,
   type ServerMatchResultMessage,
   type ServerMatchStatsMessage,
+  type ServerObjectiveStateMessage,
   type ServerPlayerEconomyMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
@@ -73,6 +77,7 @@ import {
 import { createMatchStats } from "./match-stats.js";
 import { createMatchProgress } from "./match-progress.js";
 import { createEconomyState, type EconomyConfig } from "./economy.js";
+import { createObjectiveState, type ObjectiveConfig } from "./objective.js";
 import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
@@ -87,6 +92,7 @@ export type ServerRuntimeConfig = Readonly<{
   round?: RoundStateConfig;
   weapon?: WeaponStateConfig;
   economy?: EconomyConfig;
+  objective?: ObjectiveConfig;
   matchKillTarget?: number;
   now?: ServerClock;
 }>;
@@ -118,6 +124,7 @@ export type ServerRuntime = Readonly<{
   getLoadoutState(sessionId: number, serverTick?: number): ServerLoadoutStateMessage | undefined;
   getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
   getEconomy(sessionId: number, serverTick?: number): ServerPlayerEconomyMessage | undefined;
+  getObjectiveState(serverTick?: number): ServerObjectiveStateMessage;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   getMatchRoster(serverTick?: number): ServerMatchRosterMessage;
@@ -151,6 +158,10 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   const matchStats = createMatchStats();
   const matchProgress = createMatchProgress({ killTarget: config.matchKillTarget });
   const economy = createEconomyState(config.economy);
+  const objective = createObjectiveState(config.objective);
+  // Seeded to the idle charge so the redundant first idle broadcast is suppressed; a new
+  // session still gets the live state on accept, and changes broadcast from there.
+  let lastObjectiveBroadcastKey = objectiveBroadcastKey(objective.createStateMessage(0));
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -276,6 +287,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     sendCombatStateToSession(assignment.sessionId);
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
     sendEconomyToSession(assignment.sessionId);
+    session.transport.send(objective.createStateMessage(lastServerTick));
     broadcastMatchUpdate();
     broadcastMatchRoster();
     if (matchProgress.isMatchOver()) {
@@ -286,7 +298,23 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   function step(tick: number, serverTimeMs = now()): void {
     lastServerTick = tick;
     const participants = getRoundParticipants();
-    const roundAdvance = roundState.advance({ serverTick: tick, participants });
+    // The charge advances before the round decision: an armed charge suspends the
+    // round's elimination/timeout logic, and a defuse/detonation forces the outcome.
+    const actorCounts = getObjectiveActorCounts(participants);
+    const chargeResult = objective.advance({
+      serverTick: tick,
+      planterCount: actorCounts.planterCount,
+      defuserCount: actorCounts.defuserCount
+    });
+    const roundAdvance = roundState.advance({
+      serverTick: tick,
+      participants,
+      charge: {
+        armed: objective.isArmed(),
+        justDefused: chargeResult.justDefused,
+        justDetonated: chargeResult.justDetonated
+      }
+    });
     // A finished round scores for the winning side and pays out the economy; the match
     // ends when a side reaches the round target. Kills feed the scoreboard but no longer
     // decide the match.
@@ -314,6 +342,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     if (roundAdvance.resetRound) {
       worldState.resetMovement();
       playerRegistry.resetWeapons();
+      objective.reset();
     }
     const completedReloads = roundAdvance.resetRound ? [] : weaponState.advanceReloads(tick);
     const respawned = roundState.allowsRespawn() ? combatState.advanceRespawns(tick) : [];
@@ -336,6 +365,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         session.transport.send(snapshotMessage);
       }
     }
+    // Broadcast the charge only when it changed, so an idle site costs nothing while a
+    // live plant/defuse streams progress and the detonation countdown to everyone.
+    broadcastObjectiveState(tick);
 
     for (const state of resetLoadoutStates) {
       sendLoadoutStateToSession(state);
@@ -699,6 +731,53 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     return participants;
   }
 
+  // Count the live, in-site players holding use, split by side: Robbers can arm the
+  // charge, Cops can defuse it. Only counts during the active round (no plant in setup).
+  function getObjectiveActorCounts(
+    participants: readonly RoundParticipant[]
+  ): { planterCount: number; defuserCount: number } {
+    if (!roundState.allowsFire()) {
+      return { planterCount: 0, defuserCount: 0 };
+    }
+    const teamBySession = new Map(participants.map((participant) => [participant.sessionId, participant.team]));
+    let planterCount = 0;
+    let defuserCount = 0;
+    for (const occupant of worldState.listOccupants()) {
+      if (
+        !combatState.isAlive(occupant.sessionId) ||
+        (occupant.buttons & CLIENT_INPUT_BUTTONS.use) === 0 ||
+        !isWithinPlantSite(occupant.x, occupant.z)
+      ) {
+        continue;
+      }
+      const team = teamBySession.get(occupant.sessionId);
+      if (team === TEAM.robbers) {
+        planterCount += 1;
+      } else if (team === TEAM.cops) {
+        defuserCount += 1;
+      }
+    }
+    return { planterCount, defuserCount };
+  }
+
+  function broadcastObjectiveState(serverTick: number): void {
+    const message = objective.createStateMessage(serverTick);
+    const key = objectiveBroadcastKey(message);
+    if (key === lastObjectiveBroadcastKey) {
+      return;
+    }
+    lastObjectiveBroadcastKey = key;
+    for (const session of sessions.values()) {
+      if (session.accepted) {
+        session.transport.send(message);
+      }
+    }
+  }
+
+  function getObjectiveState(serverTick = lastServerTick): ServerObjectiveStateMessage {
+    return objective.createStateMessage(serverTick);
+  }
+
   return {
     attachSession,
     connectedSessionCount,
@@ -710,6 +789,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getLoadoutState,
     getWeaponState,
     getEconomy,
+    getObjectiveState,
     getRoundState,
     getMatchStats,
     getMatchRoster,
@@ -823,6 +903,10 @@ function recordClientInput(
     worldState.recordAcceptedInput(session.matchAssignment.sessionId, message);
   }
   session.transport.send(createInputAckMessage(session.inputPipeline.snapshot()));
+}
+
+function objectiveBroadcastKey(message: ServerObjectiveStateMessage): string {
+  return `${message.chargePhase}:${message.plantProgress}:${message.defuseProgress}:${message.detonationTick}`;
 }
 
 export function createInputAckMessage(state: InputPipelineSnapshot): InputAckMessage {

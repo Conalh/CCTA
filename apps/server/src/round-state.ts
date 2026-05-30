@@ -33,9 +33,19 @@ export type RoundParticipant = Readonly<{
   alive: boolean;
 }>;
 
+// The objective's bearing on the round, derived from the charge state machine. When the
+// charge is armed, the bomb governs the round: neither a team wipe nor the round clock can
+// end it — only a defuse (Cops win) or detonation (Robbers win) resolves the round.
+export type RoundChargeState = Readonly<{
+  armed: boolean;
+  justDefused: boolean;
+  justDetonated: boolean;
+}>;
+
 export type RoundAdvanceInput = Readonly<{
   serverTick: number;
   participants: readonly RoundParticipant[];
+  charge?: RoundChargeState;
 }>;
 
 export type RoundAdvanceResult = Readonly<{
@@ -113,30 +123,49 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
       transitionToActive(serverTick);
       transitioned = true;
     } else if (state.phase === ROUND_PHASE.active) {
+      const charge = input.charge;
       const presentTeams = distinctTeams(participants);
-      const aliveParticipants = participants.filter((participant) => participant.alive);
-      const aliveTeams = distinctTeams(aliveParticipants);
 
-      if (presentTeams.length >= 2 && aliveTeams.length <= 1) {
-        // One side is wiped: the surviving side wins (a draw if both fell together).
-        winnerTeam = aliveTeams.length === 1 ? aliveTeams[0] : undefined;
-        const winnerSessionId =
-          winnerTeam === undefined ? 0 : firstSessionOnTeam(aliveParticipants, winnerTeam);
-        transitionToEnded(serverTick, ROUND_OUTCOME.elimination, winnerSessionId);
+      if (charge?.justDefused) {
+        // The Cops cut the charge: defenders take the round.
+        winnerTeam = TEAM.cops;
+        transitionToEnded(serverTick, ROUND_OUTCOME.defuse, firstSessionOnTeam(participants, TEAM.cops));
         transitioned = true;
         roundEnded = true;
-      } else if (serverTick >= state.phaseEndsTick) {
-        // Time expired: the defenders (Cops) hold. (Later gated by the objective.)
-        winnerTeam = presentTeams.includes(TEAM.cops)
-          ? TEAM.cops
-          : presentTeams.length === 1
-            ? presentTeams[0]
-            : undefined;
-        const winnerSessionId =
-          winnerTeam === undefined ? 0 : firstSessionOnTeam(participants, winnerTeam);
-        transitionToEnded(serverTick, ROUND_OUTCOME.timeout, winnerSessionId);
+      } else if (charge?.justDetonated) {
+        // The charge blew: attackers take the round.
+        winnerTeam = TEAM.robbers;
+        transitionToEnded(serverTick, ROUND_OUTCOME.detonation, firstSessionOnTeam(participants, TEAM.robbers));
         transitioned = true;
         roundEnded = true;
+      } else if (charge?.armed) {
+        // The charge is live: a team wipe and the round clock are both suspended. Only the
+        // defuse/detonation outcomes above can end the round now.
+      } else {
+        const aliveParticipants = participants.filter((participant) => participant.alive);
+        const aliveTeams = distinctTeams(aliveParticipants);
+
+        if (presentTeams.length >= 2 && aliveTeams.length <= 1) {
+          // One side is wiped: the surviving side wins (a draw if both fell together).
+          winnerTeam = aliveTeams.length === 1 ? aliveTeams[0] : undefined;
+          const winnerSessionId =
+            winnerTeam === undefined ? 0 : firstSessionOnTeam(aliveParticipants, winnerTeam);
+          transitionToEnded(serverTick, ROUND_OUTCOME.elimination, winnerSessionId);
+          transitioned = true;
+          roundEnded = true;
+        } else if (serverTick >= state.phaseEndsTick) {
+          // Time expired with no live charge: the defenders (Cops) hold.
+          winnerTeam = presentTeams.includes(TEAM.cops)
+            ? TEAM.cops
+            : presentTeams.length === 1
+              ? presentTeams[0]
+              : undefined;
+          const winnerSessionId =
+            winnerTeam === undefined ? 0 : firstSessionOnTeam(participants, winnerTeam);
+          transitionToEnded(serverTick, ROUND_OUTCOME.timeout, winnerSessionId);
+          transitioned = true;
+          roundEnded = true;
+        }
       }
     } else if (state.phase === ROUND_PHASE.ended && serverTick >= state.resetReadyTick) {
       transitionToReset(serverTick);

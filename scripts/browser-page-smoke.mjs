@@ -260,6 +260,8 @@ try {
   assert.match(playtestHtml, /id="playtest-buy-menu"[^>]*data-open="false"/);
   assert.match(playtestHtml, /id="playtest-buy-list"/);
   assert.match(playtestHtml, /id="playtest-hud-money"/);
+  assert.match(playtestHtml, /id="playtest-objective"[^>]*data-visible="false"/);
+  assert.match(playtestHtml, /id="playtest-objective-bar"/);
   assert.match(playtestHtml, /apps\/client\/dist\/playtest\/main\.js/);
   assert.match(playtestHtml, /packages\/shared\/dist\/index\.js/);
   assert.match(playtestHtml, /node_modules\/three\/build\/three\.module\.js/);
@@ -292,6 +294,7 @@ try {
   assert.match(playtestSource, /GLTFLoader/);
   assert.match(playtestSource, /createBuyMenuView/);
   assert.match(playtestSource, /createClientWeaponBuy/);
+  assert.match(playtestSource, /createObjectiveHudView/);
   assert.doesNotMatch(playtestSource, /new WebSocket/);
 
   const buyMenuModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/buy-menu.js`);
@@ -299,6 +302,11 @@ try {
   assert.equal(buyMenuModule.status, 200);
   assert.match(buyMenuSource, /createBuyMenuView/);
   assert.match(buyMenuSource, /formatBuyMenuPrice/);
+
+  const objectiveModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/objective-presentation.js`);
+  const objectiveSource = await objectiveModule.text();
+  assert.equal(objectiveModule.status, 200);
+  assert.match(objectiveSource, /createObjectiveHudView/);
 
   const serverBrowserModule = await fetch(`${server.clientUrl}/apps/client/dist/playtest/server-browser.js`);
   const serverBrowserSource = await serverBrowserModule.text();

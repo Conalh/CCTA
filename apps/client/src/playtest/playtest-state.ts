@@ -550,6 +550,10 @@ function readMovementButtons(keys: ReadonlySet<string>): number {
   if (keys.has("ControlLeft") || keys.has("ControlRight") || keys.has("KeyC")) {
     buttons |= CLIENT_INPUT_BUTTONS.crouch;
   }
+  if (keys.has("KeyE")) {
+    // Hold to plant (Robbers, on the site) or defuse (Cops, on the armed charge).
+    buttons |= CLIENT_INPUT_BUTTONS.use;
+  }
   return buttons;
 }
 

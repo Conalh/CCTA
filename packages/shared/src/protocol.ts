@@ -11,7 +11,8 @@ export const CLIENT_INPUT_BUTTONS = {
   left: 1 << 2,
   right: 1 << 3,
   jump: 1 << 4,
-  crouch: 1 << 5
+  crouch: 1 << 5,
+  use: 1 << 6
 } as const;
 
 export const PACKET_KIND = {
@@ -38,7 +39,8 @@ export const PACKET_KIND = {
   serverMatchRoster: 21,
   serverMatchResult: 22,
   serverPlayerEconomy: 23,
-  clientWeaponBuy: 24
+  clientWeaponBuy: 24,
+  serverObjectiveState: 25
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -107,7 +109,18 @@ export const ROUND_PHASE = {
 export const ROUND_OUTCOME = {
   none: 0,
   elimination: 1,
-  timeout: 2
+  timeout: 2,
+  detonation: 3,
+  defuse: 4
+} as const;
+
+// The breach charge's lifecycle within a round. Idle until a Robber arms it;
+// once planted it counts down to detonation unless a Cop completes a defuse.
+export const CHARGE_PHASE = {
+  idle: 0,
+  planted: 1,
+  defused: 2,
+  detonated: 3
 } as const;
 
 export const ROUND_EVENT_KIND = {
@@ -141,6 +154,7 @@ export type LoadoutStatus = (typeof LOADOUT_STATUS)[keyof typeof LOADOUT_STATUS]
 export type LoadoutRejectReason = (typeof LOADOUT_REJECT_REASON)[keyof typeof LOADOUT_REJECT_REASON];
 export type RoundPhase = (typeof ROUND_PHASE)[keyof typeof ROUND_PHASE];
 export type RoundOutcome = (typeof ROUND_OUTCOME)[keyof typeof ROUND_OUTCOME];
+export type ChargePhase = (typeof CHARGE_PHASE)[keyof typeof CHARGE_PHASE];
 export type RoundEventKind = (typeof ROUND_EVENT_KIND)[keyof typeof ROUND_EVENT_KIND];
 
 export type ClientProtocolMessage =
@@ -169,7 +183,8 @@ export type ServerProtocolMessage =
   | ServerMatchStatsMessage
   | ServerMatchRosterMessage
   | ServerMatchResultMessage
-  | ServerPlayerEconomyMessage;
+  | ServerPlayerEconomyMessage
+  | ServerObjectiveStateMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -362,6 +377,18 @@ export type ServerPlayerEconomyMessage = Readonly<{
   serverTick: number;
   sessionId: number;
   money: number;
+}>;
+
+// The breach charge's authoritative state, broadcast to everyone. Progress fields
+// are raw accrued ticks (compare against PLANT_DURATION_TICKS / DEFUSE_DURATION_TICKS);
+// detonationTick is the server tick at which an armed charge blows (0 when idle).
+export type ServerObjectiveStateMessage = Readonly<{
+  kind: "server.objective.state";
+  serverTick: number;
+  chargePhase: ChargePhase;
+  plantProgress: number;
+  defuseProgress: number;
+  detonationTick: number;
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -627,6 +654,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         readUint32(message.serverTick, "serverTick"),
         encodeServerPlayerEconomyPayload(message)
       );
+    case "server.objective.state":
+      return writePacket(
+        PACKET_KIND.serverObjectiveState,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerObjectiveStatePayload(message)
+      );
   }
 }
 
@@ -886,6 +920,16 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         serverTick: sequenceOrTick,
         sessionId: payload.getUint32(0, true),
         money: payload.getUint32(4, true)
+      };
+    case PACKET_KIND.serverObjectiveState:
+      requirePayloadLength(payloadLength, 9, "server.objective.state");
+      return {
+        kind: "server.objective.state",
+        serverTick: sequenceOrTick,
+        chargePhase: readChargePhase(payload.getUint8(0)),
+        plantProgress: payload.getUint16(1, true),
+        defuseProgress: payload.getUint16(3, true),
+        detonationTick: payload.getUint32(5, true)
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1171,6 +1215,16 @@ function encodeClientWeaponBuyPayload(message: ClientWeaponBuyMessage): Uint8Arr
   return payload;
 }
 
+function encodeServerObjectiveStatePayload(message: ServerObjectiveStateMessage): Uint8Array {
+  const payload = new Uint8Array(9);
+  const view = new DataView(payload.buffer);
+  view.setUint8(0, readChargePhase(message.chargePhase));
+  view.setUint16(1, readUint16(message.plantProgress, "plantProgress"), true);
+  view.setUint16(3, readUint16(message.defuseProgress, "defuseProgress"), true);
+  view.setUint32(5, readUint32(message.detonationTick, "detonationTick"), true);
+  return payload;
+}
+
 function encodeStringPayload(value: string): Uint8Array {
   return textEncoder.encode(value);
 }
@@ -1403,4 +1457,12 @@ function readRoundEventKind(value: number): RoundEventKind {
     throw new Error(`round event kind must be known, got ${value}.`);
   }
   return value as RoundEventKind;
+}
+
+function readChargePhase(value: number): ChargePhase {
+  const values = Object.values(CHARGE_PHASE) as number[];
+  if (!Number.isInteger(value) || !values.includes(value)) {
+    throw new Error(`charge phase must be known, got ${value}.`);
+  }
+  return value as ChargePhase;
 }

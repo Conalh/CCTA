@@ -727,6 +727,87 @@ li {
   color: #7c8986;
 }
 
+.playtest-objective {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  min-width: 160px;
+  border: 1px solid rgb(216 178 74 / 55%);
+  border-radius: 6px;
+  background: rgb(12 16 17 / 78%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+  text-align: center;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.playtest-objective[data-visible="true"] {
+  display: flex;
+}
+
+.playtest-objective-status {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e6d49a;
+}
+
+.playtest-objective-detail {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #f2e6b8;
+}
+
+.playtest-objective-detail:empty {
+  display: none;
+}
+
+.playtest-objective-track {
+  display: none;
+  width: 150px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 12%);
+  overflow: hidden;
+}
+
+.playtest-objective-track[data-active="true"] {
+  display: block;
+}
+
+.playtest-objective-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #e6d49a;
+}
+
+.playtest-objective[data-tone="armed"],
+.playtest-objective[data-tone="detonated"] {
+  border-color: rgb(214 96 76 / 70%);
+}
+
+.playtest-objective[data-tone="armed"] .playtest-objective-status,
+.playtest-objective[data-tone="armed"] .playtest-objective-detail,
+.playtest-objective[data-tone="detonated"] .playtest-objective-status {
+  color: #f2a08c;
+}
+
+.playtest-objective[data-tone="defusing"] .playtest-objective-status,
+.playtest-objective[data-tone="defused"] .playtest-objective-status {
+  color: #8ed0bd;
+}
+
+.playtest-objective[data-tone="defusing"] .playtest-objective-bar {
+  background: #8ed0bd;
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;

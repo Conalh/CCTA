@@ -31,6 +31,15 @@ export type SessionEntityInput = Readonly<{
 export type WorldEntity = SnapshotEntityReference;
 export type WorldStateSnapshot = WorldSnapshotMetadata;
 
+// A ground-truth read of where each session sits and what its latest accepted input
+// held. The objective uses this to find who is standing on the plant site pressing use.
+export type WorldOccupant = Readonly<{
+  sessionId: number;
+  x: number;
+  z: number;
+  buttons: number;
+}>;
+
 export type WorldState = Readonly<{
   readonly worldId: number;
   assignSessionEntity(input: SessionEntityInput): WorldEntity;
@@ -39,6 +48,7 @@ export type WorldState = Readonly<{
   advanceMovement(deltaSeconds: number, options?: WorldMovementOptions): void;
   resetMovement(): readonly WorldEntity[];
   createSnapshot(tick: number): WorldStateSnapshot;
+  listOccupants(): readonly WorldOccupant[];
 }>;
 
 export type WorldMovementOptions = Readonly<{
@@ -153,6 +163,19 @@ export function createWorldState(config: WorldStateConfig = {}): WorldState {
     }
   }
 
+  function listOccupants(): readonly WorldOccupant[] {
+    const occupants: WorldOccupant[] = [];
+    for (const entity of entitiesBySessionId.values()) {
+      occupants.push({
+        sessionId: entity.sessionId,
+        x: entity.movement.x,
+        z: entity.movement.z,
+        buttons: entity.latestInput?.buttons ?? 0
+      });
+    }
+    return occupants;
+  }
+
   function resetMovement(): readonly WorldEntity[] {
     const resetEntities: WorldEntity[] = [];
     for (const entity of entitiesBySessionId.values()) {
@@ -171,7 +194,8 @@ export function createWorldState(config: WorldStateConfig = {}): WorldState {
     recordAcceptedInput,
     advanceMovement,
     resetMovement,
-    createSnapshot
+    createSnapshot,
+    listOccupants
   };
 }
 

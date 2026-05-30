@@ -219,3 +219,71 @@ test("round state emits reset and starts the next setup round", () => {
     lastEventSequence: 5
   });
 });
+
+const armed = { armed: true, justDefused: false, justDetonated: false };
+
+test("a defused charge ends the round for the Cops", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 100, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  const ended = round.advance({
+    serverTick: 5,
+    participants: [cop(1), robber(2)],
+    charge: { armed: true, justDefused: true, justDetonated: false }
+  });
+
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, TEAM.cops);
+  assert.equal(round.createStateMessage(5).outcome, ROUND_OUTCOME.defuse);
+  assert.equal(round.createStateMessage(5).winnerSessionId, 1);
+});
+
+test("a detonated charge ends the round for the Robbers", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 100, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  const ended = round.advance({
+    serverTick: 5,
+    participants: [cop(1), robber(2)],
+    charge: { armed: false, justDefused: false, justDetonated: true }
+  });
+
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, TEAM.robbers);
+  assert.equal(round.createStateMessage(5).outcome, ROUND_OUTCOME.detonation);
+  assert.equal(round.createStateMessage(5).winnerSessionId, 2);
+});
+
+test("an armed charge suspends elimination so the bomb decides the round", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 100, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  // Robbers are wiped, but the charge is live: the round must NOT end on elimination.
+  const held = round.advance({
+    serverTick: 5,
+    participants: [cop(1), robber(2, false)],
+    charge: armed
+  });
+
+  assert.equal(held.roundEnded, false);
+  assert.equal(round.createStateMessage(5).phase, ROUND_PHASE.active);
+});
+
+test("an armed charge suspends the round clock until it detonates", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 3, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  // The round clock expired (tick 4 > 3) but the live charge overrides the timeout.
+  const held = round.advance({ serverTick: 4, participants: [cop(1), robber(2)], charge: armed });
+  assert.equal(held.roundEnded, false);
+  assert.equal(round.createStateMessage(4).phase, ROUND_PHASE.active);
+
+  // Once it detonates, the Robbers take the round.
+  const blown = round.advance({
+    serverTick: 5,
+    participants: [cop(1), robber(2)],
+    charge: { armed: false, justDefused: false, justDetonated: true }
+  });
+  assert.equal(blown.roundEnded, true);
+  assert.equal(blown.winnerTeam, TEAM.robbers);
+});

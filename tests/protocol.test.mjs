@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CHARGE_PHASE,
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
   FIRE_REJECT_REASON,
@@ -680,6 +681,45 @@ test("protocol helpers round-trip a client weapon buy request", () => {
   const buy = createClientWeaponBuy({ sequence: 9, profileId: LOADOUT_PROFILE_ID.vantage });
   assert.deepEqual(buy, { kind: "client.weapon.buy", sequence: 9, profileId: LOADOUT_PROFILE_ID.vantage });
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(buy)), buy);
+});
+
+test("protocol helpers round-trip a server objective state message", () => {
+  assert.equal(PACKET_KIND.serverObjectiveState, 25);
+
+  const armed = {
+    kind: "server.objective.state",
+    serverTick: 900,
+    chargePhase: CHARGE_PHASE.planted,
+    plantProgress: 180,
+    defuseProgress: 75,
+    detonationTick: 3000
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(armed)), armed);
+
+  const idle = {
+    kind: "server.objective.state",
+    serverTick: 1,
+    chargePhase: CHARGE_PHASE.idle,
+    plantProgress: 0,
+    defuseProgress: 0,
+    detonationTick: 0
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(idle)), idle);
+});
+
+test("decodeProtocolMessage rejects an unknown charge phase", () => {
+  const packet = encodeProtocolMessage({
+    kind: "server.objective.state",
+    serverTick: 5,
+    chargePhase: CHARGE_PHASE.idle,
+    plantProgress: 0,
+    defuseProgress: 0,
+    detonationTick: 0
+  });
+  const corrupted = patchPacket(packet, (bytes) => {
+    bytes[PACKET_HEADER_LENGTH] = 9; // first payload byte = charge phase
+  });
+  assert.throws(() => decodeProtocolMessage(corrupted), /charge phase/i);
 });
 
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {

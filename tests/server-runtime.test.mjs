@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CHARGE_PHASE,
   CLIENT_INPUT_BUTTONS,
   COMBAT_EVENT_KIND,
   FIRE_REJECT_REASON,
@@ -118,6 +119,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "server.combat.state",
       "server.weapon.state",
       "server.player.economy",
+      "server.objective.state",
       "match.update",
       "server.match.roster",
       "pong",
@@ -307,6 +309,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.combat.state",
     "server.weapon.state",
     "server.player.economy",
+    "server.objective.state",
     "match.update",
     "server.match.roster",
     "match.update",
@@ -318,6 +321,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "server.combat.state",
     "server.weapon.state",
     "server.player.economy",
+    "server.objective.state",
     "match.update",
     "server.match.roster"
   ]);
@@ -1533,4 +1537,38 @@ test("server runtime owns round outcomes and rejects client activity outside act
     z: -16.5,
     yaw: 0
   });
+});
+
+test("server runtime exposes the charge and never arms it away from the plant site", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 60,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    round: { setupDurationTicks: 0, activeDurationTicks: 10_000 },
+    now: () => 1000
+  });
+  const transport = createFakeTransportSession("charge-a");
+  runtime.attachSession(transport.session);
+  transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: "charge-a" });
+
+  // The charge is exposed to everyone and starts idle. A fresh join receives it.
+  const initial = runtime.getObjectiveState(0);
+  assert.equal(initial.kind, "server.objective.state");
+  assert.equal(initial.chargePhase, CHARGE_PHASE.idle);
+  assert.equal(transport.sent.some((message) => message.kind === "server.objective.state"), true);
+
+  // Hold use at spawn (far from the plant site) for well past the plant duration: no plant.
+  for (let tick = 1; tick <= 250; tick += 1) {
+    transport.receive({
+      kind: "client.input",
+      sequence: tick,
+      clientTimeMs: 1000 + tick,
+      buttons: CLIENT_INPUT_BUTTONS.use,
+      yaw: 0,
+      pitch: 0
+    });
+    runtime.step(tick, 1000 + tick);
+  }
+  assert.equal(runtime.getObjectiveState(250).chargePhase, CHARGE_PHASE.idle);
+  assert.equal(runtime.getObjectiveState(250).plantProgress, 0);
 });

@@ -4,6 +4,7 @@ import { PRIVATE_PROTOTYPE_ASSETS } from "../sandbox/prototype-assets.js";
 
 import {
   DEFAULT_WEAPON_PROFILE_ID,
+  PLANT_SITE,
   PROTOCOL_VERSION,
   WEAPON_CATALOG,
   createClientFireIntent,
@@ -84,6 +85,7 @@ import {
   type ScoreboardPresentation
 } from "./scoreboard-presentation.js";
 import { createBuyMenuView, formatBuyMenuPrice, type BuyMenuRow } from "./buy-menu.js";
+import { createObjectiveHudView } from "./objective-presentation.js";
 import {
   SERVER_BROWSER_BUILD_ID,
   SERVER_BROWSER_TABS,
@@ -289,6 +291,10 @@ const hudStanceEl = requireElement("playtest-hud-stance");
 const hudWeaponEl = requireElement("playtest-hud-weapon");
 const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
+const objectiveEl = requireElement("playtest-objective");
+const objectiveStatusEl = requireElement("playtest-objective-status");
+const objectiveDetailEl = requireElement("playtest-objective-detail");
+const objectiveBarEl = requireElement("playtest-objective-bar");
 const readoutEl = requireElement("playtest-readout");
 const diagnosticsToggleEl = requireElement("playtest-diagnostics-toggle");
 const localCombatEventEl = requireElement("playtest-combat-event");
@@ -530,6 +536,15 @@ try {
   const grid = new THREE.GridHelper(18, 18, "#87928c", "#2d3633");
   grid.position.y = 0.01;
   scene.add(grid);
+
+  // The plant site: a flat ring on the floor marking where the charge is armed/defused.
+  const plantSiteRing = new THREE.Mesh(
+    new THREE.RingGeometry(PLANT_SITE.radius - 0.18, PLANT_SITE.radius, 48),
+    new THREE.MeshBasicMaterial({ color: "#d8b24a", transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+  );
+  plantSiteRing.rotation.x = -Math.PI / 2;
+  plantSiteRing.position.set(PLANT_SITE.x, 0.02, PLANT_SITE.z);
+  scene.add(plantSiteRing);
 
   canvas.addEventListener("click", () => {
     requestPointerLockForCanvas();
@@ -1061,6 +1076,26 @@ function sendBuyIntent(profileId: BuyMenuRow["profileId"]): void {
   }
   buySequence += 1;
   transport.send(createClientWeaponBuy({ sequence: buySequence, profileId }));
+}
+
+function renderObjectiveHud(): void {
+  const view = createObjectiveHudView({
+    chargePhase: state.chargePhase,
+    plantProgress: state.chargePlantProgress,
+    defuseProgress: state.chargeDefuseProgress,
+    detonationTick: state.chargeDetonationTick,
+    serverTick: state.serverTick
+  });
+  objectiveEl.dataset.visible = view.visible ? "true" : "false";
+  if (!view.visible) {
+    return;
+  }
+  objectiveEl.dataset.tone = view.tone;
+  objectiveStatusEl.textContent = view.status;
+  objectiveDetailEl.textContent = view.detail;
+  const hasBar = view.progress !== undefined;
+  objectiveBarEl.parentElement?.setAttribute("data-active", hasBar ? "true" : "false");
+  objectiveBarEl.style.width = hasBar ? `${Math.round((view.progress ?? 0) * 100)}%` : "0%";
 }
 
 function applySettingsReadouts(): void {
@@ -1901,6 +1936,7 @@ function updateReadout(
     closeBuyMenu();
   }
   refreshBuyMenuIfOpen();
+  renderObjectiveHud();
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =
@@ -2207,7 +2243,8 @@ function isPlaytestInputKey(code: string): boolean {
     code === "Space" ||
     code === "ControlLeft" ||
     code === "ControlRight" ||
-    code === "KeyC"
+    code === "KeyC" ||
+    code === "KeyE"
   );
 }
 

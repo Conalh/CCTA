@@ -1,6 +1,7 @@
 import {
   DRYDOCK_SPAN_ARENA,
   deriveArenaCollisionGeometry,
+  type ChargePhase,
   type ClientFireIntentMessage,
   type ClientInputMessage,
   type CombatEventKind,
@@ -126,6 +127,11 @@ export type ConnectionViewState = Readonly<{
   lastWeaponEventSequence: number | undefined;
   lastWeaponServerTick: number | undefined;
   localMoney: number | undefined;
+  chargePhase: ChargePhase | undefined;
+  chargePlantProgress: number | undefined;
+  chargeDefuseProgress: number | undefined;
+  chargeDetonationTick: number | undefined;
+  lastObjectiveServerTick: number | undefined;
   roundId: number | undefined;
   roundPhase: RoundPhase | undefined;
   roundOutcome: RoundOutcome | undefined;
@@ -284,6 +290,11 @@ export function createInitialConnectionViewState(
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
     localMoney: undefined,
+    chargePhase: undefined,
+    chargePlantProgress: undefined,
+    chargeDefuseProgress: undefined,
+    chargeDetonationTick: undefined,
+    lastObjectiveServerTick: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,
@@ -531,6 +542,15 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
         localMoney: message.money
       };
+    case "server.objective.state":
+      return {
+        ...baseState,
+        chargePhase: message.chargePhase,
+        chargePlantProgress: message.plantProgress,
+        chargeDefuseProgress: message.defuseProgress,
+        chargeDetonationTick: message.detonationTick,
+        lastObjectiveServerTick: message.serverTick
+      };
     case "server.round.state":
       return {
         ...baseState,
@@ -724,6 +744,11 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
     localMoney: undefined,
+    chargePhase: undefined,
+    chargePlantProgress: undefined,
+    chargeDefuseProgress: undefined,
+    chargeDetonationTick: undefined,
+    lastObjectiveServerTick: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,
