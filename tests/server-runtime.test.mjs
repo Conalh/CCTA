@@ -822,7 +822,8 @@ test("server runtime broadcasts authoritative match stats when a kill is confirm
   assert.deepEqual(runtime.getMatchStats(6), expectedStats);
 });
 
-test("server runtime declares a server-owned match winner at the kill target", () => {
+test("server runtime declares the match when a side wins the round target", () => {
+  // killTarget here is the round-win target: first side to win one round wins the match.
   const runtime = createServerRuntime({
     tickRateHz: 20,
     matchCapacity: 2,
@@ -842,9 +843,10 @@ test("server runtime declares a server-owned match winner at the kill target", (
       clientName: transport.session.id
     });
   }
+  // Session 1 lands on Cops (slot 0), session 2 on Robbers (slot 1).
   runtime.step(5, 1016);
 
-  // No kill yet: the match is not over.
+  // No round resolved yet: the match is not over.
   assert.equal(first.sent.some((message) => message.kind === "server.match.result"), false);
   assert.equal(runtime.getMatchResult(5).matchOver, false);
 
@@ -856,10 +858,12 @@ test("server runtime declares a server-owned match winner at the kill target", (
   first.receive(
     createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 6, yaw: -Math.PI / 2, pitch: 0 })
   );
+  // The Robber is now dead; the next tick resolves the round (Cops win) and the match.
+  runtime.step(7, 1024);
 
   const expectedResult = {
     kind: "server.match.result",
-    serverTick: 6,
+    serverTick: 7,
     matchOver: true,
     winnerSessionId: 1,
     killTarget: 1
@@ -870,7 +874,7 @@ test("server runtime declares a server-owned match winner at the kill target", (
   assert.equal(secondResults.length, 1);
   assert.deepEqual(firstResults[0], expectedResult);
   assert.deepEqual(secondResults[0], expectedResult);
-  assert.deepEqual(runtime.getMatchResult(6), expectedResult);
+  assert.deepEqual(runtime.getMatchResult(7), expectedResult);
 });
 
 test("server runtime broadcasts an authoritative roster on join, loadout, leave, and round reset", () => {

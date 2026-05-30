@@ -3,6 +3,7 @@ import {
   PROTOCOL_VERSION,
   SERVER_TICK_RATE_HZ,
   createServerSnapshotPlaceholder,
+  teamForSlot,
   FIRE_REJECT_REASON,
   LOADOUT_REJECT_REASON,
   LOADOUT_STATUS,
@@ -62,6 +63,7 @@ import {
 import { createWeaponState, type WeaponStateConfig } from "./weapon-state.js";
 import {
   createRoundState,
+  type RoundParticipant,
   type RoundState,
   type RoundStateConfig
 } from "./round-state.js";
@@ -270,13 +272,21 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
   function step(tick: number, serverTimeMs = now()): void {
     lastServerTick = tick;
-    const activeSessionIds = getAcceptedSessionIds();
-    const aliveSessionIds = activeSessionIds.filter((sessionId) => combatState.isAlive(sessionId));
     const roundAdvance = roundState.advance({
       serverTick: tick,
-      activeSessionIds,
-      aliveSessionIds
+      participants: getRoundParticipants()
     });
+    // A finished round scores for the winning side; the match ends when a side reaches
+    // the round target. Kills feed the scoreboard but no longer decide the match.
+    if (roundAdvance.roundEnded) {
+      const matchDecided = matchProgress.recordRoundResult({
+        winnerTeam: roundAdvance.winnerTeam,
+        winnerSessionId: roundAdvance.state.winnerSessionId
+      });
+      if (matchDecided) {
+        broadcastMatchResult();
+      }
+    }
     const resetCombatStates = roundAdvance.resetRound ? combatState.resetAll(tick) : [];
     const resetLoadoutStates = roundAdvance.resetRound ? loadoutState.resetAll(tick) : [];
     const resetWeaponStates = roundAdvance.resetRound ? weaponState.resetAll(tick) : [];
@@ -505,10 +515,6 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
           victimSessionId: combatResult.state.targetSessionId
         });
         broadcastMatchStats();
-        // The match win condition is decided only from server-owned kill tallies.
-        if (matchProgress.evaluate(matchStats.entries())) {
-          broadcastMatchResult();
-        }
       }
     }
   }
@@ -611,14 +617,19 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     }
   }
 
-  function getAcceptedSessionIds(): readonly number[] {
-    const sessionIds: number[] = [];
+  function getRoundParticipants(): readonly RoundParticipant[] {
+    const participants: RoundParticipant[] = [];
     for (const session of sessions.values()) {
       if (session.accepted && session.matchAssignment !== undefined) {
-        sessionIds.push(session.matchAssignment.sessionId);
+        const sessionId = session.matchAssignment.sessionId;
+        participants.push({
+          sessionId,
+          team: teamForSlot(session.matchAssignment.slotIndex, matchSession.capacity),
+          alive: combatState.isAlive(sessionId)
+        });
       }
     }
-    return sessionIds;
+    return participants;
   }
 
   return {

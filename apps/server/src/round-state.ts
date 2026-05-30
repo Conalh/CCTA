@@ -2,10 +2,12 @@ import {
   ROUND_EVENT_KIND,
   ROUND_OUTCOME,
   ROUND_PHASE,
+  TEAM,
   type RoundEventKind,
   type RoundOutcome,
   type RoundPhase,
-  type ServerRoundStateMessage
+  type ServerRoundStateMessage,
+  type TeamId
 } from "@breachline/shared";
 
 export const DEFAULT_ROUND_SETUP_DURATION_TICKS = 0 as const;
@@ -20,15 +22,24 @@ export type RoundStateConfig = Readonly<{
   resetDurationTicks?: number;
 }>;
 
+export type RoundParticipant = Readonly<{
+  sessionId: number;
+  team: TeamId;
+  alive: boolean;
+}>;
+
 export type RoundAdvanceInput = Readonly<{
   serverTick: number;
-  activeSessionIds: readonly number[];
-  aliveSessionIds: readonly number[];
+  participants: readonly RoundParticipant[];
 }>;
 
 export type RoundAdvanceResult = Readonly<{
   resetRound: boolean;
   transitioned: boolean;
+  // True only on the active -> ended transition this tick, so the runtime scores the
+  // round exactly once. winnerTeam is the side that won (undefined on a draw).
+  roundEnded: boolean;
+  winnerTeam: TeamId | undefined;
   state: ServerRoundStateMessage;
 }>;
 
@@ -86,22 +97,39 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     const serverTick = readUint32(input.serverTick, "serverTick");
     let transitioned = false;
     let resetRound = false;
+    let roundEnded = false;
+    let winnerTeam: TeamId | undefined;
 
-    const activeSessionIds = uniquePositiveSessionIds(input.activeSessionIds);
-    if (state.phase === ROUND_PHASE.setup && activeSessionIds.length > 0 && serverTick >= state.phaseEndsTick) {
+    const participants = readParticipants(input.participants);
+
+    if (state.phase === ROUND_PHASE.setup && participants.length > 0 && serverTick >= state.phaseEndsTick) {
       transitionToActive(serverTick);
       transitioned = true;
     } else if (state.phase === ROUND_PHASE.active) {
-      const aliveSessionIds = uniquePositiveSessionIds(input.aliveSessionIds).filter((sessionId) =>
-        activeSessionIds.includes(sessionId)
-      );
+      const presentTeams = distinctTeams(participants);
+      const aliveParticipants = participants.filter((participant) => participant.alive);
+      const aliveTeams = distinctTeams(aliveParticipants);
 
-      if (activeSessionIds.length >= 2 && aliveSessionIds.length <= 1) {
-        transitionToEnded(serverTick, ROUND_OUTCOME.elimination, aliveSessionIds[0] ?? 0);
+      if (presentTeams.length >= 2 && aliveTeams.length <= 1) {
+        // One side is wiped: the surviving side wins (a draw if both fell together).
+        winnerTeam = aliveTeams.length === 1 ? aliveTeams[0] : undefined;
+        const winnerSessionId =
+          winnerTeam === undefined ? 0 : firstSessionOnTeam(aliveParticipants, winnerTeam);
+        transitionToEnded(serverTick, ROUND_OUTCOME.elimination, winnerSessionId);
         transitioned = true;
+        roundEnded = true;
       } else if (serverTick >= state.phaseEndsTick) {
-        transitionToEnded(serverTick, ROUND_OUTCOME.timeout, 0);
+        // Time expired: the defenders (Cops) hold. (Later gated by the objective.)
+        winnerTeam = presentTeams.includes(TEAM.cops)
+          ? TEAM.cops
+          : presentTeams.length === 1
+            ? presentTeams[0]
+            : undefined;
+        const winnerSessionId =
+          winnerTeam === undefined ? 0 : firstSessionOnTeam(participants, winnerTeam);
+        transitionToEnded(serverTick, ROUND_OUTCOME.timeout, winnerSessionId);
         transitioned = true;
+        roundEnded = true;
       }
     } else if (state.phase === ROUND_PHASE.ended && serverTick >= state.resetReadyTick) {
       transitionToReset(serverTick);
@@ -115,6 +143,8 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
     return {
       resetRound,
       transitioned,
+      roundEnded,
+      winnerTeam,
       state: createStateMessage(serverTick)
     };
   }
@@ -191,8 +221,25 @@ export function createRoundState(config: RoundStateConfig = {}): RoundState {
   };
 }
 
-function uniquePositiveSessionIds(values: readonly number[]): number[] {
-  return [...new Set(values.map((value) => readPositiveUint32(value, "sessionId")))];
+function readParticipants(values: readonly RoundParticipant[]): RoundParticipant[] {
+  const seen = new Set<number>();
+  const result: RoundParticipant[] = [];
+  for (const participant of values) {
+    if (!Number.isInteger(participant?.sessionId) || participant.sessionId < 1 || seen.has(participant.sessionId)) {
+      continue;
+    }
+    seen.add(participant.sessionId);
+    result.push({ sessionId: participant.sessionId, team: participant.team, alive: participant.alive === true });
+  }
+  return result;
+}
+
+function distinctTeams(participants: readonly RoundParticipant[]): TeamId[] {
+  return [...new Set(participants.map((participant) => participant.team))];
+}
+
+function firstSessionOnTeam(participants: readonly RoundParticipant[], team: TeamId): number {
+  return participants.find((participant) => participant.team === team)?.sessionId ?? 0;
 }
 
 function addTicks(left: number, right: number): number {

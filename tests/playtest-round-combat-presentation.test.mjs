@@ -181,12 +181,13 @@ test("round combat presentation derives remote hit cue only from existing fire r
   assert.equal(presentation.remoteCombatCueActive, false);
 });
 
-test("round combat presentation resolves the server-owned round winner to a roster callsign", () => {
+test("round combat presentation resolves the server-owned round winner to the winning side", () => {
   const rosterEntries = [
     { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
-    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1 }
+    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 5 }
   ];
 
+  // Session 1 sits on a Cop slot; the winner session resolves to its side.
   const resolved = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
     nowMs: 1000,
     roundId: 4,
@@ -196,9 +197,19 @@ test("round combat presentation resolves the server-owned round winner to a rost
     rosterEntries
   });
   assert.equal(resolved.roundOutcomeLabel, "elimination");
-  assert.equal(resolved.roundWinnerLabel, "Vesper");
+  assert.equal(resolved.roundWinnerLabel, "Cops");
 
-  // A winner with no roster entry falls back to a neutral session label.
+  // Session 2 sits on a Robber slot.
+  const robbers = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
+    nowMs: 1000,
+    roundOutcome: ROUND_OUTCOME.elimination,
+    roundPhase: ROUND_PHASE.ended,
+    roundWinnerSessionId: 2,
+    rosterEntries
+  });
+  assert.equal(robbers.roundWinnerLabel, "Robbers");
+
+  // A winner session with no roster entry shows no side rather than fabricating one.
   const neutral = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
     nowMs: 1000,
     roundOutcome: ROUND_OUTCOME.elimination,
@@ -206,9 +217,9 @@ test("round combat presentation resolves the server-owned round winner to a rost
     roundWinnerSessionId: 9,
     rosterEntries
   });
-  assert.equal(neutral.roundWinnerLabel, "session 9");
+  assert.equal(neutral.roundWinnerLabel, "-");
 
-  // No winner session reported (timeout/none) shows no winner callsign.
+  // No winner session reported (a draw) shows no winning side.
   const noWinner = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {
     nowMs: 1000,
     roundOutcome: ROUND_OUTCOME.timeout,
@@ -277,7 +288,7 @@ test("round combat presentation raises a round banner only on a decided outcome 
     rosterEntries
   });
   assert.equal(ended.roundBannerActive, true);
-  assert.equal(ended.roundBannerLabel, "Vesper wins the round");
+  assert.equal(ended.roundBannerLabel, "Cops win the round");
 
   // Timeout: banner reports the outcome without a winner callsign.
   const timeout = updateRoundCombatPresentationState(createInitialRoundCombatPresentationState(), {

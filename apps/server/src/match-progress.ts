@@ -1,17 +1,28 @@
-import { type MatchStatsEntry, type ServerMatchResultMessage } from "@breachline/shared";
+import { TEAM, type ServerMatchResultMessage, type TeamId } from "@breachline/shared";
 
+// `killTarget` is kept as the wire/config field name (the protocol message field is
+// unchanged) but now counts ROUND WINS: the first side to win this many rounds wins
+// the match.
 export const DEFAULT_MATCH_KILL_TARGET = 10 as const;
 
 export type MatchProgressConfig = Readonly<{
   killTarget?: number;
 }>;
 
+export type MatchRoundResult = Readonly<{
+  winnerTeam: TeamId | undefined;
+  // A representative session on the winning side, carried through the result message.
+  winnerSessionId: number;
+}>;
+
 export type MatchProgress = Readonly<{
   readonly killTarget: number;
   isMatchOver(): boolean;
   winnerSessionId(): number;
-  // Returns true only on the transition into match-over so the runtime broadcasts once.
-  evaluate(entries: readonly MatchStatsEntry[]): boolean;
+  roundWins(team: TeamId): number;
+  // Record a finished round's winning side. Returns true only on the transition into
+  // match-over so the runtime broadcasts the result once.
+  recordRoundResult(result: MatchRoundResult): boolean;
   reset(): void;
   createResultMessage(serverTick: number): ServerMatchResultMessage;
 }>;
@@ -20,39 +31,32 @@ export function createMatchProgress(config: MatchProgressConfig = {}): MatchProg
   const killTarget = readPositiveUint16(config.killTarget ?? DEFAULT_MATCH_KILL_TARGET, "killTarget");
   let matchOver = false;
   let winnerSessionId = 0;
+  const wins = new Map<TeamId, number>([
+    [TEAM.cops, 0],
+    [TEAM.robbers, 0]
+  ]);
 
-  function evaluate(entries: readonly MatchStatsEntry[]): boolean {
-    if (matchOver) {
+  function recordRoundResult(result: MatchRoundResult): boolean {
+    if (matchOver || result.winnerTeam === undefined) {
       return false;
     }
 
-    // First session to reach the server-owned kill target wins the match. Kills are
-    // applied one at a time, so at most one session crosses the threshold per evaluation;
-    // the lowest session id is a deterministic tiebreak guard, not a gameplay rule.
-    let winner: MatchStatsEntry | undefined;
-    for (const entry of entries) {
-      if (typeof entry?.sessionId !== "number" || typeof entry?.kills !== "number") {
-        continue;
-      }
-      if (entry.kills >= killTarget) {
-        if (winner === undefined || entry.sessionId < winner.sessionId) {
-          winner = entry;
-        }
-      }
-    }
-
-    if (winner === undefined) {
+    const nextWins = (wins.get(result.winnerTeam) ?? 0) + 1;
+    wins.set(result.winnerTeam, nextWins);
+    if (nextWins < killTarget) {
       return false;
     }
 
     matchOver = true;
-    winnerSessionId = winner.sessionId;
+    winnerSessionId = readUint32(result.winnerSessionId, "winnerSessionId");
     return true;
   }
 
   function reset(): void {
     matchOver = false;
     winnerSessionId = 0;
+    wins.set(TEAM.cops, 0);
+    wins.set(TEAM.robbers, 0);
   }
 
   function createResultMessage(serverTick: number): ServerMatchResultMessage {
@@ -69,7 +73,8 @@ export function createMatchProgress(config: MatchProgressConfig = {}): MatchProg
     killTarget,
     isMatchOver: () => matchOver,
     winnerSessionId: () => winnerSessionId,
-    evaluate,
+    roundWins: (team) => wins.get(team) ?? 0,
+    recordRoundResult,
     reset,
     createResultMessage
   };

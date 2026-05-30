@@ -3,8 +3,10 @@ import {
   ROUND_EVENT_KIND,
   ROUND_OUTCOME,
   ROUND_PHASE,
-  getPlayerCallsign,
-  type MatchRosterEntry
+  teamForSlot,
+  teamName,
+  type MatchRosterEntry,
+  type TeamId
 } from "@breachline/shared";
 
 export const ROUND_COMBAT_PRESENTATION_CUE_DURATION_MS = 1800 as const;
@@ -173,13 +175,15 @@ function readRoundBanner(
     return { active: false, label: NO_LABEL };
   }
 
-  if (outcome === ROUND_OUTCOME.elimination && roundWinnerLabel !== NO_LABEL) {
-    return { active: true, label: `${roundWinnerLabel} wins the round` };
+  if (roundWinnerLabel !== NO_LABEL) {
+    // Sides are plural: "Cops win the round" / "Robbers win the round".
+    return { active: true, label: `${roundWinnerLabel} win the round` };
   }
   if (outcome === ROUND_OUTCOME.timeout) {
     return { active: true, label: "Round over — time" };
   }
-  return { active: true, label: "Round over" };
+  // A decided round with no winning side: both sides fell together.
+  return { active: true, label: "Round draw" };
 }
 
 function formatRoundWinner(input: RoundCombatPresentationInput): string {
@@ -188,17 +192,16 @@ function formatRoundWinner(input: RoundCombatPresentationInput): string {
     return NO_LABEL;
   }
 
-  // The winner session is server-owned (server.round.state); the client only resolves
-  // it to a roster callsign and never decides a winner. A winner session with no roster
-  // entry falls back to a neutral session label rather than fabricating identity.
-  const callsign = resolveRosterCallsign(input.rosterEntries, winnerSessionId);
-  return callsign ?? `session ${winnerSessionId}`;
+  // The winner session is server-owned (server.round.state); the client only resolves it
+  // to the winning side via that session's spawn slot and never decides a winner.
+  const team = resolveTeamForSession(input.rosterEntries, winnerSessionId);
+  return team === undefined ? NO_LABEL : teamName(team);
 }
 
-function resolveRosterCallsign(
+function resolveTeamForSession(
   entries: readonly MatchRosterEntry[] | undefined,
   sessionId: number
-): string | undefined {
+): TeamId | undefined {
   if (entries === undefined) {
     return undefined;
   }
@@ -207,7 +210,7 @@ function resolveRosterCallsign(
     if (readPositiveInteger(entry?.sessionId) !== sessionId) {
       continue;
     }
-    return typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+    return typeof entry?.slotIndex === "number" ? teamForSlot(entry.slotIndex) : undefined;
   }
   return undefined;
 }

@@ -3,13 +3,15 @@ import {
   ROUND_PHASE,
   SERVER_TICK_RATE_HZ,
   createClientInputPlaceholder,
-  getPlayerCallsign,
   getWeaponDefinition,
   playerEyeHeightMeters,
+  teamForSlot,
+  teamName,
   type ArenaMapMetadata,
   type ClientInputMessage,
   type MatchRosterEntry,
-  type RoundPhase
+  type RoundPhase,
+  type TeamId
 } from "@breachline/shared";
 
 import type { ConnectionStatus, ConnectionViewState, LocalEntityPosition } from "../browser/connection-state.js";
@@ -413,14 +415,15 @@ export function formatPlaytestMatchResult(
   if (winner === undefined) {
     return "Match over";
   }
-  const callsign = resolvePlaytestRosterCallsign(rosterEntries, winner);
-  return callsign === undefined ? "Match over" : `${callsign} wins the match`;
+  // Resolve the winning session to its side; the match is won by a team, not a player.
+  const team = resolvePlaytestTeamForSession(rosterEntries, winner);
+  return team === undefined ? "Match over" : `${teamName(team)} win the match`;
 }
 
-function resolvePlaytestRosterCallsign(
+function resolvePlaytestTeamForSession(
   entries: readonly MatchRosterEntry[] | undefined,
   sessionId: number
-): string | undefined {
+): TeamId | undefined {
   if (entries === undefined) {
     return undefined;
   }
@@ -428,7 +431,7 @@ function resolvePlaytestRosterCallsign(
     if (readPositiveInteger(entry?.sessionId) !== sessionId) {
       continue;
     }
-    return typeof entry?.handleId === "number" ? getPlayerCallsign(entry.handleId) : undefined;
+    return typeof entry?.slotIndex === "number" ? teamForSlot(entry.slotIndex) : undefined;
   }
   return undefined;
 }

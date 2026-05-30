@@ -407,7 +407,7 @@ test("networked playtest weapon readout resolves server-owned name and ammo with
 test("networked playtest match result resolves the server-owned winner without client truth", () => {
   const rosterEntries = [
     { sessionId: 1, handleId: 1, weaponProfileId: 2, slotIndex: 0 },
-    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 1 }
+    { sessionId: 2, handleId: 2, weaponProfileId: 2, slotIndex: 5 }
   ];
 
   // Not over: no banner.
@@ -415,8 +415,8 @@ test("networked playtest match result resolves the server-owned winner without c
   assert.equal(formatPlaytestMatchResult(undefined, 1, rosterEntries), "-");
 
   // Over with a roster-resolved winner.
-  assert.equal(formatPlaytestMatchResult(true, 1, rosterEntries), "Vesper wins the match");
-  assert.equal(formatPlaytestMatchResult(true, 2, rosterEntries), "Quill wins the match");
+  assert.equal(formatPlaytestMatchResult(true, 1, rosterEntries), "Cops win the match");
+  assert.equal(formatPlaytestMatchResult(true, 2, rosterEntries), "Robbers win the match");
 
   // Over with no winner or an unknown session: neutral fallback, never a fabricated callsign.
   assert.equal(formatPlaytestMatchResult(true, undefined, rosterEntries), "Match over");

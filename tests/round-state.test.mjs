@@ -4,13 +4,17 @@ import test from "node:test";
 import {
   ROUND_EVENT_KIND,
   ROUND_OUTCOME,
-  ROUND_PHASE
+  ROUND_PHASE,
+  TEAM
 } from "../packages/shared/dist/index.js";
 import {
   DEFAULT_ROUND_ACTIVE_DURATION_TICKS,
   DEFAULT_ROUND_RESET_DURATION_TICKS,
   createRoundState
 } from "../apps/server/dist/index.js";
+
+const cop = (sessionId, alive = true) => ({ sessionId, team: TEAM.cops, alive });
+const robber = (sessionId, alive = true) => ({ sessionId, team: TEAM.robbers, alive });
 
 test("round state advances setup to active with sequenced server-owned events", () => {
   const round = createRoundState({
@@ -34,13 +38,10 @@ test("round state advances setup to active with sequenced server-owned events", 
     lastEventSequence: 1
   });
 
-  const result = round.advance({
-    serverTick: 2,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
+  const result = round.advance({ serverTick: 2, participants: [cop(1), robber(2)] });
 
   assert.equal(result.resetRound, false);
+  assert.equal(result.roundEnded, false);
   assert.deepEqual(round.createStateMessage(2), {
     kind: "server.round.state",
     serverTick: 2,
@@ -64,19 +65,11 @@ test("round state does not age out of setup before accepted sessions exist", () 
     resetDurationTicks: 3
   });
 
-  const emptyAdvance = round.advance({
-    serverTick: 50,
-    activeSessionIds: [],
-    aliveSessionIds: []
-  });
+  const emptyAdvance = round.advance({ serverTick: 50, participants: [] });
   assert.equal(emptyAdvance.transitioned, false);
   assert.equal(round.createStateMessage(50).phase, ROUND_PHASE.setup);
 
-  const occupiedAdvance = round.advance({
-    serverTick: 51,
-    activeSessionIds: [1],
-    aliveSessionIds: [1]
-  });
+  const occupiedAdvance = round.advance({ serverTick: 51, participants: [cop(1)] });
   assert.equal(occupiedAdvance.transitioned, true);
   assert.equal(round.createStateMessage(51).phase, ROUND_PHASE.active);
 });
@@ -84,16 +77,8 @@ test("round state does not age out of setup before accepted sessions exist", () 
 test("default round duration does not interrupt short movement-feel review windows", () => {
   const round = createRoundState();
 
-  round.advance({
-    serverTick: 1,
-    activeSessionIds: [1],
-    aliveSessionIds: [1]
-  });
-  round.advance({
-    serverTick: 601,
-    activeSessionIds: [1],
-    aliveSessionIds: [1]
-  });
+  round.advance({ serverTick: 1, participants: [cop(1)] });
+  round.advance({ serverTick: 601, participants: [cop(1)] });
 
   const state = round.createStateMessage(601);
   assert.equal(DEFAULT_ROUND_ACTIVE_DURATION_TICKS, 18_000);
@@ -104,16 +89,8 @@ test("default round duration does not interrupt short movement-feel review windo
 test("default reset hold is long enough for local round-readability review", () => {
   const round = createRoundState();
 
-  round.advance({
-    serverTick: 1,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
-  round.advance({
-    serverTick: 4,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1]
-  });
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  round.advance({ serverTick: 4, participants: [cop(1), robber(2, false)] });
 
   const state = round.createStateMessage(4);
   assert.equal(DEFAULT_ROUND_RESET_DURATION_TICKS >= 90, true);
@@ -121,24 +98,19 @@ test("default reset hold is long enough for local round-readability review", () 
   assert.equal(state.resetReadyTick - state.serverTick, DEFAULT_ROUND_RESET_DURATION_TICKS);
 });
 
-test("round state ends active phase on elimination and schedules reset", () => {
+test("round state ends the round when a side is wiped and the survivors win", () => {
   const round = createRoundState({
     setupDurationTicks: 1,
     activeDurationTicks: 10,
     resetDurationTicks: 3
   });
 
-  round.advance({
-    serverTick: 1,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
-  round.advance({
-    serverTick: 4,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1]
-  });
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  // The lone Robber falls: the Cops win, represented by an alive Cop session.
+  const ended = round.advance({ serverTick: 4, participants: [cop(1), robber(2, false)] });
 
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, TEAM.cops);
   assert.deepEqual(round.createStateMessage(4), {
     kind: "server.round.state",
     serverTick: 4,
@@ -155,27 +127,46 @@ test("round state ends active phase on elimination and schedules reset", () => {
   });
 });
 
-test("round state ends active phase on timeout without client-owned winner", () => {
+test("round state lets the Robbers win when the Cop side is wiped", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 10, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  const ended = round.advance({ serverTick: 4, participants: [cop(1, false), robber(2)] });
+
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, TEAM.robbers);
+  assert.equal(round.createStateMessage(4).outcome, ROUND_OUTCOME.elimination);
+  assert.equal(round.createStateMessage(4).winnerSessionId, 2);
+});
+
+test("round state ends in a draw with no winner when both sides fall together", () => {
+  const round = createRoundState({ setupDurationTicks: 1, activeDurationTicks: 10, resetDurationTicks: 3 });
+
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  const ended = round.advance({ serverTick: 4, participants: [cop(1, false), robber(2, false)] });
+
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, undefined);
+  assert.equal(round.createStateMessage(4).outcome, ROUND_OUTCOME.elimination);
+  assert.equal(round.createStateMessage(4).winnerSessionId, 0);
+});
+
+test("round state awards a timeout round to the defending Cops", () => {
   const round = createRoundState({
     setupDurationTicks: 1,
     activeDurationTicks: 3,
     resetDurationTicks: 2
   });
 
-  round.advance({
-    serverTick: 1,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
-  round.advance({
-    serverTick: 4,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  // Time runs out with both sides alive: the defenders (Cops) hold the site.
+  const ended = round.advance({ serverTick: 4, participants: [cop(1), robber(2)] });
 
+  assert.equal(ended.roundEnded, true);
+  assert.equal(ended.winnerTeam, TEAM.cops);
   assert.equal(round.createStateMessage(4).phase, ROUND_PHASE.ended);
   assert.equal(round.createStateMessage(4).outcome, ROUND_OUTCOME.timeout);
-  assert.equal(round.createStateMessage(4).winnerSessionId, 0);
+  assert.equal(round.createStateMessage(4).winnerSessionId, 1);
 });
 
 test("round state emits reset and starts the next setup round", () => {
@@ -185,31 +176,15 @@ test("round state emits reset and starts the next setup round", () => {
     resetDurationTicks: 2
   });
 
-  round.advance({
-    serverTick: 1,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
-  round.advance({
-    serverTick: 2,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1]
-  });
+  round.advance({ serverTick: 1, participants: [cop(1), robber(2)] });
+  round.advance({ serverTick: 2, participants: [cop(1), robber(2, false)] });
 
-  const resetResult = round.advance({
-    serverTick: 4,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1]
-  });
+  const resetResult = round.advance({ serverTick: 4, participants: [cop(1), robber(2, false)] });
   assert.equal(resetResult.resetRound, true);
   assert.equal(round.createStateMessage(4).phase, ROUND_PHASE.reset);
   assert.equal(round.createStateMessage(4).lastEventKind, ROUND_EVENT_KIND.reset);
 
-  const nextSetupResult = round.advance({
-    serverTick: 5,
-    activeSessionIds: [1, 2],
-    aliveSessionIds: [1, 2]
-  });
+  const nextSetupResult = round.advance({ serverTick: 5, participants: [cop(1), robber(2)] });
   assert.equal(nextSetupResult.resetRound, false);
   assert.deepEqual(round.createStateMessage(5), {
     kind: "server.round.state",
