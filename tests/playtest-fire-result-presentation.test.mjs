@@ -3,9 +3,7 @@ import test from "node:test";
 
 import {
   FIRE_RESULT_HITMARKER_DURATION_MS,
-  FIRE_RESULT_INTENT_DURATION_MS,
   FIRE_RESULT_PRESENTATION_MAX_EFFECTS,
-  FIRE_RESULT_REJECT_DURATION_MS,
   FIRE_RESULT_TRACER_DURATION_MS,
   createInitialFireResultPresentationState,
   formatFireResultPresentationStatus,
@@ -27,7 +25,9 @@ function remotePlaceholder(entityId = 101) {
   };
 }
 
-test("fire result presentation creates local intent feedback without server authority fields", () => {
+test("fire result presentation raises no on-screen effect from a local fire intent alone", () => {
+  // A fire intent (left click) must not spawn any camera-space ring; the only fire
+  // visuals come from server-confirmed results, so the client cannot spam effects.
   const state = updateFireResultPresentationState(
     createInitialFireResultPresentationState(),
     {
@@ -41,10 +41,9 @@ test("fire result presentation creates local intent feedback without server auth
   );
 
   assert.equal(state.lastVisualizedFireSequence, undefined);
-  assert.equal(state.lastVisualizedIntentSequence, 7);
   assert.equal(state.resultState, "none");
   assert.equal(state.activeTracerCount, 0);
-  assert.equal(state.activeEffects.some((effect) => effect.kind === "local-intent-pulse"), true);
+  assert.deepEqual(state.activeEffects, []);
   assert.doesNotMatch(JSON.stringify(state), forbiddenPresentationIdentityPattern);
 });
 
@@ -123,7 +122,7 @@ test("fire result presentation visualizes authoritative accepted hit results aga
   assert.deepEqual(impact.position, [1.5, 1.62, 0]);
 });
 
-test("fire result presentation visualizes miss and rejected results distinctly", () => {
+test("fire result presentation marks an accepted miss at the target but draws nothing for a reject", () => {
   let state = updateFireResultPresentationState(
     createInitialFireResultPresentationState(),
     {
@@ -154,9 +153,10 @@ test("fire result presentation visualizes miss and rejected results distinctly",
     lastFireHit: false
   });
 
+  // A rejected shot updates diagnostics state only — no camera-space reject ring.
   assert.equal(state.resultState, "rejected");
   assert.equal(state.hitState, "rejected");
-  assert.equal(state.activeEffects.some((effect) => effect.kind === "reject-marker"), true);
+  assert.equal(state.activeEffects.every((effect) => effect.space === "world"), true);
 });
 
 test("fire result presentation bounds active effects and expires old visuals", () => {
@@ -234,32 +234,7 @@ test("fire result presentation ignores stale or malformed result data without po
   assert.equal(malformed.resultState, "accepted-miss");
 });
 
-test("fire result presentation keeps intent, tracer, and reject visuals readable through short live frames", () => {
-  let intentState = updateFireResultPresentationState(
-    createInitialFireResultPresentationState(),
-    {
-      nowMs: 4000,
-      localCameraPosition: [0, 1.62, 0],
-      localPitchRadians: 0,
-      localYawRadians: 0,
-      lastFireIntentSequence: 12,
-      lastFireIntentTimeMs: 4000
-    }
-  );
-  intentState = updateFireResultPresentationState(intentState, {
-    nowMs: 4310,
-    localCameraPosition: [0, 1.62, 0],
-    localPitchRadians: 0,
-    localYawRadians: 0,
-    lastFireIntentSequence: 12,
-    lastFireIntentTimeMs: 4000
-  });
-  const intentPulse = intentState.activeEffects.find((effect) => effect.kind === "local-intent-pulse");
-  assert.equal(FIRE_RESULT_INTENT_DURATION_MS >= 420, true);
-  assert.notEqual(intentPulse, undefined);
-  assert.equal(intentPulse.opacity >= 0.24, true);
-  assert.equal(intentPulse.radiusMeters >= 0.08, true);
-
+test("fire result presentation keeps the authoritative tracer readable through short live frames", () => {
   let missState = updateFireResultPresentationState(
     createInitialFireResultPresentationState(),
     {
@@ -288,25 +263,6 @@ test("fire result presentation keeps intent, tracer, and reject visuals readable
   assert.notEqual(missTracer, undefined);
   assert.equal(missTracer.opacity >= 0.18, true);
   assert.equal(missTracer.radiusMeters >= 0.03, true);
-
-  const rejected = updateFireResultPresentationState(
-    createInitialFireResultPresentationState(),
-    {
-      nowMs: 6000,
-      localCameraPosition: [0, 1.62, 0],
-      localPitchRadians: 0,
-      localYawRadians: 0,
-      lastFireResultSequence: 14,
-      lastFireAccepted: false,
-      lastFireDistance: 0,
-      lastFireHit: false
-    }
-  );
-  const rejectMarker = rejected.activeEffects.find((effect) => effect.kind === "reject-marker");
-  assert.equal(FIRE_RESULT_REJECT_DURATION_MS >= 640, true);
-  assert.notEqual(rejectMarker, undefined);
-  assert.equal(rejectMarker.opacity >= 0.82, true);
-  assert.equal(rejectMarker.radiusMeters >= 0.1, true);
 });
 
 test("fire result presentation clears expired effects and remote target accents", () => {

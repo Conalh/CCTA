@@ -4,9 +4,7 @@ import type { NetworkedPlaytestRemotePlaceholder, Vector3Tuple } from "./playtes
 
 export const FIRE_RESULT_PRESENTATION_MAX_EFFECTS = 6 as const;
 export const FIRE_RESULT_TRACER_DURATION_MS = 760 as const;
-export const FIRE_RESULT_INTENT_DURATION_MS = 420 as const;
 export const FIRE_RESULT_MISS_DISTANCE_METERS = 8 as const;
-export const FIRE_RESULT_REJECT_DURATION_MS = 640 as const;
 export const FIRE_RESULT_TARGET_EYE_HEIGHT_METERS = 1.62 as const;
 export const FIRE_RESULT_HITMARKER_DURATION_MS = 220 as const;
 
@@ -18,11 +16,7 @@ export type FireResultPresentationResultState =
 
 export type FireResultPresentationHitState = "none" | "hit" | "miss" | "rejected";
 
-export type FireResultPresentationEffectKind =
-  | "local-intent-pulse"
-  | "authority-tracer"
-  | "impact-marker"
-  | "reject-marker";
+export type FireResultPresentationEffectKind = "authority-tracer" | "impact-marker";
 
 export type FireResultPresentationEffect = Readonly<{
   color: string;
@@ -49,7 +43,6 @@ export type FireResultPresentationState = Readonly<{
   lastHitAtMs: number | undefined;
   lastRejectReason: FireRejectReason | undefined;
   lastVisualizedFireSequence: number | undefined;
-  lastVisualizedIntentSequence: number | undefined;
   resultState: FireResultPresentationResultState;
 }>;
 
@@ -81,7 +74,6 @@ export function createInitialFireResultPresentationState(): FireResultPresentati
     lastHitAtMs: undefined,
     lastRejectReason: undefined,
     lastVisualizedFireSequence: undefined,
-    lastVisualizedIntentSequence: undefined,
     resultState: "none"
   };
 }
@@ -102,7 +94,6 @@ export function updateFireResultPresentationState(
     activeEffects: expireEffects(state.activeEffects, nowMs)
   };
 
-  nextState = maybeAddIntentPulse(nextState, input, nowMs);
   nextState = maybeAddServerResultEffects(nextState, input, nowMs);
 
   const activeEffects = boundEffects(nextState.activeEffects);
@@ -133,42 +124,6 @@ export function formatFireResultPresentationStatus(state: FireResultPresentation
   }
 }
 
-function maybeAddIntentPulse(
-  state: FireResultPresentationState,
-  input: FireResultPresentationInput,
-  nowMs: number
-): FireResultPresentationState {
-  const sequence = readPositiveInteger(input.lastFireIntentSequence);
-  if (
-    sequence === undefined ||
-    sequence === state.lastVisualizedIntentSequence ||
-    input.lastFireIntentTimeMs === undefined ||
-    nowMs - input.lastFireIntentTimeMs > FIRE_RESULT_INTENT_DURATION_MS
-  ) {
-    return state;
-  }
-
-  return {
-    ...state,
-    activeEffects: [
-      ...state.activeEffects,
-      {
-        color: "#d6f0ce",
-        createdAtMs: nowMs,
-        expiresAtMs: nowMs + FIRE_RESULT_INTENT_DURATION_MS,
-        id: `local-intent-pulse-${sequence}`,
-        kind: "local-intent-pulse",
-        opacity: 0.92,
-        position: [0, -0.2, -0.48],
-        radiusMeters: 0.08,
-        sequence,
-        space: "camera"
-      }
-    ],
-    lastVisualizedIntentSequence: sequence
-  };
-}
-
 function maybeAddServerResultEffects(
   state: FireResultPresentationState,
   input: FireResultPresentationInput,
@@ -187,12 +142,10 @@ function maybeAddServerResultEffects(
   }
 
   if (input.lastFireAccepted === false) {
+    // A rejected shot (empty magazine, cooldown, etc.) updates the diagnostics state
+    // only — no on-screen marker, since those camera-space rings read as visual noise.
     return {
       ...state,
-      activeEffects: [
-        ...state.activeEffects,
-        createRejectMarker(sequence, nowMs)
-      ],
       highlightedRemoteEntityId: undefined,
       hitState: "rejected",
       lastRejectReason: input.lastFireRejectReason,
@@ -262,21 +215,6 @@ function maybeAddServerResultEffects(
     lastRejectReason: undefined,
     lastVisualizedFireSequence: sequence,
     resultState
-  };
-}
-
-function createRejectMarker(sequence: number, nowMs: number): FireResultPresentationEffect {
-  return {
-    color: "#d98272",
-    createdAtMs: nowMs,
-    expiresAtMs: nowMs + FIRE_RESULT_REJECT_DURATION_MS,
-    id: `reject-marker-${sequence}`,
-    kind: "reject-marker",
-    opacity: 0.9,
-    position: [0, -0.18, -0.48],
-    radiusMeters: 0.11,
-    sequence,
-    space: "camera"
   };
 }
 
