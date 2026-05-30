@@ -378,6 +378,54 @@ export function formatPlaytestRoundScore(
   return `Cops ${cops} — Robbers ${robbers}`;
 }
 
+// The round timer from the server-owned round state: a buy/freeze countdown during setup,
+// the round clock during active play, and nothing once the round has ended. Remaining time
+// is the gap between the phase end tick and the latest server tick.
+export type PlaytestRoundTimerView = Readonly<{
+  visible: boolean;
+  label: string;
+  time: string;
+  tone: "buy" | "live";
+}>;
+
+export function createPlaytestRoundTimerView(input: {
+  phase: RoundPhase | undefined;
+  phaseEndsTick: number | undefined;
+  serverTick: number | undefined;
+  tickRateHz?: number;
+}): PlaytestRoundTimerView {
+  const tickRate = input.tickRateHz ?? SERVER_TICK_RATE_HZ;
+  const time = formatRemainingClock(input.phaseEndsTick, input.serverTick, tickRate);
+  if (input.phase === ROUND_PHASE.setup) {
+    return { visible: true, label: "Buy", time, tone: "buy" };
+  }
+  if (input.phase === ROUND_PHASE.active) {
+    return { visible: true, label: "", time, tone: "live" };
+  }
+  return { visible: false, label: "", time: "", tone: "live" };
+}
+
+function formatRemainingClock(
+  phaseEndsTick: number | undefined,
+  serverTick: number | undefined,
+  tickRate: number
+): string {
+  if (
+    typeof phaseEndsTick !== "number" ||
+    typeof serverTick !== "number" ||
+    !Number.isFinite(phaseEndsTick) ||
+    !Number.isFinite(serverTick) ||
+    tickRate <= 0
+  ) {
+    return "0:00";
+  }
+  const ticksRemaining = Math.max(0, phaseEndsTick - serverTick);
+  const seconds = Math.ceil(ticksRemaining / tickRate);
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${rest.toString().padStart(2, "0")}`;
+}
+
 export function formatPlaytestMoney(money: number | undefined): string {
   // Money is server-owned (server.player.economy); the client only formats the mirrored
   // value of its own cash and never sets it.

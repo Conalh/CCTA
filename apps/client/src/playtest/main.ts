@@ -8,6 +8,7 @@ import {
   DEFAULT_WEAPON_PROFILE_ID,
   PLANT_SITE,
   PROTOCOL_VERSION,
+  ROUND_PHASE,
   WEAPON_CATALOG,
   createClientFireIntent,
   createClientLoadoutSelect,
@@ -52,6 +53,7 @@ import {
   createInitialNetworkedPlaytestReviewStats,
   createNetworkedPlaytestInputMessage,
   createNetworkedPlaytestPresentation,
+  createPlaytestRoundTimerView,
   classifyNetworkedPlaytestMotionContact,
   holdPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
@@ -304,6 +306,9 @@ const hudAmmoEl = requireElement("playtest-hud-ammo");
 const hudRespawnEl = requireElement("playtest-hud-respawn");
 const hudSideEl = requireElement("playtest-hud-side");
 const scoreEl = requireElement("playtest-score");
+const roundTimerEl = requireElement("playtest-round-timer");
+const roundTimerLabelEl = requireElement("playtest-round-timer-label");
+const roundTimerTimeEl = requireElement("playtest-round-timer-time");
 const pauseEl = requireElement("playtest-pause");
 const pauseResumeButton = requireButton("playtest-pause-resume");
 const pauseDisconnectButton = requireButton("playtest-pause-disconnect");
@@ -332,6 +337,7 @@ const errorEl = requireElement("playtest-error");
 const pointerStateEl = requireElement("playtest-pointer-state");
 
 const keys = new Set<string>();
+const FROZEN_KEYS: ReadonlySet<string> = new Set();
 const remoteMeshes = new Map<number, THREE.Group>();
 const greyboxLayout = createGreyboxLayoutFromMap(DRYDOCK_SPAN_ARENA);
 const networkSimulationProfile = readNetworkSimulationProfileFromSearch(globalThis.location.search);
@@ -1410,9 +1416,12 @@ function sendInput(): void {
   }
 
   sequence += 1;
+  // During the buy/freeze (setup) phase the server applies no movement, so the client
+  // suppresses its own movement intent too — no prediction to snap back when you can't move.
+  const movementKeys = state.roundPhase === ROUND_PHASE.setup ? FROZEN_KEYS : keys;
   const message = createNetworkedPlaytestInputMessage({
     clientTimeMs: Date.now(),
-    keys,
+    keys: movementKeys,
     pitchRadians,
     sequence,
     yawRadians
@@ -2106,6 +2115,15 @@ function updateReadout(
   hudSideEl.textContent = sideView.label;
   hudSideEl.dataset.team = sideView.tag;
   scoreEl.textContent = formatPlaytestRoundScore(state.matchCopsRoundWins, state.matchRobbersRoundWins);
+  const roundTimer = createPlaytestRoundTimerView({
+    phase: state.roundPhase,
+    phaseEndsTick: state.roundPhaseEndsTick,
+    serverTick: state.serverTick
+  });
+  roundTimerEl.dataset.visible = roundTimer.visible ? "true" : "false";
+  roundTimerEl.dataset.tone = roundTimer.tone;
+  roundTimerLabelEl.textContent = roundTimer.label;
+  roundTimerTimeEl.textContent = roundTimer.time;
   hudMoneyEl.textContent = formatPlaytestMoney(state.localMoney);
   if (buyMenuOpen && (transport === undefined || menuEl.dataset.visible === "true")) {
     closeBuyMenu();

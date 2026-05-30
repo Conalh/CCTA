@@ -18,6 +18,18 @@ const matchCapacity = matchCapacityEnv === undefined ? undefined : Number(matchC
 const matchKillTargetEnv = process.env.BREACHLINE_SERVER_MATCH_KILL_TARGET;
 const matchKillTarget = matchKillTargetEnv === undefined ? undefined : Number(matchKillTargetEnv);
 
+// Buy/freeze time: the round opens in a setup phase where movement and firing are off but
+// the buy menu is open. Default to a usable length; override with the env vars below.
+const buyTimeSeconds = Number(process.env.BREACHLINE_SERVER_BUY_TIME_SECONDS ?? 15);
+const roundSecondsEnv = process.env.BREACHLINE_SERVER_ROUND_SECONDS;
+const roundSeconds = roundSecondsEnv === undefined ? undefined : Number(roundSecondsEnv);
+const round = {
+  setupDurationTicks: Math.max(0, Math.round(buyTimeSeconds * tickRateHz)),
+  ...(roundSeconds === undefined
+    ? {}
+    : { activeDurationTicks: Math.max(1, Math.round(roundSeconds * tickRateHz)) })
+};
+
 const HEARTBEAT_INTERVAL_MS = 10_000;
 
 const server = await startTransportLoopServer({
@@ -26,7 +38,8 @@ const server = await startTransportLoopServer({
   serveClient: true,
   tickRateHz,
   matchCapacity,
-  matchKillTarget
+  matchKillTarget,
+  round
 });
 
 const urls = createHostMatchUrls({ interfaces: os.networkInterfaces(), port });

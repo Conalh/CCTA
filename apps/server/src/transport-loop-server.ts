@@ -3,6 +3,7 @@ import {
   createServerRuntime,
   type ServerRuntime
 } from "./runtime.js";
+import { type RoundStateConfig } from "./round-state.js";
 import { createBrowserDevRequestHandler } from "./static-client.js";
 import { createFixedTickLoop, type FixedTickLoop } from "./tick-loop.js";
 import {
@@ -17,6 +18,7 @@ export type TransportLoopServerConfig = Readonly<{
   tickRateHz?: number;
   matchCapacity?: number;
   matchKillTarget?: number;
+  round?: RoundStateConfig;
 }>;
 
 export type TransportLoopServer = Readonly<{
@@ -34,7 +36,8 @@ export async function startTransportLoopServer(
   const runtime = createServerRuntime({
     tickRateHz,
     matchCapacity: config.matchCapacity,
-    matchKillTarget: config.matchKillTarget
+    matchKillTarget: config.matchKillTarget,
+    round: config.round
   });
   const tickLoop = createFixedTickLoop({ tickRateHz });
   const webSocketServer = await createWebSocketFallbackServer(

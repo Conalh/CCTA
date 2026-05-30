@@ -263,6 +263,8 @@ try {
   assert.match(playtestHtml, /id="playtest-objective"[^>]*data-visible="false"/);
   assert.match(playtestHtml, /id="playtest-objective-bar"/);
   assert.match(playtestHtml, /id="playtest-hud-side"/);
+  assert.match(playtestHtml, /id="playtest-round-timer"[^>]*data-visible="false"/);
+  assert.match(playtestHtml, /id="playtest-round-timer-time"/);
   assert.match(playtestHtml, /id="playtest-score"/);
   assert.match(playtestHtml, /id="playtest-pause"[^>]*data-open="false"/);
   assert.match(playtestHtml, /id="playtest-pause-resume"/);

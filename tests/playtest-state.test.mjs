@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatPlaytestRoundScore, formatPlaytestSide } from "../apps/client/dist/playtest/playtest-state.js";
+import { ROUND_PHASE, SERVER_TICK_RATE_HZ } from "../packages/shared/dist/index.js";
+import {
+  createPlaytestRoundTimerView,
+  formatPlaytestRoundScore,
+  formatPlaytestSide
+} from "../apps/client/dist/playtest/playtest-state.js";
 
 test("formatPlaytestSide labels the local side from the server-owned slot", () => {
   assert.deepEqual(formatPlaytestSide(0, 8), { label: "Cops", tag: "cops" });
@@ -19,4 +24,29 @@ test("formatPlaytestRoundScore renders the per-side round-win score", () => {
   assert.equal(formatPlaytestRoundScore(2, 1), "Cops 2 — Robbers 1");
   // Before the first round resolves, both sides read as zero.
   assert.equal(formatPlaytestRoundScore(undefined, undefined), "Cops 0 — Robbers 0");
+});
+
+test("round timer counts down the buy phase, then the round clock", () => {
+  const buy = createPlaytestRoundTimerView({
+    phase: ROUND_PHASE.setup,
+    phaseEndsTick: SERVER_TICK_RATE_HZ * 15,
+    serverTick: 0,
+    tickRateHz: SERVER_TICK_RATE_HZ
+  });
+  assert.deepEqual(buy, { visible: true, label: "Buy", time: "0:15", tone: "buy" });
+
+  const live = createPlaytestRoundTimerView({
+    phase: ROUND_PHASE.active,
+    phaseEndsTick: 1000 + SERVER_TICK_RATE_HZ * 90,
+    serverTick: 1000,
+    tickRateHz: SERVER_TICK_RATE_HZ
+  });
+  assert.equal(live.tone, "live");
+  assert.equal(live.label, "");
+  assert.equal(live.time, "1:30");
+});
+
+test("round timer hides once the round has ended", () => {
+  assert.equal(createPlaytestRoundTimerView({ phase: ROUND_PHASE.ended, phaseEndsTick: 10, serverTick: 5 }).visible, false);
+  assert.equal(createPlaytestRoundTimerView({ phase: undefined, phaseEndsTick: undefined, serverTick: undefined }).visible, false);
 });

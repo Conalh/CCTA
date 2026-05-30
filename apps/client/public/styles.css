@@ -609,9 +609,52 @@ li {
   color: #e6c08a;
 }
 
+.playtest-round-timer {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 16px;
+  border: 1px solid rgb(58 71 70 / 55%);
+  border-radius: 5px;
+  background: rgb(10 13 14 / 82%);
+  font-family: "Consolas", "DejaVu Sans Mono", "Courier New", monospace;
+  pointer-events: none;
+  z-index: 22;
+}
+
+.playtest-round-timer[data-visible="true"] {
+  display: flex;
+}
+
+.playtest-round-timer-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c9b27e;
+}
+
+.playtest-round-timer-label:empty {
+  display: none;
+}
+
+.playtest-round-timer-time {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: #eef2f1;
+}
+
+.playtest-round-timer[data-tone="buy"] .playtest-round-timer-time {
+  color: #c9b27e;
+}
+
 .playtest-score {
   position: absolute;
-  top: 14px;
+  top: 46px;
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 14px;
