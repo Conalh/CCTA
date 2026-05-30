@@ -48,6 +48,7 @@ import {
   classifyNetworkedPlaytestMotionContact,
   holdPlaytestMotionContact,
   formatPlaytestMatchOccupancy,
+  formatPlaytestMoney,
   formatPlaytestStance,
   formatPlaytestWeaponName,
   formatPlaytestWeaponAmmo,
@@ -137,6 +138,7 @@ declare global {
       localCrouched: boolean;
       localHealth: string;
       localLife: string;
+      localMoney: string;
       localStance: string;
       localRespawnCue: string;
       localLookPitchRadians: number;
@@ -273,6 +275,7 @@ const roundTransitionEl = requireElement("playtest-round-transition");
 const roundResetCueEl = requireElement("playtest-round-reset-cue");
 const localHealthEl = requireElement("playtest-local-health");
 const localLifeEl = requireElement("playtest-local-life");
+const hudMoneyEl = requireElement("playtest-hud-money");
 const hudHealthEl = requireElement("playtest-hud-health");
 const hudLifeEl = requireElement("playtest-hud-life");
 const hudStanceEl = requireElement("playtest-hud-stance");
@@ -1779,6 +1782,7 @@ function updateReadout(
   roundResetCueEl.textContent = roundCombatPresentationState.resetCueLabel;
   localHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   localLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
+  hudMoneyEl.textContent = formatPlaytestMoney(state.localMoney);
   hudHealthEl.textContent = roundCombatPresentationState.localHealthLabel;
   hudLifeEl.textContent = roundCombatPresentationState.localLifeLabel;
   hudLifeEl.dataset.life =
@@ -1837,6 +1841,7 @@ function updateReadout(
     localCrouched: presentation.localCrouched,
     localHealth: roundCombatPresentationState.localHealthLabel,
     localLife: roundCombatPresentationState.localLifeLabel,
+    localMoney: formatPlaytestMoney(state.localMoney),
     localStance: formatPlaytestStance(presentation.localCrouched),
     localRespawnCue: roundCombatPresentationState.respawnCueLabel,
     localLookPitchRadians: presentation.localCameraPose.pitchRadians,

@@ -658,6 +658,21 @@ test("protocol helpers round-trip the Phase 57 server match result message", () 
   assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(pending)), pending);
 });
 
+test("protocol helpers round-trip a server player economy message", () => {
+  assert.equal(PACKET_KIND.serverPlayerEconomy, 23);
+
+  const economy = {
+    kind: "server.player.economy",
+    serverTick: 240,
+    sessionId: 4,
+    money: 3650
+  };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(economy)), economy);
+
+  const empty = { kind: "server.player.economy", serverTick: 1, sessionId: 1, money: 0 };
+  assert.deepEqual(decodeProtocolMessage(encodeProtocolMessage(empty)), empty);
+});
+
 test("decodeProtocolMessage rejects malformed Phase 7 input acknowledgement packets", () => {
   assert.equal(PACKET_KIND.inputAck, 11);
 

@@ -353,6 +353,15 @@ export function formatPlaytestStance(crouched: boolean | undefined): string {
   return crouched === true ? "Crouched" : "Standing";
 }
 
+export function formatPlaytestMoney(money: number | undefined): string {
+  // Money is server-owned (server.player.economy); the client only formats the mirrored
+  // value of its own cash and never sets it.
+  if (typeof money !== "number" || !Number.isFinite(money) || money < 0) {
+    return "-";
+  }
+  return `$${Math.trunc(money)}`;
+}
+
 export function formatPlaytestMatchOccupancy(
   connectedSlots: number | undefined,
   capacity: number | undefined

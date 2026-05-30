@@ -217,6 +217,7 @@ try {
   assert.match(playtestHtml, /id="playtest-round-reset-cue"/);
   assert.match(playtestHtml, /id="playtest-local-health"/);
   assert.match(playtestHtml, /id="playtest-local-life"/);
+  assert.match(playtestHtml, /id="playtest-hud-money"/);
   assert.match(playtestHtml, /id="playtest-hud-health"/);
   assert.match(playtestHtml, /id="playtest-hud-life"/);
   assert.match(playtestHtml, /id="playtest-hud-weapon"/);

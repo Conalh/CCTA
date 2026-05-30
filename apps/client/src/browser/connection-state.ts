@@ -125,6 +125,7 @@ export type ConnectionViewState = Readonly<{
   lastWeaponEventKind: WeaponEventKind | undefined;
   lastWeaponEventSequence: number | undefined;
   lastWeaponServerTick: number | undefined;
+  localMoney: number | undefined;
   roundId: number | undefined;
   roundPhase: RoundPhase | undefined;
   roundOutcome: RoundOutcome | undefined;
@@ -282,6 +283,7 @@ export function createInitialConnectionViewState(
     lastWeaponEventKind: undefined,
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
+    localMoney: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,
@@ -523,6 +525,12 @@ function reduceMessage(state: ConnectionViewState, message: ProtocolMessage, now
         lastWeaponEventSequence: message.lastEventSequence === 0 ? undefined : message.lastEventSequence,
         lastWeaponServerTick: message.serverTick
       };
+    case "server.player.economy":
+      return {
+        ...baseState,
+        sessionId: message.sessionId === 0 ? state.sessionId : message.sessionId,
+        localMoney: message.money
+      };
     case "server.round.state":
       return {
         ...baseState,
@@ -715,6 +723,7 @@ function resetConnectionDiagnostics(state: ConnectionViewState): ConnectionViewS
     lastWeaponEventKind: undefined,
     lastWeaponEventSequence: undefined,
     lastWeaponServerTick: undefined,
+    localMoney: undefined,
     roundId: undefined,
     roundPhase: undefined,
     roundOutcome: undefined,

@@ -596,6 +596,11 @@ li {
   color: #8ed0bd;
 }
 
+.playtest-hud-money {
+  color: #9ee2af;
+  font-variant-numeric: tabular-nums;
+}
+
 .playtest-hud-respawn {
   color: #efd080;
   min-width: 0;

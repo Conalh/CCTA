@@ -1026,6 +1026,23 @@ test("connection state reducer tracks diagnostics-only match stats", () => {
   assert.equal(state.lastMatchStatsServerTick, 42);
 });
 
+test("connection state reducer mirrors the server-owned player money", () => {
+  let state = createInitialConnectionViewState(0);
+  assert.equal(state.localMoney, undefined);
+
+  state = reduceConnectionViewState(state, {
+    type: "message",
+    nowMs: 20,
+    message: { kind: "server.player.economy", serverTick: 42, sessionId: 7, money: 3650 }
+  });
+  assert.equal(state.localMoney, 3650);
+  assert.equal(state.sessionId, 7);
+
+  // Reconnecting clears the mirrored money.
+  state = reduceConnectionViewState(state, { type: "connecting", nowMs: 30 });
+  assert.equal(state.localMoney, undefined);
+});
+
 test("connection state reducer resets match stats on reconnect", () => {
   let state = createInitialConnectionViewState(0);
   state = reduceConnectionViewState(state, {

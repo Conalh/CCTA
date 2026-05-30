@@ -26,6 +26,7 @@ import {
   type ServerMatchRosterMessage,
   type ServerMatchResultMessage,
   type ServerMatchStatsMessage,
+  type ServerPlayerEconomyMessage,
   type ServerRoundStateMessage,
   type ServerSnapshotMessage,
   type ServerTickMessage,
@@ -69,6 +70,7 @@ import {
 } from "./round-state.js";
 import { createMatchStats } from "./match-stats.js";
 import { createMatchProgress } from "./match-progress.js";
+import { createEconomyState, type EconomyConfig } from "./economy.js";
 import { createPlayerRegistry } from "./player-registry.js";
 
 export type ServerClock = () => number;
@@ -82,6 +84,7 @@ export type ServerRuntimeConfig = Readonly<{
   firstWorldEntityId?: number;
   round?: RoundStateConfig;
   weapon?: WeaponStateConfig;
+  economy?: EconomyConfig;
   matchKillTarget?: number;
   now?: ServerClock;
 }>;
@@ -112,6 +115,7 @@ export type ServerRuntime = Readonly<{
   getCombatState(sessionId: number, serverTick?: number): ServerCombatStateMessage | undefined;
   getLoadoutState(sessionId: number, serverTick?: number): ServerLoadoutStateMessage | undefined;
   getWeaponState(sessionId: number, serverTick?: number): ServerWeaponStateMessage | undefined;
+  getEconomy(sessionId: number, serverTick?: number): ServerPlayerEconomyMessage | undefined;
   getRoundState(serverTick?: number): ServerRoundStateMessage;
   getMatchStats(serverTick?: number): ServerMatchStatsMessage;
   getMatchRoster(serverTick?: number): ServerMatchRosterMessage;
@@ -144,6 +148,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
   const roundState = createRoundState(config.round);
   const matchStats = createMatchStats();
   const matchProgress = createMatchProgress({ killTarget: config.matchKillTarget });
+  const economy = createEconomyState(config.economy);
   const playerRegistry = createPlayerRegistry({
     defaultWeaponProfileId: config.weapon?.defaultProfileId
   });
@@ -170,6 +175,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
         weaponState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         combatState.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchStats.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
+        economy.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         playerRegistry.removeSession(runtimeSession.matchAssignment?.sessionId ?? 0);
         worldState.removeSessionEntity(runtimeSession.matchAssignment?.sessionId ?? 0);
         matchSession.disconnect(transport.id);
@@ -258,11 +264,13 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
       entityId: worldEntity.entityId
     });
     matchStats.assignSession(assignment.sessionId);
+    economy.assignSession(assignment.sessionId);
     playerRegistry.assignSession(assignment.sessionId, assignment.slotIndex);
     session.transport.send(response);
     session.transport.send(createMatchAssignedMessage(assignment));
     sendCombatStateToSession(assignment.sessionId);
     sendWeaponStateToSession(weaponState.createStateMessage(assignment.sessionId, lastServerTick));
+    sendEconomyToSession(assignment.sessionId);
     broadcastMatchUpdate();
     broadcastMatchRoster();
     if (matchProgress.isMatchOver()) {
@@ -272,15 +280,23 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
 
   function step(tick: number, serverTimeMs = now()): void {
     lastServerTick = tick;
-    const roundAdvance = roundState.advance({
-      serverTick: tick,
-      participants: getRoundParticipants()
-    });
-    // A finished round scores for the winning side; the match ends when a side reaches
-    // the round target. Kills feed the scoreboard but no longer decide the match.
+    const participants = getRoundParticipants();
+    const roundAdvance = roundState.advance({ serverTick: tick, participants });
+    // A finished round scores for the winning side and pays out the economy; the match
+    // ends when a side reaches the round target. Kills feed the scoreboard but no longer
+    // decide the match.
     if (roundAdvance.roundEnded) {
+      const winnerTeam = roundAdvance.winnerTeam;
+      const winners = winnerTeam === undefined ? [] : participants.filter((p) => p.team === winnerTeam).map((p) => p.sessionId);
+      const losers = participants
+        .filter((p) => winnerTeam === undefined || p.team !== winnerTeam)
+        .map((p) => p.sessionId);
+      for (const sessionId of economy.awardRoundResult({ winners, losers })) {
+        sendEconomyToSession(sessionId);
+      }
+
       const matchDecided = matchProgress.recordRoundResult({
-        winnerTeam: roundAdvance.winnerTeam,
+        winnerTeam,
         winnerSessionId: roundAdvance.state.winnerSessionId
       });
       if (matchDecided) {
@@ -515,6 +531,9 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
           victimSessionId: combatResult.state.targetSessionId
         });
         broadcastMatchStats();
+        if (economy.awardKill(combatResult.state.sourceSessionId)) {
+          sendEconomyToSession(combatResult.state.sourceSessionId);
+        }
       }
     }
   }
@@ -617,6 +636,24 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     }
   }
 
+  // Money is private: the economy message goes only to the owning session.
+  function sendEconomyToSession(sessionId: number): void {
+    const message = economy.createStateMessage(sessionId, lastServerTick);
+    if (message === undefined) {
+      return;
+    }
+    for (const runtimeSession of sessions.values()) {
+      if (runtimeSession.accepted && runtimeSession.matchAssignment?.sessionId === sessionId) {
+        runtimeSession.transport.send(message);
+        return;
+      }
+    }
+  }
+
+  function getEconomy(sessionId: number, serverTick = lastServerTick): ServerPlayerEconomyMessage | undefined {
+    return economy.createStateMessage(sessionId, serverTick);
+  }
+
   function getRoundParticipants(): readonly RoundParticipant[] {
     const participants: RoundParticipant[] = [];
     for (const session of sessions.values()) {
@@ -642,6 +679,7 @@ export function createServerRuntime(config: ServerRuntimeConfig = DEFAULT_SERVER
     getCombatState,
     getLoadoutState,
     getWeaponState,
+    getEconomy,
     getRoundState,
     getMatchStats,
     getMatchRoster,

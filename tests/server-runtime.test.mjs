@@ -14,7 +14,13 @@ import {
   WEAPON_EVENT_KIND,
   createClientFireIntent
 } from "../packages/shared/dist/index.js";
-import { createServerRuntime } from "../apps/server/dist/index.js";
+import {
+  DEFAULT_KILL_REWARD,
+  DEFAULT_ROUND_LOSS_BONUS,
+  DEFAULT_ROUND_WIN_BONUS,
+  DEFAULT_STARTING_MONEY,
+  createServerRuntime
+} from "../apps/server/dist/index.js";
 
 // A deterministic weapon set for combat tests: a flat 50 damage so two hits drop a
 // full-health target, a one-tick fire interval so consecutive ticks can re-fire, and a
@@ -110,6 +116,7 @@ test("server runtime accepts hello, pongs, tracks input, and broadcasts tick sna
       "match.assigned",
       "server.combat.state",
       "server.weapon.state",
+      "server.player.economy",
       "match.update",
       "server.match.roster",
       "pong",
@@ -298,6 +305,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "match.assigned",
     "server.combat.state",
     "server.weapon.state",
+    "server.player.economy",
     "match.update",
     "server.match.roster",
     "match.update",
@@ -308,6 +316,7 @@ test("server runtime assigns fixed slots, reports match updates, and frees disco
     "match.assigned",
     "server.combat.state",
     "server.weapon.state",
+    "server.player.economy",
     "match.update",
     "server.match.roster"
   ]);
@@ -875,6 +884,43 @@ test("server runtime declares the match when a side wins the round target", () =
   assert.deepEqual(firstResults[0], expectedResult);
   assert.deepEqual(secondResults[0], expectedResult);
   assert.deepEqual(runtime.getMatchResult(7), expectedResult);
+});
+
+test("server runtime pays the server-owned economy from kills and round results", () => {
+  const runtime = createServerRuntime({
+    tickRateHz: 20,
+    matchCapacity: 2,
+    weapon: TEST_WEAPON_CONFIG,
+    now: () => 1000
+  });
+  const first = createFakeTransportSession("econ-a");
+  const second = createFakeTransportSession("econ-b");
+
+  runtime.attachSession(first.session);
+  runtime.attachSession(second.session);
+  for (const transport of [first, second]) {
+    transport.receive({ kind: "protocol.hello", protocolVersion: PROTOCOL_VERSION, clientName: transport.session.id });
+  }
+
+  // Each player is seeded with starting money, sent privately to the owner.
+  assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY);
+  assert.equal(runtime.getEconomy(2)?.money, DEFAULT_STARTING_MONEY);
+  const firstEconomy = first.sent.filter((message) => message.kind === "server.player.economy");
+  assert.equal(firstEconomy.at(-1)?.sessionId, 1);
+
+  runtime.step(5, 1016);
+  // Session 1 (Cops) eliminates session 2 (Robbers) over two ticks.
+  first.receive(createClientFireIntent({ sequence: 1, clientTimeMs: 1041, clientTick: 5, yaw: -Math.PI / 2, pitch: 0 }));
+  runtime.step(6, 1020);
+  first.receive(createClientFireIntent({ sequence: 2, clientTimeMs: 1042, clientTick: 6, yaw: -Math.PI / 2, pitch: 0 }));
+
+  // The kill credits the killer immediately.
+  assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY + DEFAULT_KILL_REWARD);
+
+  // The next tick resolves the round: Cops win the round bonus, Robbers the loss bonus.
+  runtime.step(7, 1024);
+  assert.equal(runtime.getEconomy(1)?.money, DEFAULT_STARTING_MONEY + DEFAULT_KILL_REWARD + DEFAULT_ROUND_WIN_BONUS);
+  assert.equal(runtime.getEconomy(2)?.money, DEFAULT_STARTING_MONEY + DEFAULT_ROUND_LOSS_BONUS);
 });
 
 test("server runtime broadcasts an authoritative roster on join, loadout, leave, and round reset", () => {

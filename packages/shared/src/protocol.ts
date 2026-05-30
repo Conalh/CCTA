@@ -36,7 +36,8 @@ export const PACKET_KIND = {
   clientWeaponReload: 19,
   serverWeaponState: 20,
   serverMatchRoster: 21,
-  serverMatchResult: 22
+  serverMatchResult: 22,
+  serverPlayerEconomy: 23
 } as const;
 
 export const FIRE_REJECT_REASON = {
@@ -165,7 +166,8 @@ export type ServerProtocolMessage =
   | ServerRoundStateMessage
   | ServerMatchStatsMessage
   | ServerMatchRosterMessage
-  | ServerMatchResultMessage;
+  | ServerMatchResultMessage
+  | ServerPlayerEconomyMessage;
 
 export type ProtocolMessage = ClientProtocolMessage | ServerProtocolMessage;
 
@@ -342,6 +344,14 @@ export type ServerMatchResultMessage = Readonly<{
   matchOver: boolean;
   winnerSessionId: number;
   killTarget: number;
+}>;
+
+// A player's own money. Sent only to the owning session (you never see enemy cash).
+export type ServerPlayerEconomyMessage = Readonly<{
+  kind: "server.player.economy";
+  serverTick: number;
+  sessionId: number;
+  money: number;
 }>;
 
 export type ServerSnapshotMessage = Readonly<{
@@ -584,6 +594,13 @@ export function encodeProtocolMessage(message: ProtocolMessage): ProtocolPacket 
         PROTOCOL_VERSION,
         readUint32(message.serverTick, "serverTick"),
         encodeServerMatchResultPayload(message)
+      );
+    case "server.player.economy":
+      return writePacket(
+        PACKET_KIND.serverPlayerEconomy,
+        PROTOCOL_VERSION,
+        readUint32(message.serverTick, "serverTick"),
+        encodeServerPlayerEconomyPayload(message)
       );
   }
 }
@@ -829,6 +846,14 @@ export function decodeProtocolMessage(input: ProtocolPacketInput): ProtocolMessa
         winnerSessionId: payload.getUint32(0, true),
         killTarget: payload.getUint16(4, true),
         matchOver: payload.getUint16(6, true) !== 0
+      };
+    case PACKET_KIND.serverPlayerEconomy:
+      requirePayloadLength(payloadLength, 8, "server.player.economy");
+      return {
+        kind: "server.player.economy",
+        serverTick: sequenceOrTick,
+        sessionId: payload.getUint32(0, true),
+        money: payload.getUint32(4, true)
       };
     default:
       throw new Error(`Unknown packet kind: ${packetKind}.`);
@@ -1096,6 +1121,14 @@ function encodeServerMatchResultPayload(message: ServerMatchResultMessage): Uint
   view.setUint32(0, readUint32(message.winnerSessionId, "winnerSessionId"), true);
   view.setUint16(4, readUint16(message.killTarget, "killTarget"), true);
   view.setUint16(6, message.matchOver ? 1 : 0, true);
+  return payload;
+}
+
+function encodeServerPlayerEconomyPayload(message: ServerPlayerEconomyMessage): Uint8Array {
+  const payload = new Uint8Array(8);
+  const view = new DataView(payload.buffer);
+  view.setUint32(0, readUint32(message.sessionId, "sessionId"), true);
+  view.setUint32(4, readUint32(message.money, "money"), true);
   return payload;
 }
 
